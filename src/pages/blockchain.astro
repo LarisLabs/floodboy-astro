@@ -265,7 +265,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 			// Contract configuration
 			const CONTRACTS = {
 				8899: {
-					DEPLOYER_ADDRESS: '0x0000000000000000000000000000000000000000',
+					DEPLOYER_ADDRESS: '0x0000000000000000000000000000000000000000', // Update this with actual factory address when available
 					STORE_ADDRESS: '0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8'
 				},
 				700011: {
@@ -657,66 +657,81 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 				};
 
 				const loadKnownStores = async () => {
-					// Add more mock stores to show different gradient colors
-					const mockStores = [
-						{
-							address: '0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8',
-							nickname: 'Flood Boy 001',
-							description: 'Flood monitoring station in Chiang Mai',
-							location: '46 Soi Mu Ban Thep Prathan Phon Niwet Tambon Tha Sala',
-							fieldCount: 3,
-							sensorCount: 1,
-							isOnline: true
-						},
-						{
-							address: '0x7921E6FEdF2879ca0731F9b5d3D077F43f53D6e9',
-							nickname: 'CAT-002',
-							description: 'Nong Yaeng San Sai District monitoring',
-							location: 'Chiang Mai 18.922440, 99.118009',
-							fieldCount: 3,
-							sensorCount: 0,
-							isOnline: true
-						},
-						{
-							address: '0x68DBE6FEdF2879ca0731F9b5d3D077F43f53D6f0',
-							nickname: 'FloodMonitor-ChaoPhrava-01',
-							description: 'Flood monitoring station at Chao Phraya river',
-							location: 'Bangkok. Real-time water level monitoring',
-							fieldCount: 4,
-							sensorCount: 1,
-							isOnline: true
-						},
-						{
-							address: '0x58ACE6FEdF2879ca0731F9b5d3D077F43f53D6f1',
-							nickname: 'Weather Station Alpha',
-							description: 'Environmental monitoring with temperature and humidity',
-							location: 'Phuket coastal area monitoring station',
-							fieldCount: 5,
-							sensorCount: 2,
-							isOnline: true
-						},
-						{
-							address: '0x48BDE6FEdF2879ca0731F9b5d3D077F43f53D6f2',
-							nickname: 'SmartFarm-001',
-							description: 'Agricultural IoT monitoring for smart farming',
-							location: 'Khon Kaen agricultural district',
-							fieldCount: 6,
-							sensorCount: 3,
-							isOnline: false
-						},
-						{
-							address: '0x38CDE6FEdF2879ca0731F9b5d3D077F43f53D6f3',
-							nickname: 'Urban Air Quality',
-							description: 'PM2.5 and air quality monitoring network',
-							location: 'Bangkok metropolitan area',
-							fieldCount: 4,
-							sensorCount: 5,
-							isOnline: true
-						}
+					const knownStoreAddresses = [
+						'0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8', // Known flood monitoring store
 					];
-					
-					// Return mock stores for demonstration
-					return mockStores;
+
+					const storePromises = knownStoreAddresses.map(async (storeAddress) => {
+						try {
+							const fields = await publicClient.readContract({
+								address: storeAddress,
+								abi: STORE_ABI,
+								functionName: 'getAllFields'
+							});
+
+							const recordEventAbi = parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0];
+							const currentBlockBigInt = await publicClient.getBlockNumber();
+							const recentEvents = await publicClient.getLogs({
+								address: storeAddress,
+								event: recordEventAbi,
+								fromBlock: currentBlockBigInt > 1000n ? currentBlockBigInt - 1000n : 0n,
+								toBlock: currentBlockBigInt
+							});
+
+							let sensorCount = 0;
+							let isOnline = false;
+							let lastUpdated = null;
+
+							if (recentEvents.length > 0) {
+								const uniqueSensors = new Set();
+								let latestTimestamp = 0;
+
+								recentEvents.forEach(evt => {
+									const decodedRecord = decodeEventLog({
+										abi: [recordEventAbi],
+										data: evt.data,
+										topics: evt.topics
+									});
+									uniqueSensors.add(decodedRecord.args.sensor);
+									const timestamp = parseInt(decodedRecord.args.timestamp);
+									if (timestamp > latestTimestamp) {
+										latestTimestamp = timestamp;
+									}
+								});
+
+								sensorCount = uniqueSensors.size;
+								lastUpdated = latestTimestamp;
+								isOnline = (Math.floor(Date.now() / 1000) - latestTimestamp) < 3600;
+							}
+
+							return {
+								address: storeAddress,
+								nickname: `Flood Boy 001`,
+								description: 'Flood monitoring station in Chiang Mai',
+								location: '46 Soi Mu Ban Thep Prathan Phon Niwet Tambon Tha Sala',
+								fieldCount: fields.length,
+								sensorCount,
+								isOnline,
+								lastUpdated
+							};
+
+						} catch (error) {
+							console.warn('Error loading known store:', error);
+							return {
+								address: storeAddress,
+								nickname: `Flood Boy 001`,
+								description: 'Flood monitoring station in Chiang Mai', 
+								location: '46 Soi Mu Ban Thep Prathan Phon Niwet Tambon Tha Sala',
+								fieldCount: 3,
+								sensorCount: 1,
+								isOnline: true,
+								lastUpdated: Date.now()
+							};
+						}
+					});
+
+					const results = await Promise.all(storePromises);
+					return results.filter(store => store !== null);
 				};
 
 				return (
