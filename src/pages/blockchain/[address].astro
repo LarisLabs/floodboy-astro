@@ -242,7 +242,7 @@ const { address } = Astro.params;
 				React.useEffect(() => {
 					const sketch = (p) => {
 						p.setup = () => {
-							const canvas = p.createCanvas(320, 360);
+							const canvas = p.createCanvas(350, 420);
 							canvas.parent(sketchRef.current);
 							p.frameRate(30);
 						};
@@ -373,9 +373,46 @@ const { address } = Astro.params;
 							p.fill(0, 0, 0, 204);
 							p.circle(sensorX, sensorY + 11, 12);
 							
-							// Water visualization for water mode
-							if (currentSensorMode === 'water' && currentShowMeasurement) {
+							// Measurement visualization
+							if (currentSensorMode === 'air' && currentShowMeasurement) {
+								// Air measurement visualization
+								const pulsePhase = (time * 2) % 4;
+								const measurementDistance = baseY - 5 - (sensorY + 20);
+								
+								// Animated measurement pulse
+								for (let i = 0; i < 3; i++) {
+									const offset = i * 1.2;
+									const alpha = Math.max(0, 1 - (pulsePhase + offset) / 4) * 153;
+									
+									if (alpha > 0) {
+										p.stroke(59, 130, 246, alpha);
+										p.strokeWeight(2 - i * 0.5);
+										
+										const pulseProgress = ((pulsePhase + offset) % 4) / 4;
+										const startY = sensorY + 20;
+										const endY = startY + measurementDistance * Math.min(pulseProgress * 1.2, 1);
+										
+										p.drawingContext.setLineDash([6, 6]);
+										p.line(sensorX, startY, sensorX, endY);
+										p.drawingContext.setLineDash([]);
+									}
+								}
+								
+								// Distance label
+								p.noStroke();
+								p.fill(255, 255, 255, 230);
+								p.rect(sensorX + 10, armY + 100, 55, 24, 3);
+								p.fill(239, 68, 68);
+								p.textAlign(p.CENTER, p.CENTER);
+								p.textSize(16);
+								p.text(currentAirLevel.toFixed(2) + 'm', sensorX + 37.5, armY + 112);
+								
+							} else if (currentSensorMode === 'water' && currentShowMeasurement) {
+								// Water mode
 								const waterArea = centerX + 50;
+								// Calculate water Y position - when water level = installation height, water should reach sensor
+								// The sensor is at sensorY + 25 (bottom of sensor)
+								// Scale factor = distance from base to sensor bottom / installation height
 								const sensorBottomY = sensorY + 25;
 								const groundY = baseY - 5;
 								const totalDistance = groundY - sensorBottomY;
@@ -430,6 +467,31 @@ const { address } = Astro.params;
 											p.ellipse(sensorX, waterY, rippleRadius * 2, rippleRadius * 0.5);
 										}
 									}
+								} else {
+									// Dry floor
+									p.noStroke();
+									p.fill(139, 115, 85, 204);
+									p.rect(waterArea, baseY - 5, 150, 5);
+									
+									// Floor texture
+									p.fill(160, 130, 109, 127);
+									for (let x = 0; x < 150; x += 20) {
+										p.rect(waterArea + x, baseY - 5, 10, 5);
+									}
+									
+									// Impact waves on dry floor
+									for (let i = 0; i < 3; i++) {
+										const waveTime = (time * 2 + i * 0.7) % 3;
+										const waveRadius = 5 + waveTime * 15;
+										const waveAlpha = Math.max(0, 1 - waveTime / 3) * 102;
+										
+										if (waveAlpha > 0) {
+											p.noFill();
+											p.stroke(59, 130, 246, waveAlpha);
+											p.strokeWeight(2 - waveTime * 0.5);
+											p.circle(sensorX, baseY - 5, waveRadius * 2);
+										}
+									}
 								}
 								
 								// Measurement line
@@ -451,6 +513,63 @@ const { address } = Astro.params;
 								p.textAlign(p.LEFT, p.CENTER);
 								const labelY = currentWaterLevel > 0 ? waterY + 20 : baseY - 30;
 								p.text(currentWaterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
+							}
+							
+							// Display installation height and constraint indicators
+							if (currentInstallationHeight > 0) {
+								// Draw a subtle line showing installation height - directly under the sensor
+								p.stroke(156, 163, 175, 100); // Light gray
+								p.strokeWeight(1);
+								p.drawingContext.setLineDash([2, 2]);
+								p.line(sensorX, sensorY + 25, sensorX, baseY - 5);
+								p.drawingContext.setLineDash([]);
+								
+								// Small markers at top and bottom
+								p.line(sensorX - 5, sensorY + 25, sensorX + 5, sensorY + 25);
+								p.line(sensorX - 5, baseY - 5, sensorX + 5, baseY - 5);
+								
+								// Draw max water level indicator line (installation height from base)
+								// Only show when water level is at or very close to max
+								if (currentSensorMode === 'water' && Math.abs(currentWaterLevel - currentInstallationHeight) < 0.01) {
+									const waterArea = centerX + 50; // Define waterArea here
+									// Use same calculation as water rendering to get the actual water Y position
+									const sensorBottomY = sensorY + 25;
+									const groundY = baseY - 5;
+									const totalDistance = groundY - sensorBottomY;
+									const scaleFactor = totalDistance / currentInstallationHeight;
+									const waterY = groundY - (currentWaterLevel * scaleFactor);
+									
+									// Draw MAX indicator at the water surface
+									p.stroke(239, 68, 68, 80); // Red line for max water level
+									p.strokeWeight(2);
+									p.drawingContext.setLineDash([5, 5]);
+									p.line(waterArea - 10, waterY, waterArea + 160, waterY);
+									p.drawingContext.setLineDash([]);
+									
+									// Label for max level - positioned below the installation height text
+									p.noStroke();
+									p.fill(239, 68, 68, 150);
+									p.textAlign(p.CENTER, p.CENTER);
+									p.textSize(10);
+									// Position MAX below the installation height label (which is at sensorY)
+									const boxX = sensorX + 20; // Same X as installation height box
+									const textWidth = 40; // Same width as installation height box
+									p.text('(MAX)', boxX + textWidth/2, sensorY + 15);
+								}
+								
+								p.noStroke();
+								
+								// Background box for better readability - positioned to fit within canvas
+								const textWidth = 40;
+								const boxX = sensorX + 20; // Position to the right of sensor
+								p.fill(255, 255, 255, 230);
+								p.rect(boxX, sensorY - 10, textWidth, 20, 3);
+								
+								// Installation height text
+								p.fill(75, 65, 81); // Dark gray to match sensor color
+								p.textAlign(p.CENTER, p.CENTER);
+								p.textSize(12);
+								p.text(`${currentInstallationHeight.toFixed(1)}m`, boxX + textWidth/2, sensorY);
 							}
 							
 							p.noStroke();
@@ -478,7 +597,7 @@ const { address } = Astro.params;
 				return React.createElement('div', { 
 					ref: sketchRef, 
 					id: 'p5-container',
-					style: { width: '320px', height: '360px', margin: '0 auto' }
+					style: { width: '350px', height: '420px', margin: '0 auto' }
 				});
 			}
 
@@ -498,6 +617,12 @@ const { address } = Astro.params;
 				const [activeTab, setActiveTab] = React.useState('table'); // 'table' or 'chart'
 				const chartRef = React.useRef(null);
 				const chartInstanceRef = React.useRef(null);
+				
+				// Block indicator states
+				const [blockNumber, setBlockNumber] = React.useState(null);
+				const [blockTimer, setBlockTimer] = React.useState(0);
+				const [showBlockIndicator, setShowBlockIndicator] = React.useState(true);
+				const blockTimerRef = React.useRef(null);
 
 				// Create chart function
 				const createChart = React.useCallback(() => {
@@ -612,6 +737,10 @@ const { address } = Astro.params;
 
 							console.log('Loading enhanced data for store:', storeAddress);
 
+							// Get current block number
+							const currentBlockNumber = await publicClient.getBlockNumber();
+							setBlockNumber(currentBlockNumber);
+
 							// Parallel loading of basic store info
 							const [owner, fields, authorizedSensorAddresses] = await Promise.all([
 								publicClient.readContract({
@@ -712,7 +841,9 @@ const { address } = Astro.params;
 							setRecentEvents(eventLogs.slice(0, 5)); // Last 5 events
 
 							// Set sensor values with fallback
-							if (processedData.water_level !== undefined) {
+							if (processedData.water_depth !== undefined) {
+								setWaterLevel(processedData.water_depth);
+							} else if (processedData.water_level !== undefined) {
 								setWaterLevel(processedData.water_level);
 							} else if (processedData.level !== undefined) {
 								setWaterLevel(processedData.level);
@@ -764,6 +895,41 @@ const { address } = Astro.params;
 					};
 				}, []);
 
+				// Handle block timer and visibility for JBC chain
+				React.useEffect(() => {
+					if (blockNumber !== null && currentChain === 8899) {
+						// Reset timer and show indicator when block changes
+						setBlockTimer(1);
+						setShowBlockIndicator(true);
+						
+						// Clear existing timer
+						if (blockTimerRef.current) {
+							clearInterval(blockTimerRef.current);
+						}
+						
+						// Start new timer
+						blockTimerRef.current = setInterval(() => {
+							setBlockTimer(prev => {
+								const newTimer = prev + 1;
+								// Hide indicator after 15 seconds
+								if (newTimer >= 15) {
+									setShowBlockIndicator(false);
+									if (blockTimerRef.current) {
+										clearInterval(blockTimerRef.current);
+									}
+								}
+								return newTimer;
+							});
+						}, 1000);
+					}
+					
+					return () => {
+						if (blockTimerRef.current) {
+							clearInterval(blockTimerRef.current);
+						}
+					};
+				}, [blockNumber, currentChain]);
+
 				if (isLoading) {
 					return React.createElement('div', { className: 'container mx-auto p-6' },
 						React.createElement('div', { className: 'text-center' },
@@ -796,7 +962,25 @@ const { address } = Astro.params;
 							React.createElement('div', {},
 								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Public Sensor Store View'),
 								React.createElement('p', { className: 'text-gray-600' }, 'View sensor data stored on the blockchain'),
-								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress)
+								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress),
+								
+								// Block indicator for JBC chain
+								currentChain === 8899 && blockNumber && React.createElement('div', { className: 'flex items-center mt-3' },
+									React.createElement('span', { 
+										className: `w-2 h-2 ${
+											blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+										} rounded-full mr-2 animate-pulse`
+									}),
+									React.createElement('span', { className: 'text-sm text-gray-600' }, 'Current Block:'),
+									React.createElement('span', { className: 'text-sm font-mono text-purple-600 ml-2' }, 
+										blockNumber.toString()
+									),
+									showBlockIndicator && React.createElement('span', { 
+										className: `text-xs ml-2 font-semibold ${
+											blockTimer >= 10 ? 'text-yellow-600' : 'text-green-600'
+										}`
+									}, `(${blockTimer}s)`)
+								)
 							),
 							React.createElement('div', { className: 'flex gap-2' },
 								React.createElement('button', { 
