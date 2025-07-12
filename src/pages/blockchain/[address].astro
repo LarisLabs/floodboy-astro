@@ -870,15 +870,54 @@ const { address } = Astro.params;
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
 								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Latest Sensor Data'),
 								React.createElement('div', { className: 'space-y-3' },
-									React.createElement('div', { className: 'bg-blue-50 p-4 rounded-lg' },
-										React.createElement('div', { className: 'text-sm text-blue-600 font-medium' }, 'Water Level'),
-										React.createElement('div', { className: 'text-2xl font-bold text-blue-900' }, `${waterLevel.toFixed(2)} m`)
+									// Dynamic fields based on actual store data
+									storeData?.fields && storeData.fields.length > 0 ? (
+										storeData.fields.map((field, index) => {
+											let value = 0;
+											let unit = field.unit.replace(/x\d+/i, '').trim(); // Clean unit display
+											
+											// Get value from latest record
+											if (sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined) {
+												value = parseFloat(formatScaledValue(sensorRecords[0].values[index], field.unit));
+											}
+											
+											// Color scheme for different field types
+											const colors = [
+												{ bg: 'bg-blue-50', text: 'text-blue-600', bold: 'text-blue-900' },
+												{ bg: 'bg-green-50', text: 'text-green-600', bold: 'text-green-900' },
+												{ bg: 'bg-purple-50', text: 'text-purple-600', bold: 'text-purple-900' },
+												{ bg: 'bg-yellow-50', text: 'text-yellow-600', bold: 'text-yellow-900' },
+												{ bg: 'bg-red-50', text: 'text-red-600', bold: 'text-red-900' }
+											];
+											const color = colors[index % colors.length];
+											
+											return React.createElement('div', { 
+												key: index, 
+												className: `${color.bg} p-4 rounded-lg` 
+											},
+												React.createElement('div', { className: `text-sm ${color.text} font-medium` }, 
+													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+												),
+												React.createElement('div', { className: `text-2xl font-bold ${color.bold}` }, 
+													`${value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}`
+												)
+											);
+										})
+									) : (
+										// Fallback display when no fields available
+										[
+											React.createElement('div', { key: 'water', className: 'bg-blue-50 p-4 rounded-lg' },
+												React.createElement('div', { className: 'text-sm text-blue-600 font-medium' }, 'Water Level'),
+												React.createElement('div', { className: 'text-2xl font-bold text-blue-900' }, `${waterLevel.toFixed(2)} m`)
+											),
+											React.createElement('div', { key: 'temp', className: 'bg-green-50 p-4 rounded-lg' },
+												React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
+												React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
+											)
+										]
 									),
-									React.createElement('div', { className: 'bg-green-50 p-4 rounded-lg' },
-										React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
-										React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
-									),
-									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg' },
+									
+									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg mt-4' },
 										React.createElement('div', { className: 'text-xs text-gray-600' }, 'Last Updated'),
 										React.createElement('div', { className: 'text-sm font-medium text-gray-800' }, 
 											lastUpdated.toLocaleString()
