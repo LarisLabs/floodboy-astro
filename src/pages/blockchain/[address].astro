@@ -895,6 +895,38 @@ const { address } = Astro.params;
 					};
 				}, []);
 
+				// Continuous block monitoring for JBC chain
+				React.useEffect(() => {
+					let blockMonitorInterval;
+					
+					if (currentChain === 8899) {
+						const monitorBlocks = async () => {
+							try {
+								const publicClient = window.viem.createPublicClient({
+									chain: window.chains.jibchainL1,
+									transport: window.viem.http()
+								});
+								
+								const currentBlockNumber = await publicClient.getBlockNumber();
+								if (currentBlockNumber !== blockNumber) {
+									setBlockNumber(currentBlockNumber);
+								}
+							} catch (error) {
+								console.error('Error monitoring blocks:', error);
+							}
+						};
+						
+						// Monitor blocks every 3 seconds
+						blockMonitorInterval = setInterval(monitorBlocks, 3000);
+					}
+					
+					return () => {
+						if (blockMonitorInterval) {
+							clearInterval(blockMonitorInterval);
+						}
+					};
+				}, [currentChain, blockNumber]);
+
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
 					if (blockNumber !== null && currentChain === 8899) {
@@ -1111,6 +1143,108 @@ const { address } = Astro.params;
 								)
 							),
 							
+							// Data Records Section (Chart/Table)
+							React.createElement('div', { className: 'card border rounded-lg p-6' },
+								React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+									React.createElement('div', {},
+										React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
+										React.createElement('p', { className: 'text-sm text-gray-600' }, 
+											`Latest ${Math.min(sensorRecords.length, 10)} records from all sensors`
+										)
+									),
+									React.createElement('div', { className: 'flex gap-2' },
+										React.createElement('button', { 
+											className: `px-3 py-1 rounded text-sm transition ${activeTab === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+											onClick: () => setActiveTab('table')
+										}, '📊 Data Table'),
+										React.createElement('button', { 
+											className: `px-3 py-1 rounded text-sm transition ${activeTab === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+											onClick: () => setActiveTab('chart')
+										}, '📈 Charts'),
+										React.createElement('button', { 
+											className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700',
+											onClick: () => {
+												// Simple CSV export
+												if (sensorRecords.length > 0 && storeData?.fields) {
+													const headers = ['Timestamp', 'Sensor', 'Block', ...storeData.fields.map(f => f.name)];
+													const rows = sensorRecords.map(record => [
+														new Date(record.timestamp * 1000).toISOString(),
+														record.sensor,
+														record.blockNumber || '',
+														...storeData.fields.map((field, index) => 
+															record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
+														)
+													]);
+													const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
+													const blob = new Blob([csv], { type: 'text/csv' });
+													const url = URL.createObjectURL(blob);
+													const a = document.createElement('a');
+													a.href = url;
+													a.download = `sensor-data-${storeAddress.slice(0, 8)}.csv`;
+													a.click();
+													URL.revokeObjectURL(url);
+												}
+											}
+										}, '💾 Export')
+									)
+								),
+								
+								// Content based on active tab
+								React.createElement('div', {},
+									activeTab === 'table' ? (
+										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
+											React.createElement('table', { className: 'w-full text-sm' },
+												React.createElement('thead', {},
+													React.createElement('tr', { className: 'border-b text-left' },
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
+														...(storeData?.fields || []).map((field, index) => 
+															React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
+																`${field.name} (${field.unit})`
+															)
+														)
+													)
+												),
+												React.createElement('tbody', {},
+													sensorRecords.slice(0, 10).map((record, index) => 
+														React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+															React.createElement('td', { className: 'py-3 text-xs' }, 
+																new Date(record.timestamp * 1000).toLocaleString()
+															),
+															React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+																`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+															),
+															React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
+															...(storeData?.fields || []).map((field, fieldIndex) => 
+																React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
+																	record.values[fieldIndex] !== undefined ? 
+																		formatScaledValue(record.values[fieldIndex], field.unit) : 
+																		'-'
+																)
+															)
+														)
+													)
+												)
+											)
+										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+											'No sensor data records found'
+										)
+									) : activeTab === 'chart' ? (
+										sensorRecords.length > 0 ? React.createElement('div', { 
+											style: { height: '400px', width: '100%', position: 'relative' }
+										},
+											React.createElement('canvas', { 
+												ref: chartRef,
+												style: { maxHeight: '400px' }
+											})
+										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+											'No data available for chart'
+										)
+									) : null
+								)
+							),
+							
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
 								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Recent Activity'),
 								React.createElement('div', { className: 'space-y-3' },
@@ -1168,38 +1302,6 @@ const { address } = Astro.params;
 
 					// Cat Lab inspired sections
 					React.createElement('div', { className: 'mt-8 space-y-6' },
-						// Store Information Section (Cat Lab style)
-						React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
-								React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
-								React.createElement('a', { 
-									href: `https://exp.jibchain.net/address/${storeAddress}`,
-									target: '_blank',
-									className: 'text-blue-600 hover:text-blue-700 text-sm'
-								}, 'View on explorer ↗')
-							),
-							React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-6' },
-								React.createElement('div', { className: 'text-center' },
-									React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
-									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
-								),
-								React.createElement('div', { className: 'text-center' },
-									React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, authorizedSensors.length),
-									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
-								),
-								React.createElement('div', { className: 'text-center' },
-									React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
-									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
-								),
-								React.createElement('div', { className: 'text-center' },
-									React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
-										storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
-									),
-									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
-								)
-							)
-						),
-
 						// Field Schema Section (Cat Lab style)
 						storeData?.fields && storeData.fields.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
 							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Field Schema'),
@@ -1261,108 +1363,6 @@ const { address } = Astro.params;
 										})
 									)
 								)
-							)
-						),
-
-						// Data Records Section (Cat Lab style) 
-						React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
-								React.createElement('div', {},
-									React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
-									React.createElement('p', { className: 'text-sm text-gray-600' }, 
-										`Latest ${Math.min(sensorRecords.length, 10)} records from all sensors`
-									)
-								),
-								React.createElement('div', { className: 'flex gap-2' },
-									React.createElement('button', { 
-										className: `px-3 py-1 rounded text-sm transition ${activeTab === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
-										onClick: () => setActiveTab('table')
-									}, '📊 Data Table'),
-									React.createElement('button', { 
-										className: `px-3 py-1 rounded text-sm transition ${activeTab === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
-										onClick: () => setActiveTab('chart')
-									}, '📈 Charts'),
-									React.createElement('button', { 
-										className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700',
-										onClick: () => {
-											// Simple CSV export
-											if (sensorRecords.length > 0 && storeData?.fields) {
-												const headers = ['Timestamp', 'Sensor', 'Block', ...storeData.fields.map(f => f.name)];
-												const rows = sensorRecords.map(record => [
-													new Date(record.timestamp * 1000).toISOString(),
-													record.sensor,
-													record.blockNumber || '',
-													...storeData.fields.map((field, index) => 
-														record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
-													)
-												]);
-												const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
-												const blob = new Blob([csv], { type: 'text/csv' });
-												const url = URL.createObjectURL(blob);
-												const a = document.createElement('a');
-												a.href = url;
-												a.download = `sensor-data-${storeAddress.slice(0, 8)}.csv`;
-												a.click();
-												URL.revokeObjectURL(url);
-											}
-										}
-									}, '💾 Export')
-								)
-							),
-							
-							// Content based on active tab
-							React.createElement('div', {},
-								activeTab === 'table' ? (
-									sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
-										React.createElement('table', { className: 'w-full text-sm' },
-											React.createElement('thead', {},
-												React.createElement('tr', { className: 'border-b text-left' },
-													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
-													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
-													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
-													...(storeData?.fields || []).map((field, index) => 
-														React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
-															`${field.name} (${field.unit})`
-														)
-													)
-												)
-											),
-											React.createElement('tbody', {},
-												sensorRecords.slice(0, 10).map((record, index) => 
-													React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
-														React.createElement('td', { className: 'py-3 text-xs' }, 
-															new Date(record.timestamp * 1000).toLocaleString()
-														),
-														React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-															`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
-														),
-														React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
-														...(storeData?.fields || []).map((field, fieldIndex) => 
-															React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
-																record.values[fieldIndex] !== undefined ? 
-																	formatScaledValue(record.values[fieldIndex], field.unit) : 
-																	'-'
-															)
-														)
-													)
-												)
-											)
-										)
-									) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
-										'No sensor data records found'
-									)
-								) : activeTab === 'chart' ? (
-									sensorRecords.length > 0 ? React.createElement('div', { 
-										style: { height: '400px', width: '100%', position: 'relative' }
-									},
-										React.createElement('canvas', { 
-											ref: chartRef,
-											style: { maxHeight: '400px' }
-										})
-									) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
-										'No data available for chart'
-									)
-								) : null
 							)
 						)
 					)
