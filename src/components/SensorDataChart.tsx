@@ -9,9 +9,9 @@ import {
   Tooltip,
   Legend,
   TimeScale,
-  ChartOptions,
-  ChartData
+  type ChartOptions
 } from 'chart.js';
+import type { ChartData } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import 'chartjs-adapter-date-fns';
 
@@ -67,7 +67,7 @@ const SensorDataChart: React.FC<SensorDataChartProps> = ({
   selectedField,
   onFieldChange 
 }) => {
-  const chartRef = useRef<ChartJS<'line'>>(null);
+  const chartRef = useRef<ChartJS<'line', number[], string>>(null);
   const [chartData, setChartData] = useState<ChartData<'line'>>({
     labels: [],
     datasets: []
