@@ -1,9 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { PublicClient, WalletClient } from 'viem';
 import { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } from 'viem';
 import { mainnet, sepolia, anvil } from 'viem/chains';
 import FloodboyBlockchainVisualization from './FloodboyBlockchainVisualization';
 import P5Loader from './P5Loader';
+import {
+  getCachedData,
+  setCachedData,
+  calculateBlockRange,
+  fetchEventsWithRetry,
+  processEventLogs,
+  getRecentEvents,
+  loadStoreMetadata,
+  formatBlockNumber
+} from '../utils/blockchain-helpers';
 
 // Custom chain configurations
 const jibchainL1 = {
@@ -152,19 +162,35 @@ const getTimeAgo = (timestamp: string | number) => {
   return `${Math.floor(hours / 24)} days ago`;
 };
 
+// Loading states interface
+interface LoadingStates {
+  metadata: boolean;
+  recentEvents: boolean;
+  historicalEvents: boolean;
+  sensors: boolean;
+}
+
 const BlockchainDashboard: React.FC = () => {
   const [walletClient, setWalletClient] = useState<WalletClient | null>(null);
   const [publicClient, setPublicClient] = useState<PublicClient | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState(8899); // Default to JIBCHAIN L1
   const [storeData, setStoreData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<LoadingStates>({
+    metadata: false,
+    recentEvents: false,
+    historicalEvents: false,
+    sensors: false
+  });
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [directStoreAddress, setDirectStoreAddress] = useState('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8');
   const [currentBlock, setCurrentBlock] = useState<bigint | null>(null);
   const [viewMode, setViewMode] = useState<'direct' | 'wallet' | 'public'>('direct');
   const [selectedChain, setSelectedChain] = useState(8899);
+  const [blockNumber, setBlockNumber] = useState<bigint | null>(null);
+  const [blockTimer, setBlockTimer] = useState(0);
+  const blockTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Apply theme to body
   useEffect(() => {
@@ -181,6 +207,55 @@ const BlockchainDashboard: React.FC = () => {
     setPublicClient(client);
     setChainId(selectedChain);
   }, [selectedChain]);
+
+  // Fetch current block number periodically
+  useEffect(() => {
+    if (!publicClient) return;
+
+    const fetchBlockNumber = async () => {
+      try {
+        const block = await publicClient.getBlockNumber();
+        setCurrentBlock(block);
+        
+        // Update block number display for JBC chain
+        if (chainId === 8899) {
+          setBlockNumber(block);
+          setBlockTimer(0);
+        }
+      } catch (err) {
+        console.error('Error fetching block number:', err);
+      }
+    };
+
+    // Fetch immediately
+    fetchBlockNumber();
+
+    // Poll every 5 seconds
+    const intervalId = setInterval(fetchBlockNumber, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [publicClient, chainId]);
+
+  // Block timer for JBC chain
+  useEffect(() => {
+    if (blockNumber !== null && chainId === 8899) {
+      // Clear existing timer
+      if (blockTimerRef.current) {
+        clearInterval(blockTimerRef.current);
+      }
+
+      // Start new timer
+      blockTimerRef.current = setInterval(() => {
+        setBlockTimer(prev => prev + 1);
+      }, 1000);
+    }
+
+    return () => {
+      if (blockTimerRef.current) {
+        clearInterval(blockTimerRef.current);
+      }
+    };
+  }, [blockNumber, chainId]);
 
   // Connect wallet
   const connectWallet = async () => {
@@ -204,144 +279,73 @@ const BlockchainDashboard: React.FC = () => {
     }
   };
 
-  // Fetch store data
-  const fetchStoreData = async () => {
+  // Progressive store data fetching
+  const fetchStoreData = useCallback(async () => {
     if (!publicClient || !directStoreAddress) return;
 
-    setLoading(true);
     setError(null);
 
     try {
-      // Get current block
-      const block = await publicClient.getBlockNumber();
-      setCurrentBlock(block);
-
-      // Get factory address for current chain
+      // Step 1: Load metadata (fast)
+      setLoading(prev => ({ ...prev, metadata: true }));
       const factoryAddress = CONTRACTS[chainId]?.DEPLOYER_ADDRESS;
-
-      // Get basic store data
-      const promises = [
-        publicClient.readContract({
-          address: directStoreAddress as `0x${string}`,
-          abi: STORE_ABI,
-          functionName: 'getAllFields'
-        }),
-        publicClient.readContract({
-          address: directStoreAddress as `0x${string}`,
-          abi: STORE_ABI,
-          functionName: 'owner'
-        })
-      ];
-
-      // Add nickname and metadata fetch if factory is available
-      if (factoryAddress && factoryAddress !== '0x0000000000000000000000000000000000000000') {
-        promises.push(
-          publicClient.readContract({
-            address: factoryAddress as `0x${string}`,
-            abi: DEPLOYER_ABI,
-            functionName: 'storeToNickname',
-            args: [directStoreAddress as `0x${string}`]
-          }).catch(() => ''),
-          publicClient.readContract({
-            address: factoryAddress as `0x${string}`,
-            abi: DEPLOYER_ABI,
-            functionName: 'getStoreMetadata',
-            args: [directStoreAddress as `0x${string}`]
-          }).catch(() => [])
-        );
-      }
-
-      const results = await Promise.all(promises);
-      const fields = results[0] as any[];
-      const owner = results[1] as string;
-      const nickname = (results[2] || '') as string;
-      const metadataArray = (results[3] || []) as any[];
       
-      const metadata = {
-        deployedBlock: metadataArray[0] ? Number(metadataArray[0]) : 0,
-        lastUpdatedBlock: metadataArray[1] ? Number(metadataArray[1]) : 0,
-        description: metadataArray[2] || '',
-        pointer: metadataArray[3] || ''
+      const metadata = await loadStoreMetadata(
+        publicClient,
+        directStoreAddress as `0x${string}`,
+        factoryAddress as `0x${string}` | null,
+        DEPLOYER_ABI,
+        STORE_ABI
+      );
+
+      const metadataObj = metadata.metadataArray && Array.isArray(metadata.metadataArray) ? {
+        deployedBlock: metadata.metadataArray[0] ? Number(metadata.metadataArray[0]) : 0,
+        lastUpdatedBlock: metadata.metadataArray[1] ? Number(metadata.metadataArray[1]) : 0,
+        description: metadata.metadataArray[2] || '',
+        pointer: metadata.metadataArray[3] || ''
+      } : {
+        deployedBlock: 0,
+        lastUpdatedBlock: 0,
+        description: '',
+        pointer: ''
       };
 
-      // Get authorized sensors from events
-      const authFilter = await publicClient.createEventFilter({
-        address: directStoreAddress as `0x${string}`,
-        event: EVENT_ABIS.SensorAuthorized,
-        fromBlock: 'earliest'
+      // Set initial store data with metadata
+      setStoreData({
+        address: directStoreAddress,
+        nickname: metadata.nickname || 'Unnamed Store',
+        description: metadataObj.description,
+        pointer: metadataObj.pointer,
+        deployedBlock: metadataObj.deployedBlock,
+        lastUpdatedBlock: metadataObj.lastUpdatedBlock,
+        owner: metadata.owner,
+        fields: metadata.fields.map((f: any) => ({
+          name: f.name,
+          unit: f.unit,
+          dtype: f.dtype,
+          dataType: f.dtype
+        })),
+        authorizedSensors: [],
+        sensorRecords: [],
+        totalRecords: 0
       });
 
-      const revokeFilter = await publicClient.createEventFilter({
-        address: directStoreAddress as `0x${string}`,
-        event: EVENT_ABIS.SensorRevoked,
-        fromBlock: 'earliest'
-      });
+      setLoading(prev => ({ ...prev, metadata: false }));
 
-      const [authEvents, revokeEvents] = await Promise.all([
-        publicClient.getFilterLogs({ filter: authFilter }),
-        publicClient.getFilterLogs({ filter: revokeFilter })
-      ]);
+      // Step 2: Load recent events for quick display
+      setLoading(prev => ({ ...prev, recentEvents: true }));
+      
+      const recentEvents = await getRecentEvents(
+        publicClient,
+        directStoreAddress as `0x${string}`,
+        EVENT_ABIS.RecordStored,
+        1000n // Last 1000 blocks
+      );
 
-      // Calculate currently authorized sensors
-      const authorizedSet = new Set<string>();
-      authEvents.forEach(event => {
-        const decoded = decodeEventLog({
-          abi: [EVENT_ABIS.SensorAuthorized],
-          data: event.data,
-          topics: event.topics
-        });
-        authorizedSet.add(decoded.args.sensor as string);
-      });
-      revokeEvents.forEach(event => {
-        const decoded = decodeEventLog({
-          abi: [EVENT_ABIS.SensorRevoked],
-          data: event.data,
-          topics: event.topics
-        });
-        authorizedSet.delete(decoded.args.sensor as string);
-      });
-      const authorizedSensors = Array.from(authorizedSet);
-
-      // Get records from events
-      const recordFilter = await publicClient.createEventFilter({
-        address: directStoreAddress as `0x${string}`,
-        event: EVENT_ABIS.RecordStored,
-        fromBlock: 'earliest'
-      });
-
-      const recordEvents = await publicClient.getFilterLogs({ filter: recordFilter });
-
-      // Process sensor records
-      const sensorDataMap = new Map<string, any>();
-      recordEvents.forEach(event => {
-        try {
-          const decoded = decodeEventLog({
-            abi: [EVENT_ABIS.RecordStored],
-            data: event.data,
-            topics: event.topics
-          });
-          
-          const sensor = decoded.args.sensor as string;
-          if (!sensorDataMap.has(sensor)) {
-            sensorDataMap.set(sensor, {
-              sensor,
-              records: [],
-              totalRecords: 0
-            });
-          }
-          const data = sensorDataMap.get(sensor);
-          data.records.push({
-            timestamp: decoded.args.timestamp.toString(),
-            values: decoded.args.values.map((v: bigint) => v.toString())
-          });
-          data.totalRecords++;
-        } catch (err) {
-          console.error('Error decoding event:', err);
-        }
-      });
-
+      const recentSensorData = processEventLogs(recentEvents, EVENT_ABIS.RecordStored);
+      
       // Get latest record for each sensor
-      const sensorRecords = Array.from(sensorDataMap.values()).map(data => {
+      const sensorRecords = Array.from(recentSensorData.values()).map(data => {
         const latestRecord = data.records.length > 0 
           ? data.records[data.records.length - 1]
           : { timestamp: '0', values: [] };
@@ -353,9 +357,79 @@ const BlockchainDashboard: React.FC = () => {
         };
       });
 
-      // If no records from events, try to get latest record directly
+      // Update with recent data
+      setStoreData((prev: any) => ({
+        ...prev,
+        sensorRecords,
+        totalRecords: sensorRecords.reduce((acc, r) => acc + parseInt(r.totalRecords), 0)
+      }));
+
+      setLoading(prev => ({ ...prev, recentEvents: false }));
+
+      // Step 3: Load sensor authorization events
+      setLoading(prev => ({ ...prev, sensors: true }));
+      
+      const currentBlockBigInt = await publicClient.getBlockNumber();
+      const { fromBlock } = calculateBlockRange(currentBlockBigInt, 24 * 7); // Last week
+
+      // Fetch auth events
+      const [authEvents, revokeEvents] = await Promise.all([
+        fetchEventsWithRetry(
+          publicClient,
+          directStoreAddress as `0x${string}`,
+          EVENT_ABIS.SensorAuthorized,
+          fromBlock,
+          currentBlockBigInt
+        ),
+        fetchEventsWithRetry(
+          publicClient,
+          directStoreAddress as `0x${string}`,
+          EVENT_ABIS.SensorRevoked,
+          fromBlock,
+          currentBlockBigInt
+        )
+      ]);
+
+      // Process authorized sensors
+      const authorizedSet = new Set<string>();
+      authEvents.forEach(event => {
+        try {
+          const decoded = decodeEventLog({
+            abi: [EVENT_ABIS.SensorAuthorized],
+            data: event.data,
+            topics: event.topics
+          });
+          authorizedSet.add(decoded.args.sensor as string);
+        } catch (err) {
+          console.error('Error decoding auth event:', err);
+        }
+      });
+      
+      revokeEvents.forEach(event => {
+        try {
+          const decoded = decodeEventLog({
+            abi: [EVENT_ABIS.SensorRevoked],
+            data: event.data,
+            topics: event.topics
+          });
+          authorizedSet.delete(decoded.args.sensor as string);
+        } catch (err) {
+          console.error('Error decoding revoke event:', err);
+        }
+      });
+
+      const authorizedSensors = Array.from(authorizedSet);
+
+      // Update with sensor data
+      setStoreData((prev: any) => ({
+        ...prev,
+        authorizedSensors
+      }));
+
+      setLoading(prev => ({ ...prev, sensors: false }));
+
+      // Step 4: If no recent data, try direct contract read
       if (sensorRecords.length === 0 && authorizedSensors.length > 0) {
-        // Try with first authorized sensor
         try {
           const [timestamp, values] = await publicClient.readContract({
             address: directStoreAddress as `0x${string}`,
@@ -365,57 +439,89 @@ const BlockchainDashboard: React.FC = () => {
           }) as [bigint, bigint[]];
 
           if (timestamp > 0n) {
-            sensorRecords.push({
-              sensor: authorizedSensors[0],
-              totalRecords: '1',
-              latestRecord: {
-                timestamp: timestamp.toString(),
-                values: values.map(v => v.toString())
-              }
-            });
+            setStoreData((prev: any) => ({
+              ...prev,
+              sensorRecords: [{
+                sensor: authorizedSensors[0],
+                totalRecords: '1',
+                latestRecord: {
+                  timestamp: timestamp.toString(),
+                  values: values.map(v => v.toString())
+                }
+              }],
+              totalRecords: 1
+            }));
           }
         } catch (err) {
           console.error('Error getting latest record:', err);
         }
       }
 
-      setStoreData({
-        address: directStoreAddress,
-        nickname: nickname || 'Unnamed Store',
-        description: metadata.description || '',
-        pointer: metadata.pointer || '',
-        deployedBlock: metadata.deployedBlock || 0,
-        lastUpdatedBlock: metadata.lastUpdatedBlock || 0,
-        owner,
-        fields: fields.map((f: any) => ({
-          name: f.name,
-          unit: f.unit,
-          dtype: f.dtype,
-          dataType: f.dtype
-        })),
-        authorizedSensors,
-        sensorRecords,
-        totalRecords: sensorRecords.reduce((acc, r) => acc + parseInt(r.totalRecords), 0)
-      });
+      // Step 5: Load historical events in background (optional)
+      // This is commented out to improve initial load time
+      // You can uncomment if you need historical data
+      /*
+      setLoading(prev => ({ ...prev, historicalEvents: true }));
+      const historicalEvents = await fetchEventsWithRetry(
+        publicClient,
+        directStoreAddress as `0x${string}`,
+        EVENT_ABIS.RecordStored,
+        metadataObj.deployedBlock ? BigInt(metadataObj.deployedBlock) : 0n,
+        fromBlock - 1n
+      );
+      // Process and merge historical data...
+      setLoading(prev => ({ ...prev, historicalEvents: false }));
+      */
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch store data');
       console.error('Error details:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [publicClient, directStoreAddress, chainId]);
 
   // Auto-load store data when client is ready
   useEffect(() => {
     if (publicClient && directStoreAddress && viewMode === 'direct') {
       fetchStoreData();
     }
-  }, [publicClient, directStoreAddress]);
+  }, [publicClient, directStoreAddress, viewMode, fetchStoreData]);
+
+  // Check if any loading state is active
+  const isLoading = Object.values(loading).some(v => v);
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Theme Switcher */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Theme Switcher and Block Display */}
+      <div className="fixed top-4 right-4 z-50 flex items-center space-x-2">
+        {/* Block Display for JBC Chain */}
+        {chainId === 8899 && blockNumber && (
+          <div className={`flex items-center space-x-2 px-4 py-2 rounded-full backdrop-blur-md ${
+            theme === 'dark' 
+              ? 'bg-gray-900/80 border border-gray-700/30' 
+              : 'bg-white/80 border border-gray-200/30 shadow-xl'
+          }`}>
+            <div className={`w-2 h-2 rounded-full ${
+              blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+            } animate-pulse`}></div>
+            <span className={`text-xs font-medium ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+            }`}>Block</span>
+            <span className={`text-sm font-mono font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>
+              {formatBlockNumber(blockNumber)}
+            </span>
+            <span className={`text-xs ml-1 font-bold ${
+              blockTimer >= 10 
+                ? (theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600')
+                : (theme === 'dark' ? 'text-green-400' : 'text-green-600')
+            }`}>
+              ({blockTimer}s)
+            </span>
+          </div>
+        )}
+
+        {/* Theme Switcher */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           className={`p-2 rounded-lg ${
@@ -431,7 +537,9 @@ const BlockchainDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">IoT Factory - Smart Contract Dashboard</h1>
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
+            IoT Factory - Smart Contract Dashboard
+          </h1>
           <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
             Monitor IoT sensor data stored on blockchain
           </p>
@@ -538,17 +646,47 @@ const BlockchainDashboard: React.FC = () => {
                 />
                 <button
                   onClick={fetchStoreData}
-                  disabled={loading}
+                  disabled={isLoading}
                   className={`px-6 py-2 rounded-lg ${
-                    loading 
+                    isLoading 
                       ? 'bg-gray-500 cursor-not-allowed' 
                       : 'bg-purple-600 hover:bg-purple-700'
                   } text-white`}
                 >
-                  {loading ? 'Loading...' : 'Load Data'}
+                  {isLoading ? 'Loading...' : 'Load Data'}
                 </button>
               </div>
             </div>
+
+            {/* Loading indicators */}
+            {isLoading && (
+              <div className="mt-4 space-y-2">
+                {loading.metadata && (
+                  <div className="flex items-center text-sm">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                    Loading store metadata...
+                  </div>
+                )}
+                {loading.recentEvents && (
+                  <div className="flex items-center text-sm">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                    Loading recent sensor data...
+                  </div>
+                )}
+                {loading.sensors && (
+                  <div className="flex items-center text-sm">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                    Loading authorized sensors...
+                  </div>
+                )}
+                {loading.historicalEvents && (
+                  <div className="flex items-center text-sm">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                    Loading historical data...
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -620,16 +758,23 @@ const BlockchainDashboard: React.FC = () => {
                       )}
                       {storeData.pointer && (
                         <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Pointer: {storeData.pointer}
+                          {storeData.pointer}
                         </p>
                       )}
                     </div>
                   )}
                 </div>
               ) : (
-                <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                  No sensor data available
-                </p>
+                <div className="text-center py-8">
+                  <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                    No sensor data available
+                  </p>
+                  {loading.recentEvents && (
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
