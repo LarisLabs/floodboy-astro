@@ -179,8 +179,54 @@ const { address } = Astro.params;
 					"outputs": [{"internalType": "address", "name": "", "type": "address"}],
 					"stateMutability": "view",
 					"type": "function"
+				},
+				{
+					"inputs": [],
+					"name": "getAuthorizedSensors",
+					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+					"stateMutability": "view",
+					"type": "function"
 				}
 			];
+
+			// Event definitions for reading blockchain events
+			const RECORD_STORED_EVENT = {
+				type: 'event',
+				name: 'RecordStored',
+				inputs: [
+					{ name: 'sensor', type: 'address', indexed: true },
+					{ name: 'timestamp', type: 'uint256', indexed: false },
+					{ name: 'values', type: 'int256[]', indexed: false }
+				]
+			};
+
+			// Utility functions adapted from web3-iot-factory
+			function parseScalingFactor(unit) {
+				const match = unit.match(/x\s*(\d+)/i);
+				return match ? parseInt(match[1]) : 100; // Default to 100 if no scaling found
+			}
+
+			function formatScaledValue(value, unit) {
+				const scaleFactor = parseScalingFactor(unit);
+				const numValue = Number(value);
+				const decimalValue = numValue / scaleFactor;
+				const decimalPlaces = Math.log10(scaleFactor);
+				return decimalValue.toFixed(Math.max(0, decimalPlaces));
+			}
+
+			// Process event logs
+			function processRecordLogs(logs) {
+				return logs
+					.filter(log => log.args && log.args.sensor && log.args.timestamp && log.args.values)
+					.map(log => ({
+						sensor: log.args.sensor,
+						timestamp: Number(log.args.timestamp),
+						values: log.args.values.map(v => Number(v)),
+						blockNumber: log.blockNumber,
+						transactionHash: log.transactionHash
+					}))
+					.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
+			}
 
 			// FloodboyVisualization React Component (inline)
 			function FloodboyVisualization({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead }) {
@@ -446,10 +492,13 @@ const { address } = Astro.params;
 				const [isOnline, setIsOnline] = React.useState(true);
 				const [error, setError] = React.useState(null);
 				const [lastUpdated, setLastUpdated] = React.useState(null);
+				const [sensorRecords, setSensorRecords] = React.useState([]);
+				const [authorizedSensors, setAuthorizedSensors] = React.useState([]);
+				const [recentEvents, setRecentEvents] = React.useState([]);
 
-				// Load real data from blockchain
+				// Enhanced blockchain data loading with events
 				React.useEffect(() => {
-					async function loadRealStoreData() {
+					async function loadEnhancedStoreData() {
 						setIsLoading(true);
 						setError(null);
 						
@@ -460,68 +509,129 @@ const { address } = Astro.params;
 								transport: window.viem.http()
 							});
 
-							console.log('Loading data for store:', storeAddress);
+							console.log('Loading enhanced data for store:', storeAddress);
 
-							// Get store owner
-							const owner = await publicClient.readContract({
+							// Parallel loading of basic store info
+							const [owner, fields, authorizedSensorAddresses] = await Promise.all([
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'owner'
+								}),
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'getAllFields'
+								}),
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'getAuthorizedSensors'
+								}).catch(() => []) // Fallback if function doesn't exist
+							]);
+
+							console.log('Store info loaded:', { owner, fields, authorizedSensorAddresses });
+
+							// Load recent events from blockchain
+							const currentBlock = await publicClient.getBlockNumber();
+							const fromBlock = currentBlock - BigInt(10000); // Last ~10k blocks
+
+							const eventLogs = await publicClient.getLogs({
 								address: storeAddress,
-								abi: STORE_ABI,
-								functionName: 'owner'
+								event: RECORD_STORED_EVENT,
+								fromBlock: fromBlock,
+								toBlock: 'latest'
+							}).catch((err) => {
+								console.log('Event loading failed, using fallback:', err.message);
+								return [];
 							});
 
-							// Get all fields to understand the store structure
-							const fields = await publicClient.readContract({
-								address: storeAddress,
-								abi: STORE_ABI,
-								functionName: 'getAllFields'
-							});
+							console.log('Event logs loaded:', eventLogs.length, 'events');
 
-							console.log('Store fields:', fields);
+							// Process events
+							const processedRecords = processRecordLogs(eventLogs);
+							const recentRecords = processedRecords.slice(0, 10); // Last 10 records
 
-							// Get latest record from the store owner (assuming owner is also a sensor)
-							const [timestamp, values] = await publicClient.readContract({
-								address: storeAddress,
-								abi: STORE_ABI,
-								functionName: 'getLatestRecord',
-								args: [owner]
-							});
-
-							console.log('Latest record:', { timestamp, values });
-
-							// Process the values based on field definitions
+							// Get latest record data
+							let latestRecord = null;
 							let processedData = {};
-							fields.forEach((field, index) => {
-								if (values[index] !== undefined) {
-									// Convert from scaled integer to float (assuming 2 decimal places)
-									const value = Number(values[index]) / 100;
-									processedData[field.name] = value;
+
+							if (processedRecords.length > 0) {
+								latestRecord = processedRecords[0]; // Most recent
+								
+								// Process latest values with proper scaling
+								fields.forEach((field, index) => {
+									if (latestRecord.values[index] !== undefined) {
+										const scaledValue = formatScaledValue(latestRecord.values[index], field.unit);
+										processedData[field.name] = parseFloat(scaledValue);
+									}
+								});
+							} else {
+								// Fallback to direct contract call
+								try {
+									const [timestamp, values] = await publicClient.readContract({
+										address: storeAddress,
+										abi: STORE_ABI,
+										functionName: 'getLatestRecord',
+										args: [owner]
+									});
+
+									if (Number(timestamp) > 0) {
+										fields.forEach((field, index) => {
+											if (values[index] !== undefined) {
+												const scaledValue = formatScaledValue(values[index], field.unit);
+												processedData[field.name] = parseFloat(scaledValue);
+											}
+										});
+										latestRecord = {
+											sensor: owner,
+											timestamp: Number(timestamp),
+											values: values.map(v => Number(v))
+										};
+									}
+								} catch (directCallErr) {
+									console.log('Direct call also failed:', directCallErr.message);
 								}
-							});
+							}
 
-							console.log('Processed data:', processedData);
+							console.log('Processed latest data:', processedData);
 
-							// Update state with real data
+							// Update state with enhanced data
 							setStoreData({
 								address: storeAddress,
 								name: "Floodboy Sensor Store",
 								owner: owner,
 								fields: fields,
-								lastTimestamp: Number(timestamp)
+								lastTimestamp: latestRecord?.timestamp || 0,
+								totalRecords: processedRecords.length
 							});
 
-							// Set sensor values
+							setAuthorizedSensors(authorizedSensorAddresses);
+							setSensorRecords(recentRecords);
+							setRecentEvents(eventLogs.slice(0, 5)); // Last 5 events
+
+							// Set sensor values with fallback
 							if (processedData.water_level !== undefined) {
 								setWaterLevel(processedData.water_level);
+							} else if (processedData.level !== undefined) {
+								setWaterLevel(processedData.level);
 							}
+							
 							if (processedData.temperature !== undefined) {
 								setTemperature(processedData.temperature);
+							} else if (processedData.temp !== undefined) {
+								setTemperature(processedData.temp);
 							}
 
-							setLastUpdated(new Date(Number(timestamp) * 1000));
-							setIsOnline(true);
+							if (latestRecord) {
+								setLastUpdated(new Date(latestRecord.timestamp * 1000));
+								setIsOnline(true);
+							} else {
+								setIsOnline(false);
+							}
 
 						} catch (err) {
-							console.error('Error loading store data:', err);
+							console.error('Error loading enhanced store data:', err);
 							setError(err.message);
 							// Set fallback data
 							setStoreData({
@@ -537,10 +647,10 @@ const { address } = Astro.params;
 						setIsLoading(false);
 					}
 
-					loadRealStoreData();
+					loadEnhancedStoreData();
 					
 					// Set up polling for real-time updates every 30 seconds
-					const interval = setInterval(loadRealStoreData, 30000);
+					const interval = setInterval(loadEnhancedStoreData, 30000);
 					return () => clearInterval(interval);
 				}, []);
 
@@ -628,6 +738,18 @@ const { address } = Astro.params;
 										React.createElement('span', { className: 'font-medium' }, 
 											storeData?.fields ? storeData.fields.length : '0'
 										)
+									),
+									React.createElement('div', { className: 'flex justify-between' },
+										React.createElement('span', { className: 'text-gray-600' }, 'Records:'),
+										React.createElement('span', { className: 'font-medium' }, 
+											storeData?.totalRecords || '0'
+										)
+									),
+									React.createElement('div', { className: 'flex justify-between' },
+										React.createElement('span', { className: 'text-gray-600' }, 'Sensors:'),
+										React.createElement('span', { className: 'font-medium' }, 
+											authorizedSensors.length
+										)
 									)
 								)
 							),
@@ -653,30 +775,53 @@ const { address } = Astro.params;
 							),
 							
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
-								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Data Source'),
+								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Recent Activity'),
 								React.createElement('div', { className: 'space-y-3' },
-									React.createElement('div', { className: 'bg-yellow-50 p-4 rounded-lg border border-yellow-200' },
-										React.createElement('div', { className: 'text-sm text-yellow-800 font-medium mb-2' }, '📊 Live Blockchain Data'),
-										React.createElement('div', { className: 'text-xs text-yellow-700' }, 
-											'Data automatically refreshes every 30 seconds from the blockchain'
-										)
-									),
-									React.createElement('div', { className: 'flex justify-between items-center' },
-										React.createElement('span', { className: 'text-sm text-gray-600' }, 'Auto Refresh:'),
-										React.createElement('span', { className: 'text-sm font-medium text-green-600' }, 'Enabled')
-									),
-									storeData?.fields && storeData.fields.length > 0 && React.createElement('div', {},
-										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 'Available Fields:'),
-										React.createElement('div', { className: 'space-y-1' },
-											storeData.fields.map((field, index) => 
-												React.createElement('div', { 
-													key: index, 
-													className: 'text-xs bg-gray-100 p-2 rounded flex justify-between' 
-												},
-													React.createElement('span', { className: 'font-mono' }, field.name),
-													React.createElement('span', { className: 'text-gray-500' }, `${field.dtype} (${field.unit})`)
+									sensorRecords.length > 0 ? React.createElement('div', { className: 'space-y-2' },
+										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 
+											`Latest ${sensorRecords.length} Records:`
+										),
+										sensorRecords.slice(0, 5).map((record, index) => 
+											React.createElement('div', { 
+												key: index, 
+												className: 'text-xs bg-gray-50 p-3 rounded border-l-2 border-blue-400' 
+											},
+												React.createElement('div', { className: 'flex justify-between items-center' },
+													React.createElement('span', { className: 'font-mono text-gray-600' }, 
+														`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+													),
+													React.createElement('span', { className: 'text-gray-500' }, 
+														new Date(record.timestamp * 1000).toLocaleTimeString()
+													)
+												),
+												React.createElement('div', { className: 'mt-1 text-gray-700' },
+													`Values: [${record.values.slice(0, 3).map(v => formatScaledValue(v, 'x100')).join(', ')}${record.values.length > 3 ? '...' : ''}]`
 												)
 											)
+										)
+									) : React.createElement('div', { className: 'text-gray-500 text-center py-4' },
+										'No recent records found'
+									),
+									
+									React.createElement('div', { className: 'bg-blue-50 p-3 rounded-lg border border-blue-200' },
+										React.createElement('div', { className: 'text-sm text-blue-800 font-medium mb-1' }, '🔗 Event-Based Loading'),
+										React.createElement('div', { className: 'text-xs text-blue-700' }, 
+											`Loaded from ${recentEvents.length} blockchain events • Auto-refresh: 30s`
+										)
+									),
+									
+									authorizedSensors.length > 0 && React.createElement('div', {},
+										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 'Authorized Sensors:'),
+										React.createElement('div', { className: 'space-y-1' },
+											authorizedSensors.slice(0, 3).map((sensor, index) => 
+												React.createElement('div', { 
+													key: index, 
+													className: 'text-xs bg-green-50 p-2 rounded font-mono text-green-800' 
+												}, `${sensor.slice(0, 6)}...${sensor.slice(-4)}`)
+											),
+											authorizedSensors.length > 3 && React.createElement('div', { 
+												className: 'text-xs text-gray-500 text-center' 
+											}, `+${authorizedSensors.length - 3} more`)
 										)
 									)
 								)
