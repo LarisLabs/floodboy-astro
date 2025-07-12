@@ -495,6 +495,107 @@ const { address } = Astro.params;
 				const [sensorRecords, setSensorRecords] = React.useState([]);
 				const [authorizedSensors, setAuthorizedSensors] = React.useState([]);
 				const [recentEvents, setRecentEvents] = React.useState([]);
+				const [activeTab, setActiveTab] = React.useState('table'); // 'table' or 'chart'
+				const chartRef = React.useRef(null);
+				const chartInstanceRef = React.useRef(null);
+
+				// Create chart function
+				const createChart = React.useCallback(() => {
+					if (!chartRef.current || !sensorRecords.length || !storeData?.fields) return;
+
+					// Destroy existing chart
+					if (chartInstanceRef.current) {
+						chartInstanceRef.current.destroy();
+					}
+
+					const ctx = chartRef.current.getContext('2d');
+					
+					// Prepare data for chart
+					const sortedRecords = [...sensorRecords].sort((a, b) => a.timestamp - b.timestamp);
+					const labels = sortedRecords.map(record => 
+						new Date(record.timestamp * 1000).toLocaleString()
+					);
+
+					// Create datasets for each field
+					const datasets = storeData.fields.map((field, fieldIndex) => {
+						const colors = [
+							'rgb(59, 130, 246)', // Blue
+							'rgb(16, 185, 129)', // Green  
+							'rgb(168, 85, 247)', // Purple
+							'rgb(245, 158, 11)', // Yellow
+							'rgb(239, 68, 68)',  // Red
+						];
+						
+						const data = sortedRecords.map(record => {
+							if (record.values[fieldIndex] !== undefined) {
+								return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
+							}
+							return null;
+						});
+
+						return {
+							label: `${field.name} (${field.unit})`,
+							data: data,
+							borderColor: colors[fieldIndex % colors.length],
+							backgroundColor: colors[fieldIndex % colors.length] + '20',
+							tension: 0.4,
+							fill: false,
+							spanGaps: true
+						};
+					});
+
+					chartInstanceRef.current = new Chart(ctx, {
+						type: 'line',
+						data: {
+							labels: labels,
+							datasets: datasets
+						},
+						options: {
+							responsive: true,
+							maintainAspectRatio: false,
+							plugins: {
+								title: {
+									display: true,
+									text: 'Sensor Data Over Time'
+								},
+								legend: {
+									display: true,
+									position: 'top'
+								}
+							},
+							scales: {
+								x: {
+									display: true,
+									title: {
+										display: true,
+										text: 'Time'
+									},
+									ticks: {
+										maxTicksLimit: 10
+									}
+								},
+								y: {
+									display: true,
+									title: {
+										display: true,
+										text: 'Value'
+									}
+								}
+							},
+							interaction: {
+								mode: 'index',
+								intersect: false,
+							}
+						}
+					});
+				}, [sensorRecords, storeData]);
+
+				// Update chart when data changes
+				React.useEffect(() => {
+					if (activeTab === 'chart') {
+						setTimeout(createChart, 100); // Small delay to ensure canvas is ready
+					}
+				}, [activeTab, createChart]);
 
 				// Enhanced blockchain data loading with events
 				React.useEffect(() => {
@@ -652,6 +753,15 @@ const { address } = Astro.params;
 					// Set up polling for real-time updates every 30 seconds
 					const interval = setInterval(loadEnhancedStoreData, 30000);
 					return () => clearInterval(interval);
+				}, []);
+
+				// Cleanup chart on unmount
+				React.useEffect(() => {
+					return () => {
+						if (chartInstanceRef.current) {
+							chartInstanceRef.current.destroy();
+						}
+					};
 				}, []);
 
 				if (isLoading) {
@@ -954,53 +1064,94 @@ const { address } = Astro.params;
 								),
 								React.createElement('div', { className: 'flex gap-2' },
 									React.createElement('button', { 
-										className: 'px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700'
+										className: `px-3 py-1 rounded text-sm transition ${activeTab === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+										onClick: () => setActiveTab('table')
 									}, '📊 Data Table'),
 									React.createElement('button', { 
-										className: 'px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700'
+										className: `px-3 py-1 rounded text-sm transition ${activeTab === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+										onClick: () => setActiveTab('chart')
 									}, '📈 Charts'),
 									React.createElement('button', { 
-										className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700'
+										className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700',
+										onClick: () => {
+											// Simple CSV export
+											if (sensorRecords.length > 0 && storeData?.fields) {
+												const headers = ['Timestamp', 'Sensor', 'Block', ...storeData.fields.map(f => f.name)];
+												const rows = sensorRecords.map(record => [
+													new Date(record.timestamp * 1000).toISOString(),
+													record.sensor,
+													record.blockNumber || '',
+													...storeData.fields.map((field, index) => 
+														record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
+													)
+												]);
+												const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
+												const blob = new Blob([csv], { type: 'text/csv' });
+												const url = URL.createObjectURL(blob);
+												const a = document.createElement('a');
+												a.href = url;
+												a.download = `sensor-data-${storeAddress.slice(0, 8)}.csv`;
+												a.click();
+												URL.revokeObjectURL(url);
+											}
+										}
 									}, '💾 Export')
 								)
 							),
-							sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
-								React.createElement('table', { className: 'w-full text-sm' },
-									React.createElement('thead', {},
-										React.createElement('tr', { className: 'border-b text-left' },
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
-											...(storeData?.fields || []).map((field, index) => 
-												React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
-													`${field.name} (${field.unit})`
+							
+							// Content based on active tab
+							React.createElement('div', {},
+								activeTab === 'table' ? (
+									sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
+										React.createElement('table', { className: 'w-full text-sm' },
+											React.createElement('thead', {},
+												React.createElement('tr', { className: 'border-b text-left' },
+													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
+													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
+													React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
+													...(storeData?.fields || []).map((field, index) => 
+														React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
+															`${field.name} (${field.unit})`
+														)
+													)
 												)
-											)
-										)
-									),
-									React.createElement('tbody', {},
-										sensorRecords.slice(0, 10).map((record, index) => 
-											React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
-												React.createElement('td', { className: 'py-3 text-xs' }, 
-													new Date(record.timestamp * 1000).toLocaleString()
-												),
-												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-													`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
-												),
-												React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
-												...(storeData?.fields || []).map((field, fieldIndex) => 
-													React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
-														record.values[fieldIndex] !== undefined ? 
-															formatScaledValue(record.values[fieldIndex], field.unit) : 
-															'-'
+											),
+											React.createElement('tbody', {},
+												sensorRecords.slice(0, 10).map((record, index) => 
+													React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+														React.createElement('td', { className: 'py-3 text-xs' }, 
+															new Date(record.timestamp * 1000).toLocaleString()
+														),
+														React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+															`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+														),
+														React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
+														...(storeData?.fields || []).map((field, fieldIndex) => 
+															React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
+																record.values[fieldIndex] !== undefined ? 
+																	formatScaledValue(record.values[fieldIndex], field.unit) : 
+																	'-'
+															)
+														)
 													)
 												)
 											)
 										)
+									) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+										'No sensor data records found'
 									)
-								)
-							) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
-								'No sensor data records found'
+								) : activeTab === 'chart' ? (
+									sensorRecords.length > 0 ? React.createElement('div', { 
+										style: { height: '400px', width: '100%', position: 'relative' }
+									},
+										React.createElement('canvas', { 
+											ref: chartRef,
+											style: { maxHeight: '400px' }
+										})
+									) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+										'No data available for chart'
+									)
+								) : null
 							)
 						)
 					)
