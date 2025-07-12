@@ -96,7 +96,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 
 		<script type="module">
 			// Import viem modules
-			import { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
 			
 			// Custom chain configurations
@@ -129,7 +129,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 			};
 			
 			// Make viem and chains available globally
-			window.viem = { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog };
+			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
 			// Contract ABIs and configurations
@@ -219,7 +219,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 
 		<script type="text/babel">
 			const { useState, useEffect, useRef } = React;
-			const { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } = window.viem;
+			const { createPublicClient, http, parseAbi, formatEther, decodeEventLog } = window.viem;
 			const { mainnet, sepolia, anvil, jibchainL1, sichang } = window.chains;
 
 			// Helper functions
@@ -610,9 +610,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 
 			// Main App Component
 			const App = () => {
-				const [walletClient, setWalletClient] = useState(null);
 				const [publicClient, setPublicClient] = useState(null);
-				const [account, setAccount] = useState(null);
 				const [chainId, setChainId] = useState(8899);
 				const [stores, setStores] = useState([]);
 				const [selectedStore, setSelectedStore] = useState(null);
@@ -764,7 +762,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 							{/* View Mode Tabs */}
 							<div className="flex justify-center mb-8">
 								<div className="flex space-x-1 rounded-lg p-1 bg-gray-100">
-									{['public', 'direct', 'wallet'].map(mode => (
+									{['public', 'direct'].map(mode => (
 										<button
 											key={mode}
 											onClick={() => setViewMode(mode)}
@@ -776,7 +774,6 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 										>
 											{mode === 'public' && '🔍 '}
 											{mode === 'direct' && '🎯 '}
-											{mode === 'wallet' && '👛 '}
 											{mode}
 										</button>
 									))}
