@@ -246,42 +246,55 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 					default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
 				}
 			};
-
+			
 			const sichang = {
 				id: 700011,
 				name: 'SiChang',
 				network: 'sichang',
-				nativeCurrency: { name: 'SIC', symbol: 'SIC', decimals: 18 },
+				nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
 				rpcUrls: {
-					default: { http: ['https://rpc.sichang.sahalab.link'] },
-					public: { http: ['https://rpc.sichang.sahalab.link'] }
+					default: { http: ['https://sichang-rpc.thaichain.org'] },
+					public: { http: ['https://sichang-rpc.thaichain.org'] }
+				},
+				blockExplorers: {
+					default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
 				}
 			};
-
-			// Make chain configs available globally
+			
+			// Make viem and chains available globally
 			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
-			// Contract configuration
+			// Contract ABIs and configurations
 			const CONTRACTS = {
-				8899: {
-					DEPLOYER_ADDRESS: '0x0000000000000000000000000000000000000000',
-					STORE_ADDRESS: '0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8'
+				31337: { // Anvil Local
+					DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+					EXPLORER_URL: "http://localhost:8545",
+					NETWORK_NAME: "Anvil Local"
 				},
-				700011: {
-					DEPLOYER_ADDRESS: '0x0000000000000000000000000000000000000000',
-					STORE_ADDRESS: '0x0000000000000000000000000000000000000000'
+				700011: { // SiChang 
+					DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000",
+					EXPLORER_URL: "https://sichang.thaichain.org",
+					NETWORK_NAME: "SiChang"
 				},
-				31337: {
-					DEPLOYER_ADDRESS: '0x0000000000000000000000000000000000000000',
-					STORE_ADDRESS: '0x0000000000000000000000000000000000000000'
-				}
+				8899: { // JIBCHAIN L1
+					DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+					EXPLORER_URL: "https://exp.jibchain.net",
+					NETWORK_NAME: "JIBCHAIN L1"
+				},
 			};
 
 			const DEPLOYER_ABI = [
 				{
-					"inputs": [{"internalType": "address", "name": "store", "type": "address"}],
-					"name": "getNickname",
+					"inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+					"name": "getUserStores",
+					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [{"internalType": "address", "name": "", "type": "address"}],
+					"name": "storeToNickname",
 					"outputs": [{"internalType": "string", "name": "", "type": "string"}],
 					"stateMutability": "view",
 					"type": "function"
@@ -717,7 +730,72 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 					
 					// Return mock stores for demonstration
 					return mockStores;
+
+					const storePromises = knownStoreAddresses.map(async (storeAddress) => {
+						try {
+							const fields = await publicClient.readContract({
+								address: storeAddress,
+								abi: STORE_ABI,
+								functionName: 'getAllFields'
+							});
+
+							const recordEventAbi = parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0];
+							const currentBlockBigInt = await publicClient.getBlockNumber();
+							const recentEvents = await publicClient.getLogs({
+								address: storeAddress,
+								event: recordEventAbi,
+								fromBlock: currentBlockBigInt > 1000n ? currentBlockBigInt - 1000n : 0n,
+								toBlock: currentBlockBigInt
+							});
+
+							let sensorCount = 0;
+							let isOnline = false;
+							let lastUpdated = null;
+
+							if (recentEvents.length > 0) {
+								const uniqueSensors = new Set();
+								let latestTimestamp = 0;
+
+								recentEvents.forEach(evt => {
+									const decodedRecord = decodeEventLog({
+										abi: [recordEventAbi],
+										data: evt.data,
+										topics: evt.topics
+									});
+									uniqueSensors.add(decodedRecord.args.sensor);
+									const timestamp = parseInt(decodedRecord.args.timestamp);
+									if (timestamp > latestTimestamp) {
+										latestTimestamp = timestamp;
+									}
+								});
+
+								sensorCount = uniqueSensors.size;
+								lastUpdated = latestTimestamp;
+								isOnline = (Math.floor(Date.now() / 1000) - latestTimestamp) < 3600;
+							}
+
+							return {
+								address: storeAddress,
+								nickname: 'Flood Boy 001',
+								description: 'Flood monitoring station in Chiang Mai',
+								location: '46 Soi Mu Ban Thep Prathan Phon Niwet, Chiang Mai 18.762233, 99.033544',
+								fieldCount: fields.length,
+								sensorCount,
+								isOnline,
+								lastUpdated,
+								deployedAt: 0n
+							};
+
+						} catch (error) {
+							console.error('Error loading known store:', storeAddress, error);
+							return null;
+						}
+					});
+
+					const results = await Promise.all(storePromises);
+					return results.filter(store => store !== null);
 				};
+
 
 				return (
 					<div className="min-h-screen">
