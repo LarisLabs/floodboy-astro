@@ -1,0 +1,980 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={`Blockchain Dashboard | ${SITE_TITLE}`} description={SITE_DESCRIPTION} />
+		
+		<!-- React and Babel for JSX -->
+		<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+		<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+		<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+		
+		<!-- p5.js for visualization -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+		
+		<!-- Chart.js -->
+		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+		
+		<!-- Tailwind CSS -->
+		<script src="https://cdn.tailwindcss.com"></script>
+		
+		<style>
+			body {
+				margin: 0;
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				background-color: #f9fafb;
+				color: #111827;
+			}
+			
+			/* P5 Container Styling for light theme */
+			#p5-container {
+				border-radius: 12px;
+				overflow: hidden;
+				transition: all 0.3s ease;
+				border: 2px solid #d1d5db;
+				background: rgba(255, 255, 255, 0.95);
+				box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+			}
+			
+			/* Card Styling for light theme */
+			.card {
+				background-color: #ffffff;
+				border-color: #e5e7eb;
+				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+			}
+			
+			/* Button Styling */
+			.btn-primary {
+				background-color: #7c3aed;
+				color: white;
+			}
+			.btn-primary:hover {
+				background-color: #6d28d9;
+			}
+			.btn-secondary {
+				background-color: #f3f4f6;
+				color: #374151;
+			}
+			.btn-secondary:hover {
+				background-color: #e5e7eb;
+			}
+			
+			/* Input Styling for light theme */
+			.input {
+				background-color: #f9fafb;
+				border-color: #d1d5db;
+				color: #111827;
+			}
+			.input::placeholder {
+				color: #6b7280;
+			}
+			
+			.loading-skeleton {
+				animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+				background-color: #e5e7eb;
+			}
+			@keyframes pulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: .5; }
+			}
+		</style>
+	</head>
+	<body class="light">
+		<Header />
+		<main>
+			<div id="blockchain-app"></div>
+		</main>
+		<Footer />
+
+		<script type="module">
+			// Import viem modules
+			import { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
+			
+			// Custom chain configurations
+			const jibchainL1 = {
+				id: 8899,
+				name: 'JIBCHAIN L1',
+				network: 'jibchain',
+				nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+				rpcUrls: {
+					default: { http: ['https://rpc-l1.jbc.xpool.pw'] },
+					public: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+				},
+				blockExplorers: {
+					default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+				}
+			};
+			
+			const sichang = {
+				id: 700011,
+				name: 'SiChang',
+				network: 'sichang',
+				nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
+				rpcUrls: {
+					default: { http: ['https://sichang-rpc.thaichain.org'] },
+					public: { http: ['https://sichang-rpc.thaichain.org'] }
+				},
+				blockExplorers: {
+					default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
+				}
+			};
+			
+			// Make viem and chains available globally
+			window.viem = { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog };
+			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
+
+			// Contract ABIs and configurations
+			const CONTRACTS = {
+				31337: {
+					DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+					EXPLORER_URL: "http://localhost:8545",
+				},
+				700011: {
+					DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000",
+					EXPLORER_URL: "https://sichang.thaichain.org",
+				},
+				8899: {
+					DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+					EXPLORER_URL: "https://exp.jibchain.net",
+				},
+			};
+
+			const DEPLOYER_ABI = [
+				{
+					"inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+					"name": "getUserStores",
+					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [{"internalType": "address", "name": "", "type": "address"}],
+					"name": "storeToNickname",
+					"outputs": [{"internalType": "string", "name": "", "type": "string"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+					"name": "getStoreMetadata",
+					"outputs": [
+						{"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+						{"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+						{"internalType": "string", "name": "description", "type": "string"},
+						{"internalType": "string", "name": "pointer", "type": "string"}
+					],
+					"stateMutability": "view",
+					"type": "function"
+				}
+			];
+
+			const STORE_ABI = [
+				{
+					"inputs": [],
+					"name": "getAllFields",
+					"outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+					"name": "getLatestRecord",
+					"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [],
+					"name": "owner",
+					"outputs": [{"internalType": "address", "name": "", "type": "address"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"anonymous": false,
+					"inputs": [
+						{"indexed": true, "internalType": "address", "name": "sensor", "type": "address"},
+						{"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
+						{"indexed": false, "internalType": "int256[]", "name": "values", "type": "int256[]"}
+					],
+					"name": "RecordStored",
+					"type": "event"
+				}
+			];
+
+			// Make all configurations available globally
+			window.CONTRACTS = CONTRACTS;
+			window.DEPLOYER_ABI = DEPLOYER_ABI;
+			window.STORE_ABI = STORE_ABI;
+		</script>
+
+		<script type="text/babel">
+			const { useState, useEffect, useRef } = React;
+			const { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } = window.viem;
+			const { mainnet, sepolia, anvil, jibchainL1, sichang } = window.chains;
+
+			// Helper functions
+			const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+			
+			const formatValue = (value, unit) => {
+				const num = BigInt(value);
+				if (unit.includes('x 1000')) {
+					return (Number(num) / 1000).toFixed(2);
+				}
+				if (unit.includes('x 100')) {
+					return (Number(num) / 100).toFixed(2);
+				}
+				if (unit.includes('x 10')) {
+					return (Number(num) / 10).toFixed(1);
+				}
+				if (unit.includes('°C') || unit.includes('pH')) {
+					return (Number(num) / 100).toFixed(2);
+				}
+				if (unit.includes('%')) {
+					return (Number(num) / 10).toFixed(1);
+				}
+				return num.toString();
+			};
+			
+			const getTimeAgo = (timestamp) => {
+				const date = new Date(parseInt(timestamp) * 1000);
+				const seconds = Math.floor((new Date() - date) / 1000);
+				if (seconds < 60) return `${seconds} seconds ago`;
+				const minutes = Math.floor(seconds / 60);
+				if (minutes < 60) return `${minutes} minutes ago`;
+				const hours = Math.floor(minutes / 60);
+				if (hours < 24) return `${hours} hours ago`;
+				return `${Math.floor(hours / 24)} days ago`;
+			};
+
+			// Loading skeleton component
+			const LoadingSkeleton = ({ lines = 3 }) => (
+				<div className="space-y-2">
+					{Array.from({ length: lines }).map((_, i) => (
+						<div key={i} className="loading-skeleton h-4 bg-gray-200 rounded w-3/4"></div>
+					))}
+				</div>
+			);
+
+			// Error display component
+			const ErrorDisplay = ({ error, onRetry }) => (
+				<div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+					<p className="text-red-400 mb-2">{error}</p>
+					{onRetry && (
+						<button onClick={onRetry} className="px-3 py-1 bg-red-700 rounded text-sm hover:bg-red-600">
+							Retry
+						</button>
+					)}
+				</div>
+			);
+
+			// FloodboyVisualization Component - Using advanced visualization from demo
+			const FloodboyVisualization = ({ storeData, currentBlock }) => {
+				const sketchRef = useRef();
+				const p5InstanceRef = useRef();
+				const propsRef = useRef({ storeData, currentBlock });
+				
+				useEffect(() => {
+					propsRef.current = { storeData, currentBlock };
+				}, [storeData, currentBlock]);
+
+				useEffect(() => {
+					const sketch = (p) => {
+						p.setup = () => {
+							const canvas = p.createCanvas(350, 420);
+							canvas.parent(sketchRef.current);
+							p.frameRate(30);
+						};
+
+						p.draw = () => {
+							p.clear();
+							p.background(255, 255, 255, 0);
+							
+							const { storeData } = propsRef.current;
+							
+							// Get sensor values from blockchain data
+							let waterLevel = 0;
+							let airLevel = 0;
+							let installationHeight = 3.0;
+							let isOnline = false;
+							let isDead = false;
+							const sensorMode = 'water'; // Default to water mode
+							const showMeasurement = true;
+							
+							if (storeData && storeData.sensorRecords.length > 0) {
+								const latestRecord = storeData.sensorRecords[0].latestRecord;
+								if (latestRecord && latestRecord.timestamp !== '0') {
+									const waterIdx = storeData.fields.findIndex(f => f.name === 'water_depth');
+									const airIdx = storeData.fields.findIndex(f => f.name === 'air_height');
+									const installIdx = storeData.fields.findIndex(f => f.name === 'installation_height');
+									
+									if (waterIdx >= 0 && latestRecord.values[waterIdx]) {
+										waterLevel = parseInt(latestRecord.values[waterIdx]) / 1000;
+									}
+									if (airIdx >= 0 && latestRecord.values[airIdx]) {
+										airLevel = parseInt(latestRecord.values[airIdx]) / 1000;
+									}
+									if (installIdx >= 0 && latestRecord.values[installIdx]) {
+										installationHeight = parseInt(latestRecord.values[installIdx]) / 1000;
+									}
+									
+									const timestamp = parseInt(latestRecord.timestamp);
+									const now = Math.floor(Date.now() / 1000);
+									isOnline = (now - timestamp) < 3600;
+									isDead = (now - timestamp) > 86400;
+								}
+							}
+							
+							const centerX = 150;
+							const baseY = 380;
+							const yOffset = -10;
+							
+							const armY = yOffset + 136;
+							const armStartX = centerX + 5;
+							const armLength = 120;
+							const sensorX = armStartX + armLength + 10;
+							const sensorY = armY + 4;
+							
+							// Base/Foundation
+							p.fill(75, 85, 99);
+							p.rect(centerX - 30, baseY - 20, 60, 20, 2);
+							p.fill(55, 65, 81);
+							p.rect(centerX - 40, baseY - 5, 80, 8);
+							
+							// Vertical Pole
+							p.fill(107, 114, 128);
+							p.rect(centerX - 5, yOffset + 70, 10, 30);
+							p.fill(156, 163, 175, 127);
+							p.rect(centerX - 3, yOffset + 70, 6, 300);
+							
+							// Solar Panel Support
+							p.fill(55, 65, 81);
+							p.rect(centerX - 10, yOffset + 90, 20, 4);
+							
+							// Solar Panel
+							p.push();
+							p.fill(31, 41, 55);
+							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+							
+							// Solar cell grid
+							p.stroke(55, 65, 81);
+							p.strokeWeight(1);
+							for (let i = 1; i < 4; i++) {
+								p.line(centerX - 40 + i * 20, yOffset + 50, centerX - 40 + i * 20, yOffset + 90);
+							}
+							for (let i = 1; i < 3; i++) {
+								p.line(centerX - 40, yOffset + 50 + i * 15, centerX + 40, yOffset + 50 + i * 15);
+							}
+							p.noStroke();
+							
+							// Solar shine effect
+							p.fill(59, 130, 246, 77);
+							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+							p.pop();
+							
+							// Horizontal Arm (telescopic)
+							p.fill(107, 114, 128);
+							p.rect(armStartX, armY, armLength, 8);
+							p.fill(156, 163, 175, 127);
+							p.rect(armStartX, armY + 2, armLength, 4);
+							
+							// Telescopic segments
+							p.fill(124, 124, 124);
+							p.rect(armStartX + 20, armY + 1, 100, 6);
+							p.fill(140, 140, 140);
+							p.rect(armStartX + 40, armY + 2, 80, 4);
+							
+							// Segment joints
+							p.fill(90, 90, 90);
+							for (let i = 1; i <= 3; i++) {
+								p.rect(armStartX + i * 20, armY, 2, 8);
+							}
+							
+							// Control Box
+							p.fill(31, 41, 55);
+							p.rect(centerX - 25, yOffset + 110, 50, 60, 3);
+							p.fill(17, 24, 39);
+							p.rect(centerX - 20, yOffset + 115, 40, 50, 2);
+							
+							// FLOODBOY text on control box (two lines)
+							p.push();
+							p.fill(255, 255, 255, 200);
+							p.textAlign(p.CENTER, p.CENTER);
+							p.textSize(9);
+							p.textStyle(p.BOLD);
+							const boxCenterX = centerX;
+							p.text('FLOOD', boxCenterX, yOffset + 145);
+							p.text('BOY', boxCenterX, yOffset + 157);
+							p.textStyle(p.NORMAL);
+							p.pop();
+							
+							// LED indicators
+							const time = p.millis() / 1000;
+							p.noStroke();
+							
+							// Status LEDs
+							if (isDead) {
+								p.fill(239, 68, 68, 204 + Math.sin(time * Math.PI * 2) * 51);
+								p.circle(centerX, yOffset + 125, 8);
+							} else if (isOnline) {
+								p.fill(16, 185, 129, 204 + Math.sin(time * Math.PI) * 51);
+								p.circle(centerX - 10, yOffset + 125, 4);
+								p.fill(59, 130, 246, 204 + Math.sin(time * Math.PI * 0.8) * 51);
+								p.circle(centerX, yOffset + 125, 4);
+							} else {
+								p.fill(245, 158, 11, 204 + Math.sin(time * Math.PI * 1.5) * 51);
+								p.circle(centerX, yOffset + 125, 6);
+							}
+							
+							// Sensor Cylinder
+							p.fill(55, 65, 81);
+							p.ellipse(sensorX, sensorY, 30, 50);
+							p.fill(31, 41, 55);
+							p.ellipse(sensorX, sensorY, 24, 44);
+							
+							// Sensor lens
+							p.fill(17, 24, 39);
+							p.circle(sensorX, sensorY + 11, 16);
+							p.fill(0, 0, 0, 204);
+							p.circle(sensorX, sensorY + 11, 12);
+							
+							// Advanced water visualization with animations
+							if (sensorMode === 'water' && showMeasurement) {
+								const waterArea = centerX + 50;
+								const sensorBottomY = sensorY + 25;
+								const groundY = baseY - 5;
+								const totalDistance = groundY - sensorBottomY;
+								const scaleFactor = totalDistance / installationHeight;
+								const waterY = groundY - (waterLevel * scaleFactor);
+								
+								if (waterLevel > 0) {
+									// Water surface
+									p.noStroke();
+									if (isDead) {
+										p.fill(239, 68, 68, 102);
+									} else if (isOnline) {
+										p.fill(59, 130, 246, 102);
+									} else {
+										p.fill(245, 158, 11, 102);
+									}
+									p.rect(waterArea, waterY, 150, groundY - waterY);
+									
+									// Animated water surface with waves
+									if (isDead) {
+										p.stroke(239, 68, 68);
+									} else if (isOnline) {
+										p.stroke(59, 130, 246);
+									} else {
+										p.stroke(245, 158, 11);
+									}
+									p.strokeWeight(2);
+									p.noFill();
+									p.beginShape();
+									for (let x = 0; x <= 150; x += 5) {
+										const waveY = waterY + Math.sin((x + time * 50) * 0.05) * 2;
+										p.vertex(waterArea + x, waveY);
+									}
+									p.endShape();
+									
+									// Animated ripples at measurement point
+									for (let i = 0; i < 3; i++) {
+										const rippleTime = (time * 1.5 + i * 0.8) % 3;
+										const rippleRadius = 5 + rippleTime * 20;
+										const rippleAlpha = Math.max(0, 1 - rippleTime / 3) * 77;
+										
+										if (rippleAlpha > 0) {
+											p.noFill();
+											if (isDead) {
+												p.stroke(239, 68, 68, rippleAlpha);
+											} else if (isOnline) {
+												p.stroke(59, 130, 246, rippleAlpha);
+											} else {
+												p.stroke(245, 158, 11, rippleAlpha);
+											}
+											p.strokeWeight(1.5 - rippleTime * 0.5);
+											p.ellipse(sensorX, waterY, rippleRadius * 2, rippleRadius * 0.5);
+										}
+									}
+								} else {
+									// Dry floor with texture
+									p.noStroke();
+									p.fill(139, 115, 85, 204);
+									p.rect(waterArea, baseY - 5, 150, 5);
+									
+									// Floor texture
+									p.fill(160, 130, 109, 127);
+									for (let x = 0; x < 150; x += 20) {
+										p.rect(waterArea + x, baseY - 5, 10, 5);
+									}
+									
+									// Impact waves on dry floor
+									for (let i = 0; i < 3; i++) {
+										const waveTime = (time * 2 + i * 0.7) % 3;
+										const waveRadius = 5 + waveTime * 15;
+										const waveAlpha = Math.max(0, 1 - waveTime / 3) * 102;
+										
+										if (waveAlpha > 0) {
+											p.noFill();
+											p.stroke(59, 130, 246, waveAlpha);
+											p.strokeWeight(2 - waveTime * 0.5);
+											p.circle(sensorX, baseY - 5, waveRadius * 2);
+										}
+									}
+								}
+								
+								// Measurement line
+								p.stroke(59, 130, 246, 153);
+								p.strokeWeight(1);
+								p.drawingContext.setLineDash([4, 4]);
+								p.line(sensorX, sensorY + 20, sensorX, waterLevel > 0 ? waterY : baseY - 5);
+								p.drawingContext.setLineDash([]);
+								
+								// Distance label with color coding
+								p.noStroke();
+								if (isDead) {
+									p.fill(239, 68, 68);
+								} else if (isOnline) {
+									p.fill(59, 130, 246);
+								} else {
+									p.fill(245, 158, 11);
+								}
+								p.textAlign(p.LEFT, p.CENTER);
+								const labelY = waterLevel > 0 ? waterY + 20 : baseY - 30;
+								p.text(waterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
+							}
+							
+							// Installation height indicator
+							if (installationHeight > 0) {
+								p.stroke(156, 163, 175, 100);
+								p.strokeWeight(1);
+								p.drawingContext.setLineDash([2, 2]);
+								p.line(sensorX, sensorY + 25, sensorX, baseY - 5);
+								p.drawingContext.setLineDash([]);
+								
+								// Small markers at top and bottom
+								p.line(sensorX - 5, sensorY + 25, sensorX + 5, sensorY + 25);
+								p.line(sensorX - 5, baseY - 5, sensorX + 5, baseY - 5);
+								
+								p.noStroke();
+								
+								// Background box for installation height
+								const textWidth = 40;
+								const boxX = sensorX + 20;
+								p.fill(255, 255, 255, 230);
+								p.rect(boxX, sensorY - 10, textWidth, 20, 3);
+								
+								// Installation height text
+								p.fill(75, 65, 81);
+								p.textAlign(p.CENTER, p.CENTER);
+								p.textSize(12);
+								p.text(`${installationHeight.toFixed(1)}m`, boxX + textWidth/2, sensorY);
+							}
+							
+							// Display current block number
+							if (propsRef.current.currentBlock) {
+								p.push();
+								p.fill(255, 255, 255, 200);
+								p.textAlign(p.LEFT, p.TOP);
+								p.textSize(10);
+								p.text(`Block: ${propsRef.current.currentBlock}`, 10, 10);
+								p.pop();
+							}
+							
+							p.noStroke();
+						};
+					};
+
+					if (sketchRef.current && !p5InstanceRef.current) {
+						p5InstanceRef.current = new p5(sketch, sketchRef.current);
+					}
+
+					return () => {
+						if (p5InstanceRef.current) {
+							p5InstanceRef.current.remove();
+							p5InstanceRef.current = null;
+						}
+					};
+				}, []);
+
+				return <div ref={sketchRef} id="p5-container" className="w-full flex justify-center"></div>;
+			};
+
+			// Main App Component
+			const App = () => {
+				const [walletClient, setWalletClient] = useState(null);
+				const [publicClient, setPublicClient] = useState(null);
+				const [account, setAccount] = useState(null);
+				const [chainId, setChainId] = useState(8899);
+				const [stores, setStores] = useState([]);
+				const [selectedStore, setSelectedStore] = useState(null);
+				const [storeData, setStoreData] = useState(null);
+				const [loading, setLoading] = useState(false);
+				const [error, setError] = useState(null);
+				const [currentBlock, setCurrentBlock] = useState(null);
+				const [viewMode, setViewMode] = useState('direct');
+				const [directStoreAddress, setDirectStoreAddress] = useState('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8');
+
+				// Initialize public client
+				useEffect(() => {
+					const chain = chainId === 31337 ? anvil : 
+								 chainId === 8899 ? jibchainL1 : 
+								 chainId === 700011 ? sichang : jibchainL1;
+
+					const client = createPublicClient({
+						chain,
+						transport: http()
+					});
+
+					setPublicClient(client);
+				}, [chainId]);
+
+				// Auto-load store data
+				useEffect(() => {
+					if (publicClient && directStoreAddress) {
+						loadStoreData(directStoreAddress);
+					}
+				}, [publicClient, directStoreAddress]);
+
+				// Block number monitoring
+				useEffect(() => {
+					if (!publicClient) return;
+
+					const updateBlockNumber = async () => {
+						try {
+							const block = await publicClient.getBlockNumber();
+							setCurrentBlock(Number(block));
+						} catch (err) {
+							console.error('Failed to get block number:', err);
+						}
+					};
+
+					updateBlockNumber();
+					const interval = setInterval(updateBlockNumber, chainId === 8899 ? 1000 : 5000);
+
+					return () => clearInterval(interval);
+				}, [publicClient, chainId]);
+
+				const loadStoreData = async (storeAddress) => {
+					if (!publicClient || !storeAddress) return;
+
+					setLoading(true);
+					setError(null);
+
+					try {
+						console.log('Loading store data for:', storeAddress);
+
+						// Get store fields
+						const fields = await publicClient.readContract({
+							address: storeAddress,
+							abi: STORE_ABI,
+							functionName: 'getAllFields'
+						});
+
+						// Get store owner
+						const owner = await publicClient.readContract({
+							address: storeAddress,
+							abi: STORE_ABI,
+							functionName: 'owner'
+						});
+
+						// Get latest records for authorized sensors
+						const eventAbi = parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0];
+						
+						const currentBlockBigInt = await publicClient.getBlockNumber();
+						const fromBlock = currentBlockBigInt > 10000n ? currentBlockBigInt - 10000n : 0n;
+
+						const events = await publicClient.getLogs({
+							address: storeAddress,
+							event: eventAbi,
+							fromBlock: fromBlock,
+							toBlock: currentBlockBigInt
+						});
+
+						// Process events to get sensor records
+						const sensorRecords = {};
+						
+						events.forEach(event => {
+							const decoded = decodeEventLog({
+								abi: [eventAbi],
+								data: event.data,
+								topics: event.topics
+							});
+
+							const sensor = decoded.args.sensor;
+							const timestamp = parseInt(decoded.args.timestamp);
+							const values = decoded.args.values.map(v => Number(v));
+
+							if (!sensorRecords[sensor] || sensorRecords[sensor].latestRecord.timestamp < timestamp) {
+								sensorRecords[sensor] = {
+									sensor,
+									totalRecords: (sensorRecords[sensor]?.totalRecords || 0) + 1,
+									latestRecord: { timestamp, values }
+								};
+							} else {
+								sensorRecords[sensor].totalRecords++;
+							}
+						});
+
+						setStoreData({
+							address: storeAddress,
+							nickname: `Flood Boy 001`,
+							fields: fields.map(f => ({ name: f.name, unit: f.unit, dtype: f.dtype })),
+							owner,
+							sensorRecords: Object.values(sensorRecords)
+						});
+
+						setSelectedStore({ address: storeAddress, nickname: 'Flood Boy 001' });
+
+					} catch (err) {
+						console.error('Failed to load store data:', err);
+						setError(err.message);
+					} finally {
+						setLoading(false);
+					}
+				};
+
+				return (
+					<div className="min-h-screen bg-gray-50">
+						{/* Block Indicator */}
+						{currentBlock && chainId === 8899 && (
+							<div className="fixed top-20 right-20 px-3 py-1 rounded-md text-sm z-40 flex items-center space-x-2 bg-white text-gray-800 border border-gray-200 shadow-sm">
+								<div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+								<span>Block: {currentBlock.toLocaleString()}</span>
+								<span className="text-xs text-gray-500">(8s)</span>
+							</div>
+						)}
+
+						<div className="container mx-auto px-4 py-8">
+							<h1 className="text-3xl font-bold mb-8 text-center text-purple-600">
+								IoT Factory Dashboard
+							</h1>
+							<p className="text-center text-lg mb-8 text-gray-600">
+								Real-time sensor data monitoring with blockchain verification
+							</p>
+
+							{/* View Mode Tabs */}
+							<div className="flex justify-center mb-8">
+								<div className="flex space-x-1 rounded-lg p-1 bg-gray-100">
+									{['public', 'direct', 'wallet'].map(mode => (
+										<button
+											key={mode}
+											onClick={() => setViewMode(mode)}
+											className={`px-4 py-2 rounded-md capitalize transition-colors ${
+												viewMode === mode
+													? 'bg-purple-600 text-white'
+													: 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+											}`}
+										>
+											{mode === 'public' && '🔍 '}
+											{mode === 'direct' && '🎯 '}
+											{mode === 'wallet' && '👛 '}
+											{mode}
+										</button>
+									))}
+								</div>
+							</div>
+
+							{/* Chain Selection */}
+							<div className="flex justify-center mb-8">
+								<select
+									value={chainId}
+									onChange={(e) => setChainId(parseInt(e.target.value))}
+									className="px-4 py-2 rounded-md border border-gray-300 bg-white text-gray-900"
+								>
+									<option value={8899}>JIBCHAIN L1 (JBC)</option>
+									<option value={700011}>SiChang (TCH)</option>
+									<option value={31337}>Anvil (ETH)</option>
+								</select>
+							</div>
+
+							{/* Direct Store Address Input */}
+							{viewMode === 'direct' && (
+								<div className="max-w-2xl mx-auto mb-8">
+									<div className="card rounded-lg p-6 border">
+										<h3 className="text-lg font-semibold mb-4 text-gray-900">
+											Direct Store Access
+										</h3>
+										<div className="flex space-x-2">
+											<input
+												type="text"
+												value={directStoreAddress}
+												onChange={(e) => setDirectStoreAddress(e.target.value)}
+												placeholder="Enter store address..."
+												className="input flex-1 px-4 py-2 rounded-md border"
+											/>
+											<button
+												onClick={() => loadStoreData(directStoreAddress)}
+												disabled={loading}
+												className="btn-primary px-6 py-2 rounded-md disabled:opacity-50 transition-colors"
+											>
+												{loading ? 'Loading...' : 'Load Store'}
+											</button>
+										</div>
+										
+										{/* Example stores */}
+										<div className="mt-4">
+											<p className="text-sm mb-2 text-gray-600">
+												Example stores on JIBCHAIN L1:
+											</p>
+											<div className="space-x-2">
+												<button
+													onClick={() => {
+														setDirectStoreAddress('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8');
+														loadStoreData('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8');
+													}}
+													className="btn-secondary text-sm px-3 py-1 rounded-md transition-colors text-purple-600"
+												>
+													Latest with metadata
+												</button>
+												<button
+													onClick={() => {
+														setDirectStoreAddress('0x3b83A7Ba23bf71946739E96200e947cc827918d9');
+														loadStoreData('0x3b83A7Ba23bf71946739E96200e947cc827918d9');
+													}}
+													className="btn-secondary text-sm px-3 py-1 rounded-md transition-colors text-purple-600"
+												>
+													Alternative store
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							)}
+
+							{/* Error Display */}
+							{error && (
+								<div className="max-w-2xl mx-auto mb-8">
+									<ErrorDisplay error={error} onRetry={() => setError(null)} />
+								</div>
+							)}
+
+							{/* Loading State */}
+							{loading && (
+								<div className="max-w-2xl mx-auto mb-8">
+									<LoadingSkeleton lines={3} />
+								</div>
+							)}
+
+							{/* Store Data Display */}
+							{storeData && !loading && (
+								<div className="max-w-6xl mx-auto">
+									{/* Store Header */}
+									<div className="card rounded-lg p-6 border mb-8">
+										<div className="flex items-center justify-between mb-4">
+											<div>
+												<h2 className="text-2xl font-bold mb-2 text-gray-900">
+													Sensor Live View
+												</h2>
+												<div className="flex items-center space-x-2">
+													<span className="px-3 py-1 bg-purple-600/20 text-purple-400 border border-purple-500 rounded-full text-xs font-medium">
+														{storeData.nickname}
+													</span>
+													<span className="px-3 py-1 bg-green-600/20 text-green-400 border border-green-500 rounded-full text-xs font-medium flex items-center">
+														<div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+														Live
+													</span>
+												</div>
+											</div>
+											{currentBlock && (
+												<div className="text-right">
+													<div className="text-sm text-gray-600">
+														Current Block:
+													</div>
+													<div className="text-lg font-mono text-green-400">
+														{currentBlock.toLocaleString()} (8s)
+													</div>
+												</div>
+											)}
+										</div>
+									</div>
+
+									<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+										{/* Visualization */}
+										<div className="space-y-6">
+											<div className="card rounded-lg p-6 border">
+												<FloodboyVisualization storeData={storeData} currentBlock={currentBlock} />
+											</div>
+										</div>
+
+										{/* Store Details */}
+										<div className="space-y-6">
+											<div className="card rounded-lg p-6 border">
+												<h3 className="text-lg font-semibold mb-4 text-gray-900">Store Details</h3>
+												<div className="space-y-2 text-sm">
+													<div className="flex justify-between">
+														<span className="text-gray-600">Address:</span>
+														<span className="font-mono text-gray-900">{formatAddress(storeData.address)}</span>
+													</div>
+													<div className="flex justify-between">
+														<span className="text-gray-600">Owner:</span>
+														<span className="font-mono text-gray-900">{formatAddress(storeData.owner)}</span>
+													</div>
+													<div className="flex justify-between">
+														<span className="text-gray-600">Sensors:</span>
+														<span className="text-gray-900">{storeData.sensorRecords.length}</span>
+													</div>
+													<div className="flex justify-between">
+														<span className="text-gray-600">Fields:</span>
+														<span className="text-gray-900">{storeData.fields.length}</span>
+													</div>
+												</div>
+
+												<div className="mt-4 pt-4 border-t border-gray-200">
+													<p className="text-xs text-gray-500 mb-2">View store information, data, and manage access</p>
+													<button className="btn-secondary w-full py-2 px-4 rounded-md text-sm transition-colors">
+														Store Details
+													</button>
+												</div>
+											</div>
+
+											{/* Latest Sensor Data */}
+											{storeData.sensorRecords.length > 0 && (
+												<div className="card rounded-lg p-6 border">
+													<h3 className="text-lg font-semibold mb-4 text-gray-900">Latest Sensor Data</h3>
+													{storeData.sensorRecords.map((record, i) => (
+														<div key={i} className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+															<div className="flex justify-between items-center mb-2">
+																<span className="font-mono text-sm text-blue-600">{formatAddress(record.sensor)}</span>
+																<span className="text-xs text-gray-500">
+																	{getTimeAgo(record.latestRecord.timestamp)}
+																</span>
+															</div>
+															<div className="grid grid-cols-2 gap-2 text-sm">
+																{record.latestRecord.values.map((value, j) => (
+																	<div key={j} className="flex justify-between">
+																		<span className="text-gray-600">
+																			{storeData.fields[j]?.name || `Field ${j}`}:
+																		</span>
+																		<span className="font-mono text-blue-600 font-medium">
+																			{formatValue(value, storeData.fields[j]?.unit || '')} {storeData.fields[j]?.unit?.split(' ')[0] || ''}
+																		</span>
+																	</div>
+																))}
+															</div>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									</div>
+								</div>
+							)}
+						</div>
+					</div>
+				);
+			};
+
+			// Render the app
+			ReactDOM.render(<App />, document.getElementById('blockchain-app'));
+		</script>
+	</body>
+</html>

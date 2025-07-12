@@ -1,0 +1,33 @@
+---
+// Header component for blockchain dashboard
+---
+
+<header class="mb-8">
+  <div class="flex items-center justify-between">
+    <h1 class="text-3xl font-bold text-purple-400 mb-2">
+      IoT Factory Dashboard
+    </h1>
+    
+    <!-- Block indicator and theme toggle will be rendered by React components -->
+    <div id="header-controls" class="flex items-center space-x-4">
+      <!-- React components will mount here -->
+    </div>
+  </div>
+  
+  <p class="text-gray-400 text-lg">
+    Real-time sensor data monitoring with blockchain verification
+  </p>
+</header>
+
+<style>
+  header {
+    position: relative;
+  }
+  
+  #header-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 50;
+  }
+</style>

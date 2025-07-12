@@ -1,0 +1,169 @@
+// Blockchain network configurations and contract constants
+export const CONTRACTS = {
+  31337: { // Anvil
+    DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    EXPLORER_URL: "http://localhost:8545",
+  },
+  700011: { // SiChang
+    DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000", // To be deployed
+    EXPLORER_URL: "https://sichang.thaichain.org",
+  },
+  8899: { // JIBCHAIN L1
+    DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+    EXPLORER_URL: "https://exp.jibchain.net",
+  },
+} as const;
+
+// Contract ABIs
+export const DEPLOYER_ABI = [
+  {
+    "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+    "name": "getUserStores",
+    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "name": "storeToNickname",
+    "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+    "name": "getStoreMetadata",
+    "outputs": [
+      {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+      {"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+      {"internalType": "string", "name": "description", "type": "string"},
+      {"internalType": "string", "name": "pointer", "type": "string"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "creator", "type": "address"},
+      {"indexed": false, "internalType": "address", "name": "store", "type": "address"},
+      {"indexed": false, "internalType": "string", "name": "nickname", "type": "string"}
+    ],
+    "name": "SensorStoreDeployed",
+    "type": "event"
+  }
+] as const;
+
+export const STORE_ABI = [
+  {
+    "inputs": [],
+    "name": "getAllFields",
+    "outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+    "name": "getLatestRecord",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+    "name": "isSensorAuthorized",
+    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"},
+      {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
+      {"indexed": false, "internalType": "int256[]", "name": "values", "type": "int256[]"}
+    ],
+    "name": "RecordStored",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"}
+    ],
+    "name": "SensorAuthorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"}
+    ],
+    "name": "SensorRevoked",
+    "type": "event"
+  }
+] as const;
+
+// Chain configurations
+export const jibchainL1 = {
+  id: 8899,
+  name: 'JIBCHAIN L1',
+  network: 'jibchain',
+  nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc-l1.jbc.xpool.pw'] },
+    public: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+  },
+  blockExplorers: {
+    default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+  }
+} as const;
+
+export const sichang = {
+  id: 700011,
+  name: 'SiChang',
+  network: 'sichang',
+  nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://sichang-rpc.thaichain.org'] },
+    public: { http: ['https://sichang-rpc.thaichain.org'] }
+  },
+  blockExplorers: {
+    default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
+  }
+} as const;
+
+export const anvil = {
+  id: 31337,
+  name: 'Anvil',
+  network: 'foundry',
+  nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+    public: { http: ['http://127.0.0.1:8545'] }
+  }
+} as const;
+
+// Supported chains list
+export const SUPPORTED_CHAINS = [jibchainL1, sichang, anvil] as const;
+
+// Example store addresses for different chains
+export const EXAMPLE_STORES = {
+  8899: [ // JIBCHAIN L1
+    "0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8",
+    "0x1234567890123456789012345678901234567890",
+  ],
+  31337: [ // Anvil
+    "0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8",
+  ],
+  700011: [ // SiChang
+    // Add example stores when deployed
+  ]
+} as const;
