@@ -4,6 +4,7 @@ import { createPublicClient, createWalletClient, custom, http, parseAbi, formatE
 import { mainnet, sepolia, anvil } from 'viem/chains';
 import FloodboyBlockchainVisualization from './FloodboyBlockchainVisualization';
 import P5Loader from './P5Loader';
+import SensorDataChart from './SensorDataChart';
 import {
   getCachedData,
   setCachedData,
@@ -191,6 +192,9 @@ const BlockchainDashboard: React.FC = () => {
   const [blockNumber, setBlockNumber] = useState<bigint | null>(null);
   const [blockTimer, setBlockTimer] = useState(0);
   const blockTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [chartViewMode, setChartViewMode] = useState<'data' | 'chart'>('data');
+  const [selectedField, setSelectedField] = useState(0);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
 
   // Apply theme to body
   useEffect(() => {
@@ -343,6 +347,20 @@ const BlockchainDashboard: React.FC = () => {
       );
 
       const recentSensorData = processEventLogs(recentEvents, EVENT_ABIS.RecordStored);
+      
+      // Collect all records for historical data
+      const allRecords: any[] = [];
+      recentSensorData.forEach(data => {
+        data.records.forEach((record: any) => {
+          allRecords.push({
+            timestamp: parseInt(record.timestamp) * 1000,
+            sensor: data.sensor,
+            values: record.values.map((v: string) => parseInt(v)),
+            block: record.blockNumber || '0'
+          });
+        });
+      });
+      setHistoricalData(allRecords);
       
       // Get latest record for each sensor
       const sensorRecords = Array.from(recentSensorData.values()).map(data => {
@@ -717,64 +735,106 @@ const BlockchainDashboard: React.FC = () => {
             <div className={`rounded-lg p-6 ${
               theme === 'dark' ? 'bg-gray-800' : 'bg-white shadow-md'
             }`}>
-              <h2 className="text-xl font-semibold mb-4">Latest Sensor Data</h2>
-              {storeData.sensorRecords.length > 0 && storeData.sensorRecords[0]?.latestRecord.timestamp !== '0' ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Last update: {getTimeAgo(storeData.sensorRecords[0].latestRecord.timestamp)}
-                    </p>
-                    <p className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
-                      Total records: {storeData.totalRecords}
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {storeData.fields.map((field: any, index: number) => {
-                      const value = storeData.sensorRecords[0].latestRecord.values[index];
-                      return (
-                        <div key={index} className={`flex justify-between p-2 rounded ${
-                          theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
-                        }`}>
-                          <span className="font-medium">{field.name}:</span>
-                          <span className="font-mono">
-                            {formatValue(value || '0', field.unit)} {field.unit.split(' ')[0]}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Sensor Data</h2>
+                <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+                  <button
+                    onClick={() => setChartViewMode('data')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      chartViewMode === 'data'
+                        ? 'bg-purple-600 text-white'
+                        : theme === 'dark'
+                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Latest Data
+                  </button>
+                  <button
+                    onClick={() => setChartViewMode('chart')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      chartViewMode === 'chart'
+                        ? 'bg-purple-600 text-white'
+                        : theme === 'dark'
+                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Chart View
+                  </button>
+                </div>
+              </div>
 
-                  {/* Store Metadata */}
-                  {(storeData.description || storeData.pointer) && (
-                    <div className={`mt-4 pt-4 border-t ${
-                      theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-                    }`}>
-                      <h3 className="font-semibold mb-2">Store Info</h3>
-                      {storeData.description && (
-                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {storeData.description}
-                        </p>
-                      )}
-                      {storeData.pointer && (
-                        <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {storeData.pointer}
-                        </p>
-                      )}
+              {chartViewMode === 'data' ? (
+                // Latest data view
+                storeData.sensorRecords.length > 0 && storeData.sensorRecords[0]?.latestRecord.timestamp !== '0' ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Last update: {getTimeAgo(storeData.sensorRecords[0].latestRecord.timestamp)}
+                      </p>
+                      <p className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>
+                        Total records: {storeData.totalRecords}
+                      </p>
                     </div>
-                  )}
-                </div>
+                    
+                    <div className="space-y-2">
+                      {storeData.fields.map((field: any, index: number) => {
+                        const value = storeData.sensorRecords[0].latestRecord.values[index];
+                        return (
+                          <div key={index} className={`flex justify-between p-2 rounded ${
+                            theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
+                          }`}>
+                            <span className="font-medium">{field.name}:</span>
+                            <span className="font-mono">
+                              {formatValue(value || '0', field.unit)} {field.unit.split(' ')[0]}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Store Metadata */}
+                    {(storeData.description || storeData.pointer) && (
+                      <div className={`mt-4 pt-4 border-t ${
+                        theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+                      }`}>
+                        <h3 className="font-semibold mb-2">Store Info</h3>
+                        {storeData.description && (
+                          <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {storeData.description}
+                          </p>
+                        )}
+                        {storeData.pointer && (
+                          <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {storeData.pointer}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                      No sensor data available
+                    </p>
+                    {loading.recentEvents && (
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
-                <div className="text-center py-8">
-                  <p className={`${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
-                    No sensor data available
-                  </p>
-                  {loading.recentEvents && (
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                    </div>
-                  )}
-                </div>
+                // Chart view
+                <SensorDataChart
+                  storeAddress={directStoreAddress}
+                  fields={storeData.fields}
+                  theme={theme}
+                  historicalData={historicalData}
+                  selectedField={selectedField}
+                  onFieldChange={setSelectedField}
+                />
               )}
             </div>
           </div>
