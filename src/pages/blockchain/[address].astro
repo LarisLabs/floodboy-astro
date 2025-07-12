@@ -441,34 +441,131 @@ const { address } = Astro.params;
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
 				const [isLoading, setIsLoading] = React.useState(true);
-				const [waterLevel, setWaterLevel] = React.useState(1.2);
+				const [waterLevel, setWaterLevel] = React.useState(0);
+				const [temperature, setTemperature] = React.useState(0);
 				const [isOnline, setIsOnline] = React.useState(true);
+				const [error, setError] = React.useState(null);
+				const [lastUpdated, setLastUpdated] = React.useState(null);
 
-				// Simulate loading store data
+				// Load real data from blockchain
 				React.useEffect(() => {
-					async function loadStoreData() {
+					async function loadRealStoreData() {
 						setIsLoading(true);
-						// Simulate API call
-						await new Promise(resolve => setTimeout(resolve, 1000));
-						setStoreData({
-							address: storeAddress,
-							name: "Floodboy Sensor Store",
-							owner: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
-							fields: [
-								{ name: "water_level", unit: "m", dtype: "float" },
-								{ name: "temperature", unit: "°C", dtype: "float" }
-							]
-						});
+						setError(null);
+						
+						try {
+							// Create public client for JIBCHAIN L1
+							const publicClient = window.viem.createPublicClient({
+								chain: window.chains.jibchainL1,
+								transport: window.viem.http()
+							});
+
+							console.log('Loading data for store:', storeAddress);
+
+							// Get store owner
+							const owner = await publicClient.readContract({
+								address: storeAddress,
+								abi: STORE_ABI,
+								functionName: 'owner'
+							});
+
+							// Get all fields to understand the store structure
+							const fields = await publicClient.readContract({
+								address: storeAddress,
+								abi: STORE_ABI,
+								functionName: 'getAllFields'
+							});
+
+							console.log('Store fields:', fields);
+
+							// Get latest record from the store owner (assuming owner is also a sensor)
+							const [timestamp, values] = await publicClient.readContract({
+								address: storeAddress,
+								abi: STORE_ABI,
+								functionName: 'getLatestRecord',
+								args: [owner]
+							});
+
+							console.log('Latest record:', { timestamp, values });
+
+							// Process the values based on field definitions
+							let processedData = {};
+							fields.forEach((field, index) => {
+								if (values[index] !== undefined) {
+									// Convert from scaled integer to float (assuming 2 decimal places)
+									const value = Number(values[index]) / 100;
+									processedData[field.name] = value;
+								}
+							});
+
+							console.log('Processed data:', processedData);
+
+							// Update state with real data
+							setStoreData({
+								address: storeAddress,
+								name: "Floodboy Sensor Store",
+								owner: owner,
+								fields: fields,
+								lastTimestamp: Number(timestamp)
+							});
+
+							// Set sensor values
+							if (processedData.water_level !== undefined) {
+								setWaterLevel(processedData.water_level);
+							}
+							if (processedData.temperature !== undefined) {
+								setTemperature(processedData.temperature);
+							}
+
+							setLastUpdated(new Date(Number(timestamp) * 1000));
+							setIsOnline(true);
+
+						} catch (err) {
+							console.error('Error loading store data:', err);
+							setError(err.message);
+							// Set fallback data
+							setStoreData({
+								address: storeAddress,
+								name: "Floodboy Sensor Store (Offline)",
+								owner: "Unable to load",
+								fields: [],
+								lastTimestamp: 0
+							});
+							setIsOnline(false);
+						}
+						
 						setIsLoading(false);
 					}
-					loadStoreData();
+
+					loadRealStoreData();
+					
+					// Set up polling for real-time updates every 30 seconds
+					const interval = setInterval(loadRealStoreData, 30000);
+					return () => clearInterval(interval);
 				}, []);
 
 				if (isLoading) {
 					return React.createElement('div', { className: 'container mx-auto p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
-							React.createElement('p', { className: 'text-gray-600' }, 'Loading store data...')
+							React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
+							React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress)
+						)
+					);
+				}
+
+				if (error) {
+					return React.createElement('div', { className: 'container mx-auto p-6' },
+						React.createElement('div', { className: 'text-center' },
+							React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
+								React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Connection Error'),
+								React.createElement('p', { className: 'text-red-600 mb-4' }, error),
+								React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
+								React.createElement('button', { 
+									className: 'mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition',
+									onClick: () => window.location.reload()
+								}, 'Retry')
+							)
 						)
 					);
 				}
@@ -513,8 +610,24 @@ const { address } = Astro.params;
 										React.createElement('span', { className: 'font-medium' }, '8899')
 									),
 									React.createElement('div', { className: 'flex justify-between' },
+										React.createElement('span', { className: 'text-gray-600' }, 'Owner:'),
+										React.createElement('span', { className: 'font-medium font-mono text-xs' }, 
+											storeData?.owner ? 
+												`${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 
+												'Loading...'
+										)
+									),
+									React.createElement('div', { className: 'flex justify-between' },
 										React.createElement('span', { className: 'text-gray-600' }, 'Status:'),
-										React.createElement('span', { className: 'font-medium text-green-600' }, 'Active')
+										React.createElement('span', { 
+											className: `font-medium ${isOnline ? 'text-green-600' : 'text-red-600'}` 
+										}, isOnline ? 'Online' : 'Offline')
+									),
+									React.createElement('div', { className: 'flex justify-between' },
+										React.createElement('span', { className: 'text-gray-600' }, 'Fields:'),
+										React.createElement('span', { className: 'font-medium' }, 
+											storeData?.fields ? storeData.fields.length : '0'
+										)
 									)
 								)
 							),
@@ -528,36 +641,43 @@ const { address } = Astro.params;
 									),
 									React.createElement('div', { className: 'bg-green-50 p-4 rounded-lg' },
 										React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
-										React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, '24.5 °C')
+										React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
+									),
+									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg' },
+										React.createElement('div', { className: 'text-xs text-gray-600' }, 'Last Updated'),
+										React.createElement('div', { className: 'text-sm font-medium text-gray-800' }, 
+											lastUpdated.toLocaleString()
+										)
 									)
 								)
 							),
 							
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
-								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Controls'),
+								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Data Source'),
 								React.createElement('div', { className: 'space-y-3' },
-									React.createElement('div', {},
-										React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
-											`Water Level: ${waterLevel.toFixed(2)}m`
-										),
-										React.createElement('input', {
-											type: 'range',
-											min: '0',
-											max: '2.5',
-											step: '0.1',
-											value: waterLevel,
-											onChange: (e) => setWaterLevel(parseFloat(e.target.value)),
-											className: 'w-full h-2 bg-gray-200 rounded-lg cursor-pointer'
-										})
+									React.createElement('div', { className: 'bg-yellow-50 p-4 rounded-lg border border-yellow-200' },
+										React.createElement('div', { className: 'text-sm text-yellow-800 font-medium mb-2' }, '📊 Live Blockchain Data'),
+										React.createElement('div', { className: 'text-xs text-yellow-700' }, 
+											'Data automatically refreshes every 30 seconds from the blockchain'
+										)
 									),
-									React.createElement('label', { className: 'flex items-center gap-2' },
-										React.createElement('input', {
-											type: 'checkbox',
-											checked: isOnline,
-											onChange: (e) => setIsOnline(e.target.checked),
-											className: 'rounded'
-										}),
-										React.createElement('span', { className: 'text-sm text-gray-700' }, 'Sensor Online')
+									React.createElement('div', { className: 'flex justify-between items-center' },
+										React.createElement('span', { className: 'text-sm text-gray-600' }, 'Auto Refresh:'),
+										React.createElement('span', { className: 'text-sm font-medium text-green-600' }, 'Enabled')
+									),
+									storeData?.fields && storeData.fields.length > 0 && React.createElement('div', {},
+										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 'Available Fields:'),
+										React.createElement('div', { className: 'space-y-1' },
+											storeData.fields.map((field, index) => 
+												React.createElement('div', { 
+													key: index, 
+													className: 'text-xs bg-gray-100 p-2 rounded flex justify-between' 
+												},
+													React.createElement('span', { className: 'font-mono' }, field.name),
+													React.createElement('span', { className: 'text-gray-500' }, `${field.dtype} (${field.unit})`)
+												)
+											)
+										)
 									)
 								)
 							)
