@@ -242,7 +242,7 @@ const { address } = Astro.params;
 				React.useEffect(() => {
 					const sketch = (p) => {
 						p.setup = () => {
-							const canvas = p.createCanvas(350, 420);
+							const canvas = p.createCanvas(320, 360);
 							canvas.parent(sketchRef.current);
 							p.frameRate(30);
 						};
@@ -478,7 +478,7 @@ const { address } = Astro.params;
 				return React.createElement('div', { 
 					ref: sketchRef, 
 					id: 'p5-container',
-					style: { width: '350px', height: '420px', margin: '0 auto' }
+					style: { width: '320px', height: '360px', margin: '0 auto' }
 				});
 			}
 
@@ -812,11 +812,11 @@ const { address } = Astro.params;
 						)
 					),
 					
-					React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-8' },
+					React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-3 gap-6' },
 						// Visualization Column
-						React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('h2', { className: 'text-xl font-semibold mb-4' }, 'Sensor Visualization'),
-							React.createElement('div', { className: 'flex justify-center mb-4' },
+						React.createElement('div', { className: 'card border rounded-lg p-4' },
+							React.createElement('h2', { className: 'text-xl font-semibold mb-3' }, 'Sensor Visualization'),
+							React.createElement('div', { className: 'flex justify-center' },
 								React.createElement(FloodboyVisualization, {
 									waterLevel: waterLevel,
 									airLevel: 2.5 - waterLevel,
@@ -827,13 +827,13 @@ const { address } = Astro.params;
 									isDead: false
 								})
 							),
-							React.createElement('div', { className: 'text-center text-sm text-gray-600' },
+							React.createElement('div', { className: 'text-center text-sm text-gray-600 mt-2' },
 								`Current Water Level: ${waterLevel.toFixed(2)}m`
 							)
 						),
 						
-						// Store Info Column
-						React.createElement('div', { className: 'space-y-6' },
+						// Store Info Column (spans 2 columns)
+						React.createElement('div', { className: 'lg:col-span-2 space-y-6' },
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
 								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Store Information'),
 								React.createElement('div', { className: 'space-y-3' },
