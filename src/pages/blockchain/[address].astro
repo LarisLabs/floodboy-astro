@@ -682,8 +682,24 @@ const { address } = Astro.params;
 
 				return React.createElement('div', { className: 'container mx-auto p-6' },
 					React.createElement('div', { className: 'mb-8' },
-						React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Floodboy Blockchain Store'),
-						React.createElement('p', { className: 'text-gray-600 font-mono text-sm' }, storeAddress)
+						React.createElement('div', { className: 'flex items-center justify-between' },
+							React.createElement('div', {},
+								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Public Sensor Store View'),
+								React.createElement('p', { className: 'text-gray-600' }, 'View sensor data stored on the blockchain'),
+								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress)
+							),
+							React.createElement('div', { className: 'flex gap-2' },
+								React.createElement('button', { 
+									className: 'px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition',
+									onClick: () => window.location.reload()
+								}, '🔄 Refresh'),
+								React.createElement('a', { 
+									href: `https://exp.jibchain.net/address/${storeAddress}`,
+									target: '_blank',
+									className: 'px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition'
+								}, '🔗 Explorer')
+							)
+						)
 					),
 					
 					React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-8' },
@@ -825,6 +841,166 @@ const { address } = Astro.params;
 										)
 									)
 								)
+							)
+						)
+					),
+
+					// Cat Lab inspired sections
+					React.createElement('div', { className: 'mt-8 space-y-6' },
+						// Store Information Section (Cat Lab style)
+						React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+								React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
+								React.createElement('a', { 
+									href: `https://exp.jibchain.net/address/${storeAddress}`,
+									target: '_blank',
+									className: 'text-blue-600 hover:text-blue-700 text-sm'
+								}, 'View on explorer ↗')
+							),
+							React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-6' },
+								React.createElement('div', { className: 'text-center' },
+									React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
+								),
+								React.createElement('div', { className: 'text-center' },
+									React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, authorizedSensors.length),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
+								),
+								React.createElement('div', { className: 'text-center' },
+									React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
+								),
+								React.createElement('div', { className: 'text-center' },
+									React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
+										storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
+								)
+							)
+						),
+
+						// Field Schema Section (Cat Lab style)
+						storeData?.fields && storeData.fields.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Field Schema'),
+							React.createElement('div', { className: 'space-y-3' },
+								storeData.fields.map((field, index) => 
+									React.createElement('div', { 
+										key: index, 
+										className: 'flex items-center justify-between p-3 bg-gray-50 rounded border-l-4 border-blue-500' 
+									},
+										React.createElement('div', { className: 'flex items-center gap-4' },
+											React.createElement('span', { className: 'font-bold text-gray-700' }, index),
+											React.createElement('span', { className: 'font-mono' }, field.name)
+										),
+										React.createElement('div', { className: 'flex gap-2' },
+											React.createElement('span', { 
+												className: 'px-2 py-1 bg-blue-600 text-white rounded text-xs font-mono' 
+											}, field.unit),
+											React.createElement('span', { 
+												className: 'px-2 py-1 bg-purple-600 text-white rounded text-xs' 
+											}, field.dtype)
+										)
+									)
+								)
+							)
+						),
+
+						// Authorized Sensors Section (Cat Lab style)
+						authorizedSensors.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Authorized Sensors'),
+							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Sensors that can submit data to this store'),
+							React.createElement('div', { className: 'overflow-x-auto' },
+								React.createElement('table', { className: 'w-full text-sm' },
+									React.createElement('thead', {},
+										React.createElement('tr', { className: 'border-b text-left' },
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor Address'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Status'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Submissions'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Last Submission')
+										)
+									),
+									React.createElement('tbody', {},
+										authorizedSensors.map((sensor, index) => {
+											const sensorRecordCount = sensorRecords.filter(r => r.sensor.toLowerCase() === sensor.toLowerCase()).length;
+											const lastRecord = sensorRecords.find(r => r.sensor.toLowerCase() === sensor.toLowerCase());
+											return React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+													`${sensor.slice(0, 6)}...${sensor.slice(-4)}`
+												),
+												React.createElement('td', { className: 'py-3' },
+													React.createElement('span', { 
+														className: 'inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800' 
+													}, '● Active')
+												),
+												React.createElement('td', { className: 'py-3 font-medium' }, sensorRecordCount),
+												React.createElement('td', { className: 'py-3 text-gray-600' }, 
+													lastRecord ? new Date(lastRecord.timestamp * 1000).toLocaleString() : '-'
+												)
+											);
+										})
+									)
+								)
+							)
+						),
+
+						// Data Records Section (Cat Lab style) 
+						React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+								React.createElement('div', {},
+									React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
+									React.createElement('p', { className: 'text-sm text-gray-600' }, 
+										`Latest ${Math.min(sensorRecords.length, 10)} records from all sensors`
+									)
+								),
+								React.createElement('div', { className: 'flex gap-2' },
+									React.createElement('button', { 
+										className: 'px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700'
+									}, '📊 Data Table'),
+									React.createElement('button', { 
+										className: 'px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700'
+									}, '📈 Charts'),
+									React.createElement('button', { 
+										className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700'
+									}, '💾 Export')
+								)
+							),
+							sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
+								React.createElement('table', { className: 'w-full text-sm' },
+									React.createElement('thead', {},
+										React.createElement('tr', { className: 'border-b text-left' },
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
+											...(storeData?.fields || []).map((field, index) => 
+												React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
+													`${field.name} (${field.unit})`
+												)
+											)
+										)
+									),
+									React.createElement('tbody', {},
+										sensorRecords.slice(0, 10).map((record, index) => 
+											React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+												React.createElement('td', { className: 'py-3 text-xs' }, 
+													new Date(record.timestamp * 1000).toLocaleString()
+												),
+												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+													`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+												),
+												React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
+												...(storeData?.fields || []).map((field, fieldIndex) => 
+													React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
+														record.values[fieldIndex] !== undefined ? 
+															formatScaledValue(record.values[fieldIndex], field.unit) : 
+															'-'
+													)
+												)
+											)
+										)
+									)
+								)
+							) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+								'No sensor data records found'
 							)
 						)
 					)
