@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BlockchainDashboard from '../components/BlockchainDashboard';
+---
+
+<BaseLayout title="IoT Factory - Smart Contract Dashboard">
+  <BlockchainDashboard client:only="react" />
+</BaseLayout>
+
+<style is:global>
+  body.dark {
+    background-color: #0f0f0f;
+    color: #ffffff;
+  }
+  body.light {
+    background-color: #f3f4f6;
+    color: #1f2937;
+  }
+  .loading-skeleton {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+</style>

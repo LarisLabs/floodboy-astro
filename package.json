@@ -26,7 +26,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwindcss": "^4.1.11",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "viem": "^2.31.7"
   },
   "devDependencies": {
     "wrangler": "4.21.x"
