@@ -874,7 +874,8 @@ const { address } = Astro.params;
 									storeData?.fields && storeData.fields.length > 0 ? (
 										storeData.fields.map((field, index) => {
 											let value = 0;
-											let unit = field.unit.replace(/x\d+/i, '').trim(); // Clean unit display
+											// Clean unit display - remove "x 1000", "x1000", " x 1000", etc.
+											let unit = field.unit.replace(/\s*x\s*\d+/gi, '').trim();
 											
 											// Get value from latest record
 											if (sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined) {
