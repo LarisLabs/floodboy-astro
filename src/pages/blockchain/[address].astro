@@ -1243,68 +1243,19 @@ const { address } = Astro.params;
 										)
 									) : null
 								)
-							),
-							
-							React.createElement('div', { className: 'card border rounded-lg p-6' },
-								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Recent Activity'),
-								React.createElement('div', { className: 'space-y-3' },
-									sensorRecords.length > 0 ? React.createElement('div', { className: 'space-y-2' },
-										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 
-											`Latest ${sensorRecords.length} Records:`
-										),
-										sensorRecords.slice(0, 5).map((record, index) => 
-											React.createElement('div', { 
-												key: index, 
-												className: 'text-xs bg-gray-50 p-3 rounded border-l-2 border-blue-400' 
-											},
-												React.createElement('div', { className: 'flex justify-between items-center' },
-													React.createElement('span', { className: 'font-mono text-gray-600' }, 
-														`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
-													),
-													React.createElement('span', { className: 'text-gray-500' }, 
-														new Date(record.timestamp * 1000).toLocaleTimeString()
-													)
-												),
-												React.createElement('div', { className: 'mt-1 text-gray-700' },
-													`Values: [${record.values.slice(0, 3).map(v => formatScaledValue(v, 'x100')).join(', ')}${record.values.length > 3 ? '...' : ''}]`
-												)
-											)
-										)
-									) : React.createElement('div', { className: 'text-gray-500 text-center py-4' },
-										'No recent records found'
-									),
-									
-									React.createElement('div', { className: 'bg-blue-50 p-3 rounded-lg border border-blue-200' },
-										React.createElement('div', { className: 'text-sm text-blue-800 font-medium mb-1' }, '🔗 Event-Based Loading'),
-										React.createElement('div', { className: 'text-xs text-blue-700' }, 
-											`Loaded from ${recentEvents.length} blockchain events • Auto-refresh: 30s`
-										)
-									),
-									
-									authorizedSensors.length > 0 && React.createElement('div', {},
-										React.createElement('div', { className: 'text-sm font-medium text-gray-700 mb-2' }, 'Authorized Sensors:'),
-										React.createElement('div', { className: 'space-y-1' },
-											authorizedSensors.slice(0, 3).map((sensor, index) => 
-												React.createElement('div', { 
-													key: index, 
-													className: 'text-xs bg-green-50 p-2 rounded font-mono text-green-800' 
-												}, `${sensor.slice(0, 6)}...${sensor.slice(-4)}`)
-											),
-											authorizedSensors.length > 3 && React.createElement('div', { 
-												className: 'text-xs text-gray-500 text-center' 
-											}, `+${authorizedSensors.length - 3} more`)
-										)
-									)
-								)
 							)
-						)
-					),
+						),
 
-					// Cat Lab inspired sections
-					React.createElement('div', { className: 'mt-8 space-y-6' },
+						// Cat Lab inspired sections
 						// Field Schema Section (Cat Lab style)
-						storeData?.fields && storeData.fields.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Field Schema'),
+						React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+								React.createElement('h3', { className: 'text-lg font-semibold' }, 'Field Schema'),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 
+									`${storeData.fields.length} Field${storeData.fields.length !== 1 ? 's' : ''}`
+								)
+							),
+							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Data structure and field definitions for this store'),
 							React.createElement('div', { className: 'space-y-3' },
 								storeData.fields.map((field, index) => 
 									React.createElement('div', { 
