@@ -17,12 +17,13 @@ const alias = import.meta.env.PROD ? {
 export default defineConfig({
   site: "https://example.com",
   integrations: [mdx(), sitemap(), react()],
-  adapter: cloudflare({
-    platformProxy: {
-      enabled: true,
-    },
-    imageService: 'compile',
-  }),
+  // Temporarily disabled due to dyld issue on macOS
+  // adapter: cloudflare({
+  //   platformProxy: {
+  //     enabled: true,
+  //   },
+  //   imageService: 'compile',
+  // }),
   vite: {
     plugins: [tailwindcss()],
     resolve: { alias },
