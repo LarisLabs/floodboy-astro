@@ -218,6 +218,126 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 				border-color: #667eea;
 				box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 			}
+			
+			/* Mobile Context Panel Styles */
+			.mobile-context-panel {
+				position: fixed;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				background: white;
+				border-top-left-radius: 24px;
+				border-top-right-radius: 24px;
+				box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+				transform: translateY(calc(100% - 60px));
+				transition: transform 0.3s ease;
+				z-index: 50;
+				max-height: 70vh;
+				display: none;
+			}
+			
+			@media (max-width: 768px) {
+				.mobile-context-panel {
+					display: block;
+				}
+			}
+			
+			.mobile-context-panel.expanded {
+				transform: translateY(0);
+			}
+			
+			.mobile-context-handle {
+				padding: 12px;
+				cursor: pointer;
+			}
+			
+			.mobile-context-handle-bar {
+				width: 40px;
+				height: 4px;
+				background: #d1d5db;
+				border-radius: 2px;
+				margin: 0 auto;
+			}
+			
+			.mobile-context-content {
+				padding: 0 20px 20px;
+				max-height: calc(70vh - 60px);
+				overflow-y: auto;
+			}
+			
+			.context-status-item {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 12px 0;
+				border-bottom: 1px solid #f3f4f6;
+			}
+			
+			.context-status-item:last-child {
+				border-bottom: none;
+			}
+			
+			.context-status-label {
+				font-size: 14px;
+				color: #6b7280;
+			}
+			
+			.context-status-value {
+				font-size: 14px;
+				font-weight: 500;
+				color: #1f2937;
+			}
+			
+			.context-status-badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 8px;
+				border-radius: 12px;
+				font-size: 12px;
+				font-weight: 600;
+			}
+			
+			.context-status-badge.connected {
+				background: rgba(16, 185, 129, 0.1);
+				color: #10b981;
+			}
+			
+			.context-status-badge.disconnected {
+				background: rgba(239, 68, 68, 0.1);
+				color: #ef4444;
+			}
+			
+			.context-status-badge.pending {
+				background: rgba(245, 158, 11, 0.1);
+				color: #f59e0b;
+			}
+			
+			.context-section {
+				margin-top: 20px;
+			}
+			
+			.context-section-title {
+				font-size: 16px;
+				font-weight: 600;
+				color: #1f2937;
+				margin-bottom: 12px;
+			}
+			
+			.mobile-overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.3);
+				z-index: 49;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.3s ease;
+			}
+			
+			.mobile-overlay.visible {
+				opacity: 1;
+				pointer-events: auto;
+			}
 		</style>
 	</head>
 	<body>
