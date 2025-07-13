@@ -54,6 +54,7 @@ The blockchain page connects to:
 - `nnn` - Smart planning: Auto-runs `ccc` if no recent context → Create task issue → Implement
 - `lll` - List comprehensive project status
 - `rrr` - Create detailed session retrospective with export
+- `/tmux` - Start development tmux session with 3-pane layout
 
 ## 🔴 Critical Safety Rules
 
@@ -93,40 +94,43 @@ The blockchain page connects to:
 
 ### Tmux Configuration
 
-#### 4-Pane Layout
+#### Quick Start Command: `/tmux`
+**When you see `/tmux` or user asks to start tmux session, execute this complete setup:**
+
+```bash
+# The /tmux command - Run this entire block as a single operation
+mkdir -p logs/tmux
+tmux kill-session -t dev 2>/dev/null || true
+tmux new-session -d -s dev -n main
+tmux split-window -t dev:0 -h -p 50
+tmux split-window -t dev:0.0 -v -p 50
+tmux send-keys -t dev:0.0 "pnpm dev" Enter
+tmux send-keys -t dev:0.2 "watch -n 2 'git status --short'" Enter
+tmux select-pane -t dev:0.1
+echo "✅ Tmux session 'dev' started with 3 panes"
+echo "📍 Pane 0: Dev server (pnpm dev)"
+echo "📍 Pane 1: General commands (selected)"
+echo "📍 Pane 2: Git status watch"
+echo "🔗 Attach with: tmux attach-session -t dev"
+```
+
+#### 3-Pane Layout
 ```
 ┌─────────────────┬─────────────────┐
-│ Pane 0: Dev     │ Pane 1: Build   │
-│ pnpm dev        │ pnpm build/test │
-├─────────────────┼─────────────────┤
-│ Pane 2: Git     │ Pane 3: General │
-│ watch git status│ general cmds    │
+│                 │                 │
+│   Pane 0: Dev   │ Pane 1: General │
+│   pnpm dev      │ Commands/Build  │
+│                 │                 │
+├─────────────────┤                 │
+│   Pane 2: Git   │                 │
+│ watch git status│                 │
 └─────────────────┴─────────────────┘
 ```
 
 #### Pane Purposes
 - **Pane 0 (0.0)**: Dev server - Always running `pnpm dev`
-- **Pane 1 (0.1)**: Build/Test operations - For `pnpm build`, `pnpm test`, `forge test`
+- **Pane 1 (0.1)**: General purpose - Build, test, and any other commands
 - **Pane 2 (0.2)**: Git monitoring - Shows file changes in real-time
-- **Pane 3 (0.3)**: General purpose - Any other commands, deployments, logs
-
-#### Setup Commands
-```bash
-# Ensure log directory exists
-mkdir -p logs/tmux
-
-# Kill any existing sessions
-tmux has-session -t dev 2>/dev/null && tmux kill-session -t dev
-
-# Create 4-pane layout
-tmux new-session -d -s dev -n main
-tmux split-window -t dev:0 -h -p 50    # Split horizontally
-tmux split-window -t dev:0.0 -v -p 50  # Split left pane vertically
-tmux split-window -t dev:0.1 -v -p 50  # Split right pane vertically
-
-# Attach to session
-tmux attach-session -t dev
-```
 
 #### Manual Testing Checklist
 Before pushing any changes:
