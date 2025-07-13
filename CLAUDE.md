@@ -1,6 +1,23 @@
 # Project Overview
 This is an Astro-based IoT flood monitoring system called Floodboy.
 
+## Context Repositories
+**⚠️ CRITICAL: The `01-context/` directory is EXCLUDED from git and must NEVER be committed!**
+
+The `01-context/` directory contains reference repositories for learning purposes only:
+
+1. **web3-iot-factory**
+   - Repository: https://github.com/nazt/web3-iot-factory.git
+   - Local path: `01-context/web3-iot-factory/`
+   - Description: Full Web3 IoT Factory implementation that this project is based on
+   - Clone: `gh repo clone nazt/web3-iot-factory 01-context/web3-iot-factory -- --depth=1`
+
+2. **floodboy-claude**
+   - Repository: https://github.com/nazt/floodboy-claude.git
+   - Local path: `01-context/floodboy-claude/`
+   - Description: Previous Floodboy implementation with MQTT and sensor monitoring
+   - Clone: `gh repo clone nazt/floodboy-claude 01-context/floodboy-claude -- --depth=1`
+
 ## MCP Puppeteer Usage
 When debugging blockchain connections or web3 issues:
 1. Use `mcp__puppeteer__puppeteer_navigate` to go to the page
@@ -96,7 +113,7 @@ The blockchain page connects to:
 #### Setup Commands
 ```bash
 # Ensure log directory exists
-mkdir -p /home/floodboy/web3-iot-factory/logs/tmux
+mkdir -p logs/tmux
 
 # Kill any existing sessions
 tmux has-session -t dev 2>/dev/null && tmux kill-session -t dev
@@ -197,7 +214,7 @@ tmux send-keys -t dev:0.0 C-c
 tmux send-keys -t dev:0.1 "pnpm build" Enter
 
 # 3. Check build output (wait for completion)
-sleep 5 && cat /home/floodboy/web3-iot-factory/logs/tmux/dev-pane-1.log | tail -30
+sleep 5 && cat logs/tmux/dev-pane-1.log | tail -30
 
 # 4. If successful, restart dev server in pane 0.0
 tmux send-keys -t dev:0.0 "pnpm dev" Enter
@@ -729,13 +746,13 @@ git checkout main
 #### Check Logs
 ```bash
 # All tmux panes
-ls -la /logs/tmux/dev-pane-*.log
+ls -la logs/tmux/dev-pane-*.log
 
 # Recent errors
-grep -n "error\|Error" /logs/tmux/*.log | tail -20
+grep -n "error\|Error" logs/tmux/*.log | tail -20
 
 # Specific pane
-tail -f /logs/tmux/dev-pane-0.log
+tail -f logs/tmux/dev-pane-0.log
 ```
 
 #### Contract Debugging
