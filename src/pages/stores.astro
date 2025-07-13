@@ -17,13 +17,6 @@ import '../styles/global.css';
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <style>
-      /* Gradient backgrounds for store cards */
-      .gradient-0 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-      .gradient-1 { background: linear-gradient(135deg, #764ba2 0%, #f093fb 100%); }
-      .gradient-2 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-      .gradient-3 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-      .gradient-4 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-      
       .store-card {
         transition: all 0.3s ease;
         cursor: pointer;
@@ -31,7 +24,6 @@ import '../styles/global.css';
       
       .store-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       }
       
       .skeleton {
@@ -260,10 +252,17 @@ import '../styles/global.css';
       
       // Store Card Component
       const StoreCard = ({ store, index }) => {
-        const gradientClass = `gradient-${index % 5}`;
+        const gradients = [
+          'bg-gradient-to-br from-purple-600 to-blue-600',
+          'bg-gradient-to-br from-blue-600 to-pink-600',
+          'bg-gradient-to-br from-cyan-600 to-teal-600',
+          'bg-gradient-to-br from-emerald-600 to-green-600',
+          'bg-gradient-to-br from-orange-600 to-amber-600'
+        ];
+        const gradientClass = gradients[index % 5];
         
         return (
-          <div className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-6 text-white`}>
+          <div className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-6 text-white shadow-lg`}>
             <div className="relative z-10">
               <h3 className="text-xl font-bold mb-2">
                 {store.nickname || 'Unnamed Store'}
