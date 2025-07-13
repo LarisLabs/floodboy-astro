@@ -1,0 +1,550 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={`IoT Stores | ${SITE_TITLE}`} description="Browse all deployed IoT sensor stores" />
+    
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+      /* Gradient backgrounds for store cards */
+      .gradient-0 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+      .gradient-1 { background: linear-gradient(135deg, #764ba2 0%, #f093fb 100%); }
+      .gradient-2 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+      .gradient-3 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+      .gradient-4 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+      
+      .store-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      
+      .store-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+      
+      .skeleton {
+        animation: shimmer 2s infinite;
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background-size: 200% 100%;
+      }
+      
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <div id="stores-app"></div>
+    </main>
+    <Footer />
+    
+    <script type="module">
+      import { createPublicClient, http, formatEther, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
+      
+      // Define constants inline
+      const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+      
+      const CONTRACTS = {
+        31337: { 
+          DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+          EXPLORER_URL: "http://localhost:8545",
+        },
+        700011: {
+          DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000",
+          EXPLORER_URL: "https://sichang.thaichain.org",
+        },
+        8899: {
+          DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+          EXPLORER_URL: "https://exp.jibchain.net",
+        },
+      };
+      
+      // Define ABIs
+      const DEPLOYER_ABI = [
+        {
+          "inputs": [
+            {"internalType": "uint256", "name": "start", "type": "uint256"},
+            {"internalType": "uint256", "name": "count", "type": "uint256"}
+          ],
+          "name": "getStoresReverse",
+          "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+          "name": "getStoreInfo",
+          "outputs": [
+            {"internalType": "string", "name": "nickname", "type": "string"},
+            {"internalType": "address", "name": "owner", "type": "address"},
+            {"internalType": "uint256", "name": "authorizedSensorCount", "type": "uint256"},
+            {"internalType": "bool", "name": "isEventOnly", "type": "bool"},
+            {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+            {"internalType": "string", "name": "description", "type": "string"}
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "getAllStoresCount",
+          "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ];
+      
+      const STORE_ABI = [
+        {
+          "inputs": [],
+          "name": "getAllFields",
+          "outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "authorizedSensorCount",
+          "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ];
+      
+      const MULTICALL3_ABI = [
+        {
+          inputs: [
+            {
+              components: [
+                { name: 'target', type: 'address' },
+                { name: 'allowFailure', type: 'bool' },
+                { name: 'callData', type: 'bytes' }
+              ],
+              name: 'calls',
+              type: 'tuple[]'
+            }
+          ],
+          name: 'aggregate3',
+          outputs: [
+            {
+              components: [
+                { name: 'success', type: 'bool' },
+                { name: 'returnData', type: 'bytes' }
+              ],
+              name: 'returnData',
+              type: 'tuple[]'
+            }
+          ],
+          stateMutability: 'payable',
+          type: 'function'
+        }
+      ];
+      
+      // Define chains
+      const jibchainL1 = {
+        id: 8899,
+        name: 'JIBCHAIN L1',
+        network: 'jibchain',
+        nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+        rpcUrls: {
+          default: { http: ['https://rpc-l1.jbc.xpool.pw'] },
+          public: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+        },
+        blockExplorers: {
+          default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+        }
+      };
+      
+      const sichang = {
+        id: 700011,
+        name: 'SiChang',
+        network: 'sichang',
+        nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
+        rpcUrls: {
+          default: { http: ['https://sichang-rpc.thaichain.org'] },
+          public: { http: ['https://sichang-rpc.thaichain.org'] }
+        },
+        blockExplorers: {
+          default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
+        }
+      };
+      
+      const anvil = {
+        id: 31337,
+        name: 'Anvil',
+        network: 'foundry',
+        nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
+        rpcUrls: {
+          default: { http: ['http://127.0.0.1:8545'] },
+          public: { http: ['http://127.0.0.1:8545'] }
+        }
+      };
+      
+      // Simple multicall function
+      async function simpleMulticall(publicClient, calls) {
+        const multicallData = calls.map(call => ({
+          target: call.target,
+          allowFailure: true,
+          callData: encodeFunctionData({
+            abi: call.abi,
+            functionName: call.functionName,
+            args: call.args || []
+          })
+        }));
+
+        const results = await publicClient.readContract({
+          address: MULTICALL3_ADDRESS,
+          abi: MULTICALL3_ABI,
+          functionName: 'aggregate3',
+          args: [multicallData]
+        });
+
+        return results.map((result, index) => {
+          if (!result.success) {
+            return { success: false, data: null };
+          }
+
+          try {
+            const decoded = decodeFunctionResult({
+              abi: calls[index].abi,
+              functionName: calls[index].functionName,
+              data: result.returnData
+            });
+            return { success: true, data: decoded };
+          } catch (error) {
+            return { success: false, data: null };
+          }
+        });
+      }
+      
+      // Make imports available globally
+      window.viem = { createPublicClient, http, formatEther };
+      window.constants = { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI };
+      window.chains = { jibchainL1, sichang, anvil };
+      window.simpleMulticall = simpleMulticall;
+    </script>
+    
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+      const { createPublicClient, http, formatEther } = window.viem;
+      const { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI } = window.constants;
+      const { jibchainL1, sichang, anvil } = window.chains;
+      const { simpleMulticall } = window;
+      
+      // Helper functions
+      const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+      
+      const getChainById = (chainId) => {
+        switch (chainId) {
+          case 8899: return jibchainL1;
+          case 700011: return sichang;
+          case 31337: return anvil;
+          default: return jibchainL1;
+        }
+      };
+      
+      // Store Card Component
+      const StoreCard = ({ store, index }) => {
+        const gradientClass = `gradient-${index % 5}`;
+        
+        return (
+          <div className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-6 text-white`}>
+            <div className="relative z-10">
+              <h3 className="text-xl font-bold mb-2">
+                {store.nickname || 'Unnamed Store'}
+              </h3>
+              
+              <p className="text-white/80 text-sm mb-4">
+                {store.description || 'No description available'}
+              </p>
+              
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-mono">{formatAddress(store.address)}</span>
+                <div className="flex gap-4">
+                  <span>{store.fieldCount || 0} fields</span>
+                  <span>{store.sensorCount || 0} sensors</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 flex gap-2">
+                <a 
+                  href={`/blockchain?chainId=${store.chainId}&storeAddress=${store.address}&viewMode=public`}
+                  className="bg-white/20 backdrop-blur px-3 py-1 rounded text-sm hover:bg-white/30"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View Data
+                </a>
+                <a 
+                  href={`${CONTRACTS[store.chainId].EXPLORER_URL}/address/${store.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white/20 backdrop-blur px-3 py-1 rounded text-sm hover:bg-white/30"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Explorer
+                </a>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      // Loading Skeleton
+      const LoadingSkeleton = () => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={i} className="rounded-xl bg-gray-200 p-6">
+              <div className="skeleton h-6 w-3/4 rounded mb-2"></div>
+              <div className="skeleton h-4 w-full rounded mb-4"></div>
+              <div className="skeleton h-4 w-1/2 rounded"></div>
+            </div>
+          ))}
+        </div>
+      );
+      
+      // Main App Component
+      const StoresApp = () => {
+        const [chainId, setChainId] = useState(8899);
+        const [stores, setStores] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+        const [totalStores, setTotalStores] = useState(0);
+        
+        // Fetch stores using multicall
+        const fetchStores = async () => {
+          setLoading(true);
+          setError(null);
+          
+          try {
+            const chain = getChainById(chainId);
+            const publicClient = createPublicClient({
+              chain,
+              transport: http()
+            });
+            
+            const factoryAddress = CONTRACTS[chainId].DEPLOYER_ADDRESS;
+            
+            // First, try to get total store count
+            let storeCount = 0;
+            try {
+              storeCount = await publicClient.readContract({
+                address: factoryAddress,
+                abi: DEPLOYER_ABI,
+                functionName: 'getAllStoresCount'
+              });
+              setTotalStores(Number(storeCount));
+            } catch (err) {
+              console.log('Could not fetch store count, using mock data');
+            }
+            
+            if (Number(storeCount) === 0) {
+              // For demo purposes, show mock data when no stores exist
+              if (chainId === 8899) {
+                const mockStores = [
+                  {
+                    address: "0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8",
+                    chainId,
+                    nickname: "Flood Boy 001",
+                    owner: "0x1234567890123456789012345678901234567890",
+                    description: "Water depth monitoring station in Chiang Mai. Real-time flood detection and alerts.",
+                    fieldCount: 4,
+                    sensorCount: 2
+                  },
+                  {
+                    address: "0x9876543210987654321098765432109876543210",
+                    chainId,
+                    nickname: "CAT-002",
+                    owner: "0x2345678901234567890123456789012345678901",
+                    description: "Water monitoring in Nong Yaeng San Sai. Tracks water levels and flow rates.",
+                    fieldCount: 3,
+                    sensorCount: 1
+                  },
+                  {
+                    address: "0x5432109876543210987654321098765432109876",
+                    chainId,
+                    nickname: "FloodMonitor-ChaoPhraya-01",
+                    owner: "0x3456789012345678901234567890123456789012",
+                    description: "Comprehensive flood monitoring system for Bangkok metropolitan area. Multi-sensor network.",
+                    fieldCount: 6,
+                    sensorCount: 5
+                  }
+                ];
+                setStores(mockStores);
+                setLoading(false);
+                return;
+              }
+              
+              setStores([]);
+              setLoading(false);
+              return;
+            }
+            
+            // Get the first 12 stores (newest first)
+            const storeAddresses = await publicClient.readContract({
+              address: factoryAddress,
+              abi: DEPLOYER_ABI,
+              functionName: 'getStoresReverse',
+              args: [0n, 12n]
+            });
+            
+            if (!storeAddresses || storeAddresses.length === 0) {
+              setStores([]);
+              setLoading(false);
+              return;
+            }
+            
+            // Prepare multicall for store info
+            const calls = [];
+            storeAddresses.forEach(address => {
+              // Get store info from factory
+              calls.push({
+                target: factoryAddress,
+                abi: DEPLOYER_ABI,
+                functionName: 'getStoreInfo',
+                args: [address]
+              });
+              
+              // Get fields from store
+              calls.push({
+                target: address,
+                abi: STORE_ABI,
+                functionName: 'getAllFields'
+              });
+              
+              // Get sensor count from store
+              calls.push({
+                target: address,
+                abi: STORE_ABI,
+                functionName: 'authorizedSensorCount'
+              });
+            });
+            
+            // Execute multicall
+            const results = await simpleMulticall(publicClient, calls);
+            
+            // Process results
+            const processedStores = [];
+            for (let i = 0; i < storeAddresses.length; i++) {
+              const infoResult = results[i * 3];
+              const fieldsResult = results[i * 3 + 1];
+              const sensorCountResult = results[i * 3 + 2];
+              
+              processedStores.push({
+                address: storeAddresses[i],
+                chainId,
+                nickname: infoResult.success ? infoResult.data[0] : 'Unknown',
+                owner: infoResult.success ? infoResult.data[1] : null,
+                description: infoResult.success ? infoResult.data[5] : '',
+                fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
+                sensorCount: sensorCountResult.success ? Number(sensorCountResult.data) : 0
+              });
+            }
+            
+            setStores(processedStores);
+          } catch (err) {
+            console.error('Error fetching stores:', err);
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        // Fetch stores on mount and chain change
+        useEffect(() => {
+          fetchStores();
+        }, [chainId]);
+        
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">IoT Sensor Stores</h1>
+              <p className="text-gray-600">Browse all deployed sensor data stores</p>
+            </div>
+            
+            {/* Controls */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <select
+                  value={chainId}
+                  onChange={(e) => setChainId(Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-4 py-2"
+                >
+                  <option value={8899}>JIBCHAIN L1</option>
+                  <option value={700011}>SiChang</option>
+                  <option value={31337}>Anvil Local</option>
+                </select>
+                
+                {totalStores > 0 && (
+                  <span className="text-gray-600">
+                    Showing {stores.length} of {totalStores} stores
+                  </span>
+                )}
+              </div>
+              
+              <button
+                onClick={fetchStores}
+                disabled={loading}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+            
+            {/* Error State */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+                Error: {error}
+              </div>
+            )}
+            
+            {/* Content */}
+            {loading ? (
+              <LoadingSkeleton />
+            ) : stores.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {stores.map((store, index) => (
+                  <StoreCard key={store.address} store={store} index={index} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-600 text-lg">No stores found on this network</p>
+                <p className="text-gray-500 mt-2">Deploy your first store to get started</p>
+              </div>
+            )}
+            
+            {/* Load More */}
+            {!loading && stores.length < totalStores && (
+              <div className="text-center mt-8">
+                <button className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300">
+                  Load More ({totalStores - stores.length} remaining)
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      };
+      
+      // Render the app
+      ReactDOM.render(<StoresApp />, document.getElementById('stores-app'));
+    </script>
+  </body>
+</html>

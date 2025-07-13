@@ -1,4 +1,8 @@
 // Blockchain network configurations and contract constants
+
+// Universal Multicall3 address (same on all chains)
+export const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
 export const CONTRACTS = {
   31337: { // Anvil
     DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
@@ -51,6 +55,37 @@ export const DEPLOYER_ABI = [
     ],
     "name": "SensorStoreDeployed",
     "type": "event"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "start", "type": "uint256"},
+      {"internalType": "uint256", "name": "count", "type": "uint256"}
+    ],
+    "name": "getStoresReverse",
+    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+    "name": "getStoreInfo",
+    "outputs": [
+      {"internalType": "string", "name": "nickname", "type": "string"},
+      {"internalType": "address", "name": "owner", "type": "address"},
+      {"internalType": "uint256", "name": "authorizedSensorCount", "type": "uint256"},
+      {"internalType": "bool", "name": "isEventOnly", "type": "bool"},
+      {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+      {"internalType": "string", "name": "description", "type": "string"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllStoresCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;
 
@@ -80,6 +115,13 @@ export const STORE_ABI = [
     "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
     "name": "isSensorAuthorized",
     "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "authorizedSensorCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
     "stateMutability": "view",
     "type": "function"
   },
