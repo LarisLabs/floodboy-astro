@@ -23,6 +23,9 @@ export default defineConfig({
     },
     imageService: 'compile',
   }),
+  redirects: {
+    '/': '/blockchain'
+  },
   vite: {
     plugins: [tailwindcss()],
     resolve: { alias },
