@@ -3,6 +3,7 @@ import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+import '../styles/global.css';
 ---
 
 <!doctype html>
@@ -14,9 +15,6 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
       /* Gradient backgrounds for store cards */
