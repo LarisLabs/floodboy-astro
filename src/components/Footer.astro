@@ -1,0 +1,53 @@
+---
+const today = new Date();
+---
+
+<footer>
+	<div class="footer-content">
+		<img src="/Cat-Lab.png" alt="Floodboy Logo" />
+		<span class="brand">Floodboy IoT</span>
+		<span class="separator">|</span>
+		<span class="tagline">Real-time flood monitoring for smart cities</span>
+	</div>
+</footer>
+<style>
+	footer {
+		padding: 2rem 0;
+		background-color: #f9fafb;
+		margin-top: auto;
+	}
+	
+	.footer-content {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		color: #4b5563;
+	}
+	
+	.footer-content img {
+		height: 2rem;
+		width: auto;
+	}
+	
+	.brand {
+		font-weight: 600;
+	}
+	
+	.separator {
+		color: #d1d5db;
+	}
+	
+	.tagline {
+		font-size: 0.875rem;
+	}
+	
+	@media (max-width: 640px) {
+		.tagline {
+			display: none;
+		}
+		.separator {
+			display: none;
+		}
+	}
+</style>

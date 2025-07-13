@@ -1,0 +1,76 @@
+---
+import HeaderLink from './HeaderLink.astro';
+const currentPath = Astro.url.pathname;
+---
+
+<header>
+	<nav>
+		<a href="/" class="logo">
+			<img src="/Cat-Lab.png" alt="Floodboy" />
+			<span>Floodboy IoT</span>
+		</a>
+		<div class="internal-links">
+			<HeaderLink href="/">Dashboard</HeaderLink>
+			<HeaderLink href="/sensors">Sensors</HeaderLink>
+			<HeaderLink href="/analytics">Analytics</HeaderLink>
+			<HeaderLink href="/blockchain">Blockchain</HeaderLink>
+			<HeaderLink href="/demo">Demo</HeaderLink>
+			<HeaderLink href="/blog">Blog</HeaderLink>
+			<HeaderLink href="/about">About</HeaderLink>
+		</div>
+	</nav>
+</header>
+<style>
+	header {
+		margin: 0;
+		padding: 0 1em;
+		background: white;
+		box-shadow: 0 2px 8px rgba(var(--black), 5%);
+		border-bottom: 1px solid #e5e7eb;
+	}
+	
+	nav {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		height: 4rem;
+		max-width: 80rem;
+		margin: 0 auto;
+	}
+	
+	.logo {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		text-decoration: none;
+		color: var(--black);
+		font-weight: 600;
+		font-size: 1.25rem;
+		transition: opacity 0.2s;
+	}
+	
+	.logo:hover {
+		opacity: 0.8;
+	}
+	
+	.logo img {
+		height: 2rem;
+		width: auto;
+	}
+	
+	.internal-links {
+		display: flex;
+		gap: 2rem;
+	}
+	
+	nav a {
+		color: var(--black);
+		text-decoration: none;
+	}
+	
+	@media (max-width: 640px) {
+		.internal-links {
+			display: none;
+		}
+	}
+</style>

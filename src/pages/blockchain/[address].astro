@@ -1,0 +1,1348 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
+
+// Enable server-side rendering for dynamic routes
+export const prerender = false;
+
+// Get the address parameter from the URL
+const { address } = Astro.params;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<BaseHead title={`Blockchain Store ${address} | ${SITE_TITLE}`} description={SITE_DESCRIPTION} />
+		
+		<!-- React and Babel for JSX -->
+		<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+		<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+		<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+		
+		<!-- p5.js for visualization -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+		
+		<!-- Chart.js -->
+		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+		
+		<!-- Tailwind CSS -->
+		<script src="https://cdn.tailwindcss.com"></script>
+		
+		<style>
+			body {
+				margin: 0;
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				background-color: #f9fafb;
+				color: #111827;
+			}
+			
+			/* P5 Container Styling for light theme */
+			#p5-container {
+				border-radius: 12px;
+				overflow: hidden;
+				transition: all 0.3s ease;
+				border: 2px solid #d1d5db;
+				background: rgba(255, 255, 255, 0.95);
+				box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+			}
+			
+			/* Card Styling for light theme */
+			.card {
+				background-color: #ffffff;
+				border-color: #e5e7eb;
+				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+			}
+			
+			/* Button Styling */
+			.btn-primary {
+				background-color: #7c3aed;
+				color: white;
+			}
+			.btn-primary:hover {
+				background-color: #6d28d9;
+			}
+			.btn-secondary {
+				background-color: #f3f4f6;
+				color: #374151;
+			}
+			.btn-secondary:hover {
+				background-color: #e5e7eb;
+			}
+			
+			/* Input Styling for light theme */
+			.input {
+				background-color: #f9fafb;
+				border-color: #d1d5db;
+				color: #111827;
+			}
+			.input::placeholder {
+				color: #6b7280;
+			}
+			
+			.loading-skeleton {
+				animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+				background-color: #e5e7eb;
+			}
+			@keyframes pulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: .5; }
+			}
+		</style>
+	</head>
+	<body class="light">
+		<Header />
+		<main>
+			<div id="blockchain-app"></div>
+		</main>
+		<Footer />
+
+		<script type="module">
+			// Import viem modules
+			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
+			
+			// Custom chain configurations
+			const jibchainL1 = {
+				id: 8899,
+				name: 'JIBCHAIN L1',
+				network: 'jibchain',
+				nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+				rpcUrls: {
+					default: { http: ['https://rpc-l1.jbc.xpool.pw'] },
+					public: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+				},
+				blockExplorers: {
+					default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+				}
+			};
+			
+			const sichang = {
+				id: 700011,
+				name: 'SiChang',
+				network: 'sichang',
+				nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
+				rpcUrls: {
+					default: { http: ['https://sichang-rpc.thaichain.org'] },
+					public: { http: ['https://sichang-rpc.thaichain.org'] }
+				},
+				blockExplorers: {
+					default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
+				}
+			};
+			
+			// Make viem and chains available globally
+			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
+			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
+
+			// Get the address from the URL path
+			const urlParts = window.location.pathname.split('/');
+			const storeAddress = urlParts[urlParts.length - 1]; // Get the address parameter
+
+			// Contract ABIs and configurations
+			const CONTRACTS = {
+				31337: {
+					DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+					EXPLORER_URL: "http://localhost:8545",
+				},
+				700011: {
+					DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000",
+					EXPLORER_URL: "https://sichang.thaichain.org",
+				},
+				8899: {
+					DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+					EXPLORER_URL: "https://exp.jibchain.net",
+				},
+			};
+
+			const STORE_ABI = [
+				{
+					"inputs": [],
+					"name": "getAllFields",
+					"outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+					"name": "getLatestRecord",
+					"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [],
+					"name": "owner",
+					"outputs": [{"internalType": "address", "name": "", "type": "address"}],
+					"stateMutability": "view",
+					"type": "function"
+				},
+				{
+					"inputs": [],
+					"name": "getAuthorizedSensors",
+					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+					"stateMutability": "view",
+					"type": "function"
+				}
+			];
+
+			// Event definitions for reading blockchain events
+			const RECORD_STORED_EVENT = {
+				type: 'event',
+				name: 'RecordStored',
+				inputs: [
+					{ name: 'sensor', type: 'address', indexed: true },
+					{ name: 'timestamp', type: 'uint256', indexed: false },
+					{ name: 'values', type: 'int256[]', indexed: false }
+				]
+			};
+
+			// Utility functions adapted from web3-iot-factory
+			function parseScalingFactor(unit) {
+				const match = unit.match(/x\s*(\d+)/i);
+				return match ? parseInt(match[1]) : 100; // Default to 100 if no scaling found
+			}
+
+			function formatScaledValue(value, unit) {
+				const scaleFactor = parseScalingFactor(unit);
+				const numValue = Number(value);
+				const decimalValue = numValue / scaleFactor;
+				const decimalPlaces = Math.log10(scaleFactor);
+				return decimalValue.toFixed(Math.max(0, decimalPlaces));
+			}
+
+			// Process event logs
+			function processRecordLogs(logs) {
+				return logs
+					.filter(log => log.args && log.args.sensor && log.args.timestamp && log.args.values)
+					.map(log => ({
+						sensor: log.args.sensor,
+						timestamp: Number(log.args.timestamp),
+						values: log.args.values.map(v => Number(v)),
+						blockNumber: log.blockNumber,
+						transactionHash: log.transactionHash
+					}))
+					.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
+			}
+
+			// FloodboyVisualization React Component (inline)
+			function FloodboyVisualization({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead }) {
+				const sketchRef = React.useRef(null);
+				const p5InstanceRef = React.useRef(null);
+				const propsRef = React.useRef({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead });
+
+				// Update props ref
+				React.useEffect(() => {
+					propsRef.current = { waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead };
+				}, [waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead]);
+
+				React.useEffect(() => {
+					const sketch = (p) => {
+						p.setup = () => {
+							const canvas = p.createCanvas(350, 420);
+							canvas.parent(sketchRef.current);
+							p.frameRate(30);
+						};
+
+						p.draw = () => {
+							p.clear();
+							p.background(255, 255, 255, 0);
+							
+							const { 
+								waterLevel: currentWaterLevel, 
+								airLevel: currentAirLevel, 
+								sensorMode: currentSensorMode, 
+								installationHeight: currentInstallationHeight, 
+								showMeasurement: currentShowMeasurement, 
+								isOnline, 
+								isDead 
+							} = propsRef.current;
+							
+							const centerX = 150;
+							const baseY = 380;
+							const yOffset = -10;
+							const armY = yOffset + 136;
+							const armStartX = centerX + 5;
+							const armLength = 120;
+							const sensorX = armStartX + armLength + 10;
+							const sensorY = armY + 4;
+							
+							// Base/Foundation
+							p.fill(75, 85, 99);
+							p.rect(centerX - 30, baseY - 20, 60, 20, 2);
+							p.fill(55, 65, 81);
+							p.rect(centerX - 40, baseY - 5, 80, 8);
+							
+							// Vertical Pole
+							p.fill(107, 114, 128);
+							p.rect(centerX - 5, yOffset + 70, 10, 30);
+							p.fill(156, 163, 175, 127);
+							p.rect(centerX - 3, yOffset + 70, 6, 300);
+							
+							// Solar Panel Support
+							p.fill(55, 65, 81);
+							p.rect(centerX - 10, yOffset + 90, 20, 4);
+							
+							// Solar Panel
+							p.push();
+							p.fill(31, 41, 55);
+							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+							
+							// Solar cell grid
+							p.stroke(55, 65, 81);
+							p.strokeWeight(1);
+							for (let i = 1; i < 4; i++) {
+								p.line(centerX - 40 + i * 20, yOffset + 50, centerX - 40 + i * 20, yOffset + 90);
+							}
+							for (let i = 1; i < 3; i++) {
+								p.line(centerX - 40, yOffset + 50 + i * 15, centerX + 40, yOffset + 50 + i * 15);
+							}
+							p.noStroke();
+							
+							// Solar shine effect
+							p.fill(59, 130, 246, 77);
+							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+							p.pop();
+							
+							// Horizontal Arm (telescopic)
+							p.fill(107, 114, 128);
+							p.rect(armStartX, armY, armLength, 8);
+							p.fill(156, 163, 175, 127);
+							p.rect(armStartX, armY + 2, armLength, 4);
+							
+							// Telescopic segments
+							p.fill(124, 124, 124);
+							p.rect(armStartX + 20, armY + 1, 100, 6);
+							p.fill(140, 140, 140);
+							p.rect(armStartX + 40, armY + 2, 80, 4);
+							
+							// Segment joints
+							p.fill(90, 90, 90);
+							for (let i = 1; i <= 3; i++) {
+								p.rect(armStartX + i * 20, armY, 2, 8);
+							}
+							
+							// Control Box
+							p.fill(31, 41, 55);
+							p.rect(centerX - 25, yOffset + 110, 50, 60, 3);
+							p.fill(17, 24, 39);
+							p.rect(centerX - 20, yOffset + 115, 40, 50, 2);
+							
+							// FLOODBOY text on control box
+							p.push();
+							p.fill(255, 255, 255, 200);
+							p.textAlign(p.CENTER, p.CENTER);
+							p.textSize(9);
+							p.textStyle(p.BOLD);
+							const boxCenterX = centerX;
+							p.text('FLOOD', boxCenterX, yOffset + 145);
+							p.text('BOY', boxCenterX, yOffset + 157);
+							p.textStyle(p.NORMAL);
+							p.pop();
+							
+							// LED indicators
+							const time = p.millis() / 1000;
+							p.noStroke();
+							
+							// Status LEDs
+							if (isDead) {
+								p.fill(239, 68, 68, 204 + Math.sin(time * Math.PI * 2) * 51);
+								p.circle(centerX, yOffset + 125, 8);
+							} else if (isOnline) {
+								p.fill(16, 185, 129, 204 + Math.sin(time * Math.PI) * 51);
+								p.circle(centerX - 10, yOffset + 125, 4);
+								p.fill(59, 130, 246, 204 + Math.sin(time * Math.PI * 0.8) * 51);
+								p.circle(centerX, yOffset + 125, 4);
+							} else {
+								p.fill(245, 158, 11, 204 + Math.sin(time * Math.PI * 1.5) * 51);
+								p.circle(centerX, yOffset + 125, 6);
+							}
+							
+							// Sensor Cylinder
+							p.fill(55, 65, 81);
+							p.ellipse(sensorX, sensorY, 30, 50);
+							p.fill(31, 41, 55);
+							p.ellipse(sensorX, sensorY, 24, 44);
+							
+							// Sensor lens
+							p.fill(17, 24, 39);
+							p.circle(sensorX, sensorY + 11, 16);
+							p.fill(0, 0, 0, 204);
+							p.circle(sensorX, sensorY + 11, 12);
+							
+							// Measurement visualization
+							if (currentSensorMode === 'air' && currentShowMeasurement) {
+								// Air measurement visualization
+								const pulsePhase = (time * 2) % 4;
+								const measurementDistance = baseY - 5 - (sensorY + 20);
+								
+								// Animated measurement pulse
+								for (let i = 0; i < 3; i++) {
+									const offset = i * 1.2;
+									const alpha = Math.max(0, 1 - (pulsePhase + offset) / 4) * 153;
+									
+									if (alpha > 0) {
+										p.stroke(59, 130, 246, alpha);
+										p.strokeWeight(2 - i * 0.5);
+										
+										const pulseProgress = ((pulsePhase + offset) % 4) / 4;
+										const startY = sensorY + 20;
+										const endY = startY + measurementDistance * Math.min(pulseProgress * 1.2, 1);
+										
+										p.drawingContext.setLineDash([6, 6]);
+										p.line(sensorX, startY, sensorX, endY);
+										p.drawingContext.setLineDash([]);
+									}
+								}
+								
+								// Distance label
+								p.noStroke();
+								p.fill(255, 255, 255, 230);
+								p.rect(sensorX + 10, armY + 100, 55, 24, 3);
+								p.fill(239, 68, 68);
+								p.textAlign(p.CENTER, p.CENTER);
+								p.textSize(16);
+								p.text(currentAirLevel.toFixed(2) + 'm', sensorX + 37.5, armY + 112);
+								
+							} else if (currentSensorMode === 'water' && currentShowMeasurement) {
+								// Water mode
+								const waterArea = centerX + 50;
+								// Calculate water Y position - when water level = installation height, water should reach sensor
+								// The sensor is at sensorY + 25 (bottom of sensor)
+								// Scale factor = distance from base to sensor bottom / installation height
+								const sensorBottomY = sensorY + 25;
+								const groundY = baseY - 5;
+								const totalDistance = groundY - sensorBottomY;
+								const scaleFactor = totalDistance / currentInstallationHeight;
+								const waterY = groundY - (currentWaterLevel * scaleFactor);
+								
+								if (currentWaterLevel > 0) {
+									// Water surface
+									p.noStroke();
+									if (isDead) {
+										p.fill(239, 68, 68, 102);
+									} else if (isOnline) {
+										p.fill(59, 130, 246, 102);
+									} else {
+										p.fill(245, 158, 11, 102);
+									}
+									p.rect(waterArea, waterY, 150, groundY - waterY);
+									
+									// Water surface line with wave animation
+									if (isDead) {
+										p.stroke(239, 68, 68);
+									} else if (isOnline) {
+										p.stroke(59, 130, 246);
+									} else {
+										p.stroke(245, 158, 11);
+									}
+									p.strokeWeight(2);
+									p.noFill();
+									p.beginShape();
+									for (let x = 0; x <= 150; x += 5) {
+										const waveY = waterY + Math.sin((x + time * 50) * 0.05) * 2;
+										p.vertex(waterArea + x, waveY);
+									}
+									p.endShape();
+									
+									// Animated ripples
+									for (let i = 0; i < 3; i++) {
+										const rippleTime = (time * 1.5 + i * 0.8) % 3;
+										const rippleRadius = 5 + rippleTime * 20;
+										const rippleAlpha = Math.max(0, 1 - rippleTime / 3) * 77;
+										
+										if (rippleAlpha > 0) {
+											p.noFill();
+											if (isDead) {
+												p.stroke(239, 68, 68, rippleAlpha);
+											} else if (isOnline) {
+												p.stroke(59, 130, 246, rippleAlpha);
+											} else {
+												p.stroke(245, 158, 11, rippleAlpha);
+											}
+											p.strokeWeight(1.5 - rippleTime * 0.5);
+											p.ellipse(sensorX, waterY, rippleRadius * 2, rippleRadius * 0.5);
+										}
+									}
+								} else {
+									// Dry floor
+									p.noStroke();
+									p.fill(139, 115, 85, 204);
+									p.rect(waterArea, baseY - 5, 150, 5);
+									
+									// Floor texture
+									p.fill(160, 130, 109, 127);
+									for (let x = 0; x < 150; x += 20) {
+										p.rect(waterArea + x, baseY - 5, 10, 5);
+									}
+									
+									// Impact waves on dry floor
+									for (let i = 0; i < 3; i++) {
+										const waveTime = (time * 2 + i * 0.7) % 3;
+										const waveRadius = 5 + waveTime * 15;
+										const waveAlpha = Math.max(0, 1 - waveTime / 3) * 102;
+										
+										if (waveAlpha > 0) {
+											p.noFill();
+											p.stroke(59, 130, 246, waveAlpha);
+											p.strokeWeight(2 - waveTime * 0.5);
+											p.circle(sensorX, baseY - 5, waveRadius * 2);
+										}
+									}
+								}
+								
+								// Measurement line
+								p.stroke(59, 130, 246, 153);
+								p.strokeWeight(1);
+								p.drawingContext.setLineDash([4, 4]);
+								p.line(sensorX, sensorY + 20, sensorX, currentWaterLevel > 0 ? waterY : baseY - 5);
+								p.drawingContext.setLineDash([]);
+								
+								// Distance label
+								p.noStroke();
+								if (isDead) {
+									p.fill(239, 68, 68);
+								} else if (isOnline) {
+									p.fill(59, 130, 246);
+								} else {
+									p.fill(245, 158, 11);
+								}
+								p.textAlign(p.LEFT, p.CENTER);
+								const labelY = currentWaterLevel > 0 ? waterY + 20 : baseY - 30;
+								p.text(currentWaterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
+							}
+							
+							// Display installation height and constraint indicators
+							if (currentInstallationHeight > 0) {
+								// Draw a subtle line showing installation height - directly under the sensor
+								p.stroke(156, 163, 175, 100); // Light gray
+								p.strokeWeight(1);
+								p.drawingContext.setLineDash([2, 2]);
+								p.line(sensorX, sensorY + 25, sensorX, baseY - 5);
+								p.drawingContext.setLineDash([]);
+								
+								// Small markers at top and bottom
+								p.line(sensorX - 5, sensorY + 25, sensorX + 5, sensorY + 25);
+								p.line(sensorX - 5, baseY - 5, sensorX + 5, baseY - 5);
+								
+								// Draw max water level indicator line (installation height from base)
+								// Only show when water level is at or very close to max
+								if (currentSensorMode === 'water' && Math.abs(currentWaterLevel - currentInstallationHeight) < 0.01) {
+									const waterArea = centerX + 50; // Define waterArea here
+									// Use same calculation as water rendering to get the actual water Y position
+									const sensorBottomY = sensorY + 25;
+									const groundY = baseY - 5;
+									const totalDistance = groundY - sensorBottomY;
+									const scaleFactor = totalDistance / currentInstallationHeight;
+									const waterY = groundY - (currentWaterLevel * scaleFactor);
+									
+									// Draw MAX indicator at the water surface
+									p.stroke(239, 68, 68, 80); // Red line for max water level
+									p.strokeWeight(2);
+									p.drawingContext.setLineDash([5, 5]);
+									p.line(waterArea - 10, waterY, waterArea + 160, waterY);
+									p.drawingContext.setLineDash([]);
+									
+									// Label for max level - positioned below the installation height text
+									p.noStroke();
+									p.fill(239, 68, 68, 150);
+									p.textAlign(p.CENTER, p.CENTER);
+									p.textSize(10);
+									// Position MAX below the installation height label (which is at sensorY)
+									const boxX = sensorX + 20; // Same X as installation height box
+									const textWidth = 40; // Same width as installation height box
+									p.text('(MAX)', boxX + textWidth/2, sensorY + 15);
+								}
+								
+								p.noStroke();
+								
+								// Background box for better readability - positioned to fit within canvas
+								const textWidth = 40;
+								const boxX = sensorX + 20; // Position to the right of sensor
+								p.fill(255, 255, 255, 230);
+								p.rect(boxX, sensorY - 10, textWidth, 20, 3);
+								
+								// Installation height text
+								p.fill(75, 65, 81); // Dark gray to match sensor color
+								p.textAlign(p.CENTER, p.CENTER);
+								p.textSize(12);
+								p.text(`${currentInstallationHeight.toFixed(1)}m`, boxX + textWidth/2, sensorY);
+							}
+							
+							p.noStroke();
+						};
+					};
+
+					if (sketchRef.current && !p5InstanceRef.current && typeof window !== 'undefined' && window.p5) {
+						p5InstanceRef.current = new window.p5(sketch, sketchRef.current);
+					}
+
+					return () => {
+						if (p5InstanceRef.current) {
+							p5InstanceRef.current.remove();
+							p5InstanceRef.current = null;
+						}
+					};
+				}, []);
+
+				React.useEffect(() => {
+					if (p5InstanceRef.current) {
+						p5InstanceRef.current.redraw();
+					}
+				}, [waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead]);
+
+				return React.createElement('div', { 
+					ref: sketchRef, 
+					id: 'p5-container',
+					style: { width: '350px', height: '420px', margin: '0 auto' }
+				});
+			}
+
+			// Main BlockchainApp Component
+			function BlockchainApp() {
+				const [currentChain, setCurrentChain] = React.useState(8899);
+				const [storeData, setStoreData] = React.useState(null);
+				const [isLoading, setIsLoading] = React.useState(true);
+				const [waterLevel, setWaterLevel] = React.useState(0);
+				const [temperature, setTemperature] = React.useState(0);
+				const [isOnline, setIsOnline] = React.useState(true);
+				const [error, setError] = React.useState(null);
+				const [lastUpdated, setLastUpdated] = React.useState(null);
+				const [sensorRecords, setSensorRecords] = React.useState([]);
+				const [authorizedSensors, setAuthorizedSensors] = React.useState([]);
+				const [recentEvents, setRecentEvents] = React.useState([]);
+				const [activeTab, setActiveTab] = React.useState('table'); // 'table' or 'chart'
+				const chartRef = React.useRef(null);
+				const chartInstanceRef = React.useRef(null);
+				
+				// Block indicator states
+				const [blockNumber, setBlockNumber] = React.useState(null);
+				const [blockTimer, setBlockTimer] = React.useState(0);
+				const [showBlockIndicator, setShowBlockIndicator] = React.useState(true);
+				const blockTimerRef = React.useRef(null);
+
+				// Create chart function
+				const createChart = React.useCallback(() => {
+					if (!chartRef.current || !sensorRecords.length || !storeData?.fields) return;
+
+					// Destroy existing chart
+					if (chartInstanceRef.current) {
+						chartInstanceRef.current.destroy();
+					}
+
+					const ctx = chartRef.current.getContext('2d');
+					
+					// Prepare data for chart
+					const sortedRecords = [...sensorRecords].sort((a, b) => a.timestamp - b.timestamp);
+					const labels = sortedRecords.map(record => 
+						new Date(record.timestamp * 1000).toLocaleString()
+					);
+
+					// Create datasets for each field
+					const datasets = storeData.fields.map((field, fieldIndex) => {
+						const colors = [
+							'rgb(59, 130, 246)', // Blue
+							'rgb(16, 185, 129)', // Green  
+							'rgb(168, 85, 247)', // Purple
+							'rgb(245, 158, 11)', // Yellow
+							'rgb(239, 68, 68)',  // Red
+						];
+						
+						const data = sortedRecords.map(record => {
+							if (record.values[fieldIndex] !== undefined) {
+								return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
+							}
+							return null;
+						});
+
+						return {
+							label: `${field.name} (${field.unit})`,
+							data: data,
+							borderColor: colors[fieldIndex % colors.length],
+							backgroundColor: colors[fieldIndex % colors.length] + '20',
+							tension: 0.4,
+							fill: false,
+							spanGaps: true
+						};
+					});
+
+					chartInstanceRef.current = new Chart(ctx, {
+						type: 'line',
+						data: {
+							labels: labels,
+							datasets: datasets
+						},
+						options: {
+							responsive: true,
+							maintainAspectRatio: false,
+							plugins: {
+								title: {
+									display: true,
+									text: 'Sensor Data Over Time'
+								},
+								legend: {
+									display: true,
+									position: 'top'
+								}
+							},
+							scales: {
+								x: {
+									display: true,
+									title: {
+										display: true,
+										text: 'Time'
+									},
+									ticks: {
+										maxTicksLimit: 10
+									}
+								},
+								y: {
+									display: true,
+									title: {
+										display: true,
+										text: 'Value'
+									}
+								}
+							},
+							interaction: {
+								mode: 'index',
+								intersect: false,
+							}
+						}
+					});
+				}, [sensorRecords, storeData]);
+
+				// Update chart when data changes
+				React.useEffect(() => {
+					if (activeTab === 'chart') {
+						setTimeout(createChart, 100); // Small delay to ensure canvas is ready
+					}
+				}, [activeTab, createChart]);
+
+				// Enhanced blockchain data loading with events
+				React.useEffect(() => {
+					async function loadEnhancedStoreData() {
+						setIsLoading(true);
+						setError(null);
+						
+						try {
+							// Create public client for JIBCHAIN L1
+							const publicClient = window.viem.createPublicClient({
+								chain: window.chains.jibchainL1,
+								transport: window.viem.http()
+							});
+
+							console.log('Loading enhanced data for store:', storeAddress);
+
+							// Get current block number
+							const currentBlockNumber = await publicClient.getBlockNumber();
+							setBlockNumber(currentBlockNumber);
+
+							// Parallel loading of basic store info
+							const [owner, fields, authorizedSensorAddresses] = await Promise.all([
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'owner'
+								}),
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'getAllFields'
+								}),
+								publicClient.readContract({
+									address: storeAddress,
+									abi: STORE_ABI,
+									functionName: 'getAuthorizedSensors'
+								}).catch(() => []) // Fallback if function doesn't exist
+							]);
+
+							console.log('Store info loaded:', { owner, fields, authorizedSensorAddresses });
+
+							// Load recent events from blockchain
+							const currentBlock = await publicClient.getBlockNumber();
+							const fromBlock = currentBlock - BigInt(10000); // Last ~10k blocks
+
+							const eventLogs = await publicClient.getLogs({
+								address: storeAddress,
+								event: RECORD_STORED_EVENT,
+								fromBlock: fromBlock,
+								toBlock: 'latest'
+							}).catch((err) => {
+								console.log('Event loading failed, using fallback:', err.message);
+								return [];
+							});
+
+							console.log('Event logs loaded:', eventLogs.length, 'events');
+
+							// Process events
+							const processedRecords = processRecordLogs(eventLogs);
+							const recentRecords = processedRecords.slice(0, 10); // Last 10 records
+
+							// Get latest record data
+							let latestRecord = null;
+							let processedData = {};
+
+							if (processedRecords.length > 0) {
+								latestRecord = processedRecords[0]; // Most recent
+								
+								// Process latest values with proper scaling
+								fields.forEach((field, index) => {
+									if (latestRecord.values[index] !== undefined) {
+										const scaledValue = formatScaledValue(latestRecord.values[index], field.unit);
+										processedData[field.name] = parseFloat(scaledValue);
+									}
+								});
+							} else {
+								// Fallback to direct contract call
+								try {
+									const [timestamp, values] = await publicClient.readContract({
+										address: storeAddress,
+										abi: STORE_ABI,
+										functionName: 'getLatestRecord',
+										args: [owner]
+									});
+
+									if (Number(timestamp) > 0) {
+										fields.forEach((field, index) => {
+											if (values[index] !== undefined) {
+												const scaledValue = formatScaledValue(values[index], field.unit);
+												processedData[field.name] = parseFloat(scaledValue);
+											}
+										});
+										latestRecord = {
+											sensor: owner,
+											timestamp: Number(timestamp),
+											values: values.map(v => Number(v))
+										};
+									}
+								} catch (directCallErr) {
+									console.log('Direct call also failed:', directCallErr.message);
+								}
+							}
+
+							console.log('Processed latest data:', processedData);
+
+							// Update state with enhanced data
+							setStoreData({
+								address: storeAddress,
+								name: "Floodboy Sensor Store",
+								owner: owner,
+								fields: fields,
+								lastTimestamp: latestRecord?.timestamp || 0,
+								totalRecords: processedRecords.length
+							});
+
+							setAuthorizedSensors(authorizedSensorAddresses);
+							setSensorRecords(recentRecords);
+							setRecentEvents(eventLogs.slice(0, 5)); // Last 5 events
+
+							// Set sensor values with fallback
+							if (processedData.water_depth !== undefined) {
+								setWaterLevel(processedData.water_depth);
+							} else if (processedData.water_level !== undefined) {
+								setWaterLevel(processedData.water_level);
+							} else if (processedData.level !== undefined) {
+								setWaterLevel(processedData.level);
+							}
+							
+							if (processedData.temperature !== undefined) {
+								setTemperature(processedData.temperature);
+							} else if (processedData.temp !== undefined) {
+								setTemperature(processedData.temp);
+							}
+
+							if (latestRecord) {
+								setLastUpdated(new Date(latestRecord.timestamp * 1000));
+								setIsOnline(true);
+							} else {
+								setIsOnline(false);
+							}
+
+						} catch (err) {
+							console.error('Error loading enhanced store data:', err);
+							setError(err.message);
+							// Set fallback data
+							setStoreData({
+								address: storeAddress,
+								name: "Floodboy Sensor Store (Offline)",
+								owner: "Unable to load",
+								fields: [],
+								lastTimestamp: 0
+							});
+							setIsOnline(false);
+						}
+						
+						setIsLoading(false);
+					}
+
+					loadEnhancedStoreData();
+					
+					// Set up polling for real-time updates every 30 seconds
+					const interval = setInterval(loadEnhancedStoreData, 30000);
+					return () => clearInterval(interval);
+				}, []);
+
+				// Cleanup chart on unmount
+				React.useEffect(() => {
+					return () => {
+						if (chartInstanceRef.current) {
+							chartInstanceRef.current.destroy();
+						}
+					};
+				}, []);
+
+				// Continuous block monitoring for JBC chain
+				React.useEffect(() => {
+					let blockMonitorInterval;
+					
+					if (currentChain === 8899) {
+						const monitorBlocks = async () => {
+							try {
+								const publicClient = window.viem.createPublicClient({
+									chain: window.chains.jibchainL1,
+									transport: window.viem.http()
+								});
+								
+								const currentBlockNumber = await publicClient.getBlockNumber();
+								if (currentBlockNumber !== blockNumber) {
+									setBlockNumber(currentBlockNumber);
+								}
+							} catch (error) {
+								console.error('Error monitoring blocks:', error);
+							}
+						};
+						
+						// Monitor blocks every 3 seconds
+						blockMonitorInterval = setInterval(monitorBlocks, 3000);
+					}
+					
+					return () => {
+						if (blockMonitorInterval) {
+							clearInterval(blockMonitorInterval);
+						}
+					};
+				}, [currentChain, blockNumber]);
+
+				// Handle block timer and visibility for JBC chain
+				React.useEffect(() => {
+					if (blockNumber !== null && currentChain === 8899) {
+						// Reset timer and show indicator when block changes
+						setBlockTimer(1);
+						setShowBlockIndicator(true);
+						
+						// Clear existing timer
+						if (blockTimerRef.current) {
+							clearInterval(blockTimerRef.current);
+						}
+						
+						// Start new timer
+						blockTimerRef.current = setInterval(() => {
+							setBlockTimer(prev => {
+								const newTimer = prev + 1;
+								// Hide indicator after 15 seconds
+								if (newTimer >= 15) {
+									setShowBlockIndicator(false);
+									if (blockTimerRef.current) {
+										clearInterval(blockTimerRef.current);
+									}
+								}
+								return newTimer;
+							});
+						}, 1000);
+					}
+					
+					return () => {
+						if (blockTimerRef.current) {
+							clearInterval(blockTimerRef.current);
+						}
+					};
+				}, [blockNumber, currentChain]);
+
+				if (isLoading) {
+					return React.createElement('div', { className: 'container mx-auto p-6' },
+						React.createElement('div', { className: 'text-center' },
+							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
+							React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
+							React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress)
+						)
+					);
+				}
+
+				if (error) {
+					return React.createElement('div', { className: 'container mx-auto p-6' },
+						React.createElement('div', { className: 'text-center' },
+							React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
+								React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Connection Error'),
+								React.createElement('p', { className: 'text-red-600 mb-4' }, error),
+								React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
+								React.createElement('button', { 
+									className: 'mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition',
+									onClick: () => window.location.reload()
+								}, 'Retry')
+							)
+						)
+					);
+				}
+
+				return React.createElement('div', { className: 'container mx-auto p-6' },
+					// Back to stores button
+					React.createElement('div', { className: 'mb-6' },
+						React.createElement('a', { 
+							href: '/blockchain',
+							className: 'inline-flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors'
+						},
+							React.createElement('svg', { 
+								className: 'mr-2',
+								width: '16',
+								height: '16',
+								viewBox: '0 0 24 24',
+								fill: 'none',
+								stroke: 'currentColor',
+								strokeWidth: '2'
+							},
+								React.createElement('path', { d: 'm15 18-6-6 6-6' })
+							),
+							'Back to all stores'
+						)
+					),
+					React.createElement('div', { className: 'mb-8' },
+						React.createElement('div', { className: 'flex items-center justify-between' },
+							React.createElement('div', {},
+								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Public Sensor Store View'),
+								React.createElement('p', { className: 'text-gray-600' }, 'View sensor data stored on the blockchain'),
+								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress),
+								
+								// Block indicator for JBC chain
+								currentChain === 8899 && blockNumber && React.createElement('div', { className: 'flex items-center mt-3' },
+									React.createElement('span', { 
+										className: `w-2 h-2 ${
+											blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+										} rounded-full mr-2 animate-pulse`
+									}),
+									React.createElement('span', { className: 'text-sm text-gray-600' }, 'Current Block:'),
+									React.createElement('span', { className: 'text-sm font-mono text-purple-600 ml-2' }, 
+										blockNumber.toString()
+									),
+									showBlockIndicator && React.createElement('span', { 
+										className: `text-xs ml-2 font-semibold ${
+											blockTimer >= 10 ? 'text-yellow-600' : 'text-green-600'
+										}`
+									}, `(${blockTimer}s)`)
+								)
+							),
+							React.createElement('div', { className: 'flex gap-2' },
+								React.createElement('button', { 
+									className: 'px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition',
+									onClick: () => window.location.reload()
+								}, '🔄 Refresh'),
+								React.createElement('a', { 
+									href: `https://exp.jibchain.net/address/${storeAddress}`,
+									target: '_blank',
+									className: 'px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition'
+								}, '🔗 Explorer')
+							)
+						)
+					),
+
+					// Store Information Section (moved to top)
+					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
+						React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+							React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
+							React.createElement('a', { 
+								href: `https://exp.jibchain.net/address/${storeAddress}`,
+								target: '_blank',
+								className: 'text-blue-600 hover:text-blue-700 text-sm'
+							}, 'View on explorer ↗')
+						),
+						React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-6' },
+							React.createElement('div', { className: 'text-center' },
+								React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
+							),
+							React.createElement('div', { className: 'text-center' },
+								React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, authorizedSensors.length),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
+							),
+							React.createElement('div', { className: 'text-center' },
+								React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
+							),
+							React.createElement('div', { className: 'text-center' },
+								React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
+									storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
+								),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
+							)
+						)
+					),
+					
+					React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-8' },
+						// Left Column: Visualization Only
+						React.createElement('div', { className: 'card border rounded-lg p-4' },
+							React.createElement('h2', { className: 'text-xl font-semibold mb-3' }, 'Sensor Visualization'),
+							React.createElement('div', { className: 'flex justify-center' },
+								React.createElement(FloodboyVisualization, {
+									waterLevel: waterLevel,
+									airLevel: 2.5 - waterLevel,
+									sensorMode: 'water',
+									installationHeight: 2.5,
+									showMeasurement: true,
+									isOnline: isOnline,
+									isDead: false
+								})
+							),
+							React.createElement('div', { className: 'text-center text-sm text-gray-600 mt-2' },
+								`Current Water Level: ${waterLevel.toFixed(2)}m`
+							)
+						),
+						
+						// Right Column: Latest Sensor Data + Recent Activity
+						React.createElement('div', { className: 'space-y-6' },
+							
+							React.createElement('div', { className: 'card border rounded-lg p-6' },
+								React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Latest Sensor Data'),
+								React.createElement('div', { className: 'space-y-3' },
+									// Dynamic fields based on actual store data
+									storeData?.fields && storeData.fields.length > 0 ? (
+										storeData.fields.map((field, index) => {
+											let value = 0;
+											// Clean unit display - remove "x 1000", "x1000", " x 1000", etc.
+											let unit = field.unit.replace(/\s*x\s*\d+/gi, '').trim();
+											
+											// Get value from latest record
+											if (sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined) {
+												value = parseFloat(formatScaledValue(sensorRecords[0].values[index], field.unit));
+											}
+											
+											// Color scheme for different field types
+											const colors = [
+												{ bg: 'bg-blue-50', text: 'text-blue-600', bold: 'text-blue-900' },
+												{ bg: 'bg-green-50', text: 'text-green-600', bold: 'text-green-900' },
+												{ bg: 'bg-purple-50', text: 'text-purple-600', bold: 'text-purple-900' },
+												{ bg: 'bg-yellow-50', text: 'text-yellow-600', bold: 'text-yellow-900' },
+												{ bg: 'bg-red-50', text: 'text-red-600', bold: 'text-red-900' }
+											];
+											const color = colors[index % colors.length];
+											
+											return React.createElement('div', { 
+												key: index, 
+												className: `${color.bg} p-4 rounded-lg` 
+											},
+												React.createElement('div', { className: `text-sm ${color.text} font-medium` }, 
+													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+												),
+												React.createElement('div', { className: `text-2xl font-bold ${color.bold}` }, 
+													`${value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}`
+												)
+											);
+										})
+									) : (
+										// Fallback display when no fields available
+										[
+											React.createElement('div', { key: 'water', className: 'bg-blue-50 p-4 rounded-lg' },
+												React.createElement('div', { className: 'text-sm text-blue-600 font-medium' }, 'Water Level'),
+												React.createElement('div', { className: 'text-2xl font-bold text-blue-900' }, `${waterLevel.toFixed(2)} m`)
+											),
+											React.createElement('div', { key: 'temp', className: 'bg-green-50 p-4 rounded-lg' },
+												React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
+												React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
+											)
+										]
+									),
+									
+									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg mt-4' },
+										React.createElement('div', { className: 'text-xs text-gray-600' }, 'Last Updated'),
+										React.createElement('div', { className: 'text-sm font-medium text-gray-800' }, 
+											lastUpdated.toLocaleString()
+										)
+									)
+								)
+							),
+							
+							// Data Records Section (Chart/Table)
+							React.createElement('div', { className: 'card border rounded-lg p-6' },
+								React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+									React.createElement('div', {},
+										React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
+										React.createElement('p', { className: 'text-sm text-gray-600' }, 
+											`Latest ${Math.min(sensorRecords.length, 10)} records from all sensors`
+										)
+									),
+									React.createElement('div', { className: 'flex gap-2' },
+										React.createElement('button', { 
+											className: `px-3 py-1 rounded text-sm transition ${activeTab === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+											onClick: () => setActiveTab('table')
+										}, '📊 Data Table'),
+										React.createElement('button', { 
+											className: `px-3 py-1 rounded text-sm transition ${activeTab === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`,
+											onClick: () => setActiveTab('chart')
+										}, '📈 Charts'),
+										React.createElement('button', { 
+											className: 'px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700',
+											onClick: () => {
+												// Simple CSV export
+												if (sensorRecords.length > 0 && storeData?.fields) {
+													const headers = ['Timestamp', 'Sensor', 'Block', ...storeData.fields.map(f => f.name)];
+													const rows = sensorRecords.map(record => [
+														new Date(record.timestamp * 1000).toISOString(),
+														record.sensor,
+														record.blockNumber || '',
+														...storeData.fields.map((field, index) => 
+															record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
+														)
+													]);
+													const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
+													const blob = new Blob([csv], { type: 'text/csv' });
+													const url = URL.createObjectURL(blob);
+													const a = document.createElement('a');
+													a.href = url;
+													a.download = `sensor-data-${storeAddress.slice(0, 8)}.csv`;
+													a.click();
+													URL.revokeObjectURL(url);
+												}
+											}
+										}, '💾 Export')
+									)
+								),
+								
+								// Content based on active tab
+								React.createElement('div', {},
+									activeTab === 'table' ? (
+										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
+											React.createElement('table', { className: 'w-full text-sm' },
+												React.createElement('thead', {},
+													React.createElement('tr', { className: 'border-b text-left' },
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
+														...(storeData?.fields || []).map((field, index) => 
+															React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
+																`${field.name} (${field.unit})`
+															)
+														)
+													)
+												),
+												React.createElement('tbody', {},
+													sensorRecords.slice(0, 10).map((record, index) => 
+														React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+															React.createElement('td', { className: 'py-3 text-xs' }, 
+																new Date(record.timestamp * 1000).toLocaleString()
+															),
+															React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+																`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+															),
+															React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
+															...(storeData?.fields || []).map((field, fieldIndex) => 
+																React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
+																	record.values[fieldIndex] !== undefined ? 
+																		formatScaledValue(record.values[fieldIndex], field.unit) : 
+																		'-'
+																)
+															)
+														)
+													)
+												)
+											)
+										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+											'No sensor data records found'
+										)
+									) : activeTab === 'chart' ? (
+										sensorRecords.length > 0 ? React.createElement('div', { 
+											style: { height: '400px', width: '100%', position: 'relative' }
+										},
+											React.createElement('canvas', { 
+												ref: chartRef,
+												style: { maxHeight: '400px' }
+											})
+										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
+											'No data available for chart'
+										)
+									) : null
+								)
+							)
+						),
+
+						// Cat Lab inspired sections
+						// Field Schema Section (Cat Lab style)
+						React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+								React.createElement('h3', { className: 'text-lg font-semibold' }, 'Field Schema'),
+								React.createElement('div', { className: 'text-sm text-gray-600' }, 
+									`${storeData.fields.length} Field${storeData.fields.length !== 1 ? 's' : ''}`
+								)
+							),
+							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Data structure and field definitions for this store'),
+							React.createElement('div', { className: 'space-y-3' },
+								storeData.fields.map((field, index) => 
+									React.createElement('div', { 
+										key: index, 
+										className: 'flex items-center justify-between p-3 bg-gray-50 rounded border-l-4 border-blue-500' 
+									},
+										React.createElement('div', { className: 'flex items-center gap-4' },
+											React.createElement('span', { className: 'font-bold text-gray-700' }, index),
+											React.createElement('span', { className: 'font-mono' }, field.name)
+										),
+										React.createElement('div', { className: 'flex gap-2' },
+											React.createElement('span', { 
+												className: 'px-2 py-1 bg-blue-600 text-white rounded text-xs font-mono' 
+											}, field.unit),
+											React.createElement('span', { 
+												className: 'px-2 py-1 bg-purple-600 text-white rounded text-xs' 
+											}, field.dtype)
+										)
+									)
+								)
+							)
+						),
+
+						// Authorized Sensors Section (Cat Lab style)
+						authorizedSensors.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Authorized Sensors'),
+							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Sensors that can submit data to this store'),
+							React.createElement('div', { className: 'overflow-x-auto' },
+								React.createElement('table', { className: 'w-full text-sm' },
+									React.createElement('thead', {},
+										React.createElement('tr', { className: 'border-b text-left' },
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor Address'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Status'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Submissions'),
+											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Last Submission')
+										)
+									),
+									React.createElement('tbody', {},
+										authorizedSensors.map((sensor, index) => {
+											const sensorRecordCount = sensorRecords.filter(r => r.sensor.toLowerCase() === sensor.toLowerCase()).length;
+											const lastRecord = sensorRecords.find(r => r.sensor.toLowerCase() === sensor.toLowerCase());
+											return React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
+												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
+													`${sensor.slice(0, 6)}...${sensor.slice(-4)}`
+												),
+												React.createElement('td', { className: 'py-3' },
+													React.createElement('span', { 
+														className: 'inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800' 
+													}, '● Active')
+												),
+												React.createElement('td', { className: 'py-3 font-medium' }, sensorRecordCount),
+												React.createElement('td', { className: 'py-3 text-gray-600' }, 
+													lastRecord ? new Date(lastRecord.timestamp * 1000).toLocaleString() : '-'
+												)
+											);
+										})
+									)
+								)
+							)
+						)
+					)
+				);
+			}
+
+			// Render the app
+			const root = ReactDOM.createRoot(document.getElementById('blockchain-app'));
+			root.render(React.createElement(BlockchainApp));
+		</script>
+	</body>
+</html>
