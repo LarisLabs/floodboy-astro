@@ -1,26 +1,30 @@
 ---
+// Import blockchain config
+import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
+
 // Get git commit hash at build time
 let gitHash = 'development';
 let gitDate = '';
 
-try {
-  const { execSync } = await import('child_process');
-  gitHash = execSync('git rev-parse --short HEAD').toString().trim();
-  gitDate = execSync('git log -1 --format=%cd --date=short').toString().trim();
-} catch (e) {
-  // If git is not available, use fallback
-  console.log('Git info not available:', e);
+// Only try to get git info during SSR/build time
+if (import.meta.env.SSR) {
+  try {
+    // Use dynamic import for Node.js module
+    const cp = await import('node:child_process');
+    gitHash = cp.execSync('git rev-parse --short HEAD').toString().trim();
+    gitDate = cp.execSync('git log -1 --format=%cd --date=short').toString().trim();
+  } catch (e) {
+    // If git is not available, use fallback
+    console.log('Git info not available');
+  }
 }
-
-// Import blockchain config
-import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 ---
 
 <div class="system-info">
   <div class="info-item">
     <span class="label">Git:</span>
     <span class="value">{gitHash}</span>
-    {gitDate && <span class="date">({gitDate})</span>}
+    {gitDate && (<span class="date">({gitDate})</span>)}
   </div>
   <div class="info-item">
     <span class="label">Factory (JIBCHAIN):</span>
