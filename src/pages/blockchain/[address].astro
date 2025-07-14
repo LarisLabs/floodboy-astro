@@ -207,6 +207,11 @@ const { address } = Astro.params;
 			}
 
 			function formatScaledValue(value, unit) {
+				// If unit contains "count", return the raw value as it's a counter
+				if (unit.toLowerCase().includes('count')) {
+					return Number(value).toString();
+				}
+				
 				const scaleFactor = parseScalingFactor(unit);
 				const numValue = Number(value);
 				const decimalValue = numValue / scaleFactor;

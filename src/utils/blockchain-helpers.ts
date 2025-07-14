@@ -6,6 +6,11 @@ export const formatAddress = (address: string): string =>
 export const formatValue = (value: string | bigint, unit: string): string => {
   const num = BigInt(value);
   
+  // If unit contains "count", return the raw value as it's a counter
+  if (unit.toLowerCase().includes('count')) {
+    return num.toString();
+  }
+  
   // Check if unit contains scaling factor (e.g., "m x 1000", "V x 1000")
   if (unit.includes('x 1000')) {
     return (Number(num) / 1000).toFixed(2);
