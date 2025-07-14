@@ -75,7 +75,7 @@ const App: React.FC = () => {
             Floodboy Sensor Visualization
           </h1>
           <p className="text-gray-600">
-            Interactive IoT flood monitoring sensor demo
+            Interactive IoT flood monitoring sensor simulator
           </p>
         </div>
 
