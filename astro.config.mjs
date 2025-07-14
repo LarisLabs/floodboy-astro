@@ -18,10 +18,13 @@ export default defineConfig({
   site: "https://example.com",
   integrations: [mdx(), sitemap(), react()],
   adapter: cloudflare({
-    platformProxy: {
-      enabled: true,
-    },
+    mode: 'directory',
     imageService: 'compile',
+    // Disable runtime features we don't need
+    runtime: {
+      mode: 'local',
+      type: 'pages',
+    },
   }),
   redirects: {
     '/': '/blockchain'
