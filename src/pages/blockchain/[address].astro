@@ -143,7 +143,7 @@ const { address } = Astro.params;
 			const storeAddress = urlParts[urlParts.length - 1]; // Get the address parameter
 
 			// Contract ABIs and configurations
-			// Import configuration dynamically
+			// Configuration injected at build time
 			const CONTRACTS = ${JSON.stringify((await import('../../config/blockchain.config.ts')).BLOCKCHAIN_CONFIG)};
 
 			const STORE_ABI = [
