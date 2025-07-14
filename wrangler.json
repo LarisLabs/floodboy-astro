@@ -10,11 +10,5 @@
   "observability": {
     "enabled": true
   },
-  "upload_source_maps": true,
-  "routes": [
-    {
-      "pattern": "blockchain.floodboy.online/*",
-      "zone_name": "floodboy.online"
-    }
-  ]
+  "upload_source_maps": true
 }
