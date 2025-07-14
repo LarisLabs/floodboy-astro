@@ -690,7 +690,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 						});
 
 						return {
-							label: `${field.name} (${field.unit})`,
+							label: `${field.name} (${field.unit.replace(/ x\d+$/, '')})`,
 							data: data,
 							borderColor: colors[fieldIndex % colors.length],
 							backgroundColor: colors[fieldIndex % colors.length] + '20',
@@ -1177,7 +1177,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 												),
 												React.createElement('div', { className: `text-2xl font-bold ${exceedsSensorRange ? 'text-red-900' : color.bold}` }, 
-													`${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}${exceedsSensorRange ? ' ⚠️' : ''}`
+													`${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit.replace(/ x\d+$/, '')}${exceedsSensorRange ? ' ⚠️' : ''}`
 												),
 												exceedsSensorRange && React.createElement('div', { className: 'text-xs text-red-600 mt-1' }, 
 													'Exceeds 2.5m sensor range'
@@ -1265,7 +1265,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Tx'),
 														...(storeData?.fields || []).map((field, index) => 
 															React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
-																`${field.name} (${field.unit})`
+																`${field.name} (${field.unit.replace(/ x\d+$/, '')})`
 															)
 														)
 													)
