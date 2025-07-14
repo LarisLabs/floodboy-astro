@@ -11,6 +11,7 @@
     "enabled": true
   },
   "upload_source_maps": true,
+  "workers_dev": true,
   "routes": [
     {
       "pattern": "blockchain.floodboy.online/*",
