@@ -9,7 +9,18 @@ const currentPath = Astro.url.pathname;
 			<img src="/Cat-Lab.png" alt="Floodboy" />
 			<span>Floodboy IoT</span>
 		</a>
+		<button class="mobile-menu-toggle" aria-label="Toggle menu">
+			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<path d="M3 12h18M3 6h18M3 18h18"></path>
+			</svg>
+		</button>
 		<div class="internal-links">
+			<HeaderLink href="/blockchain">Blockchain</HeaderLink>
+			<HeaderLink href="/simulator">Simulator</HeaderLink>
+			<HeaderLink href="/blog">Blog</HeaderLink>
+			<HeaderLink href="/about">About</HeaderLink>
+		</div>
+		<div class="mobile-menu">
 			<HeaderLink href="/blockchain">Blockchain</HeaderLink>
 			<HeaderLink href="/simulator">Simulator</HeaderLink>
 			<HeaderLink href="/blog">Blog</HeaderLink>
@@ -65,9 +76,70 @@ const currentPath = Astro.url.pathname;
 		text-decoration: none;
 	}
 	
+	.mobile-menu-toggle {
+		display: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		color: var(--black);
+	}
+	
+	.mobile-menu {
+		display: none;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		background: white;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		padding: 1rem;
+		flex-direction: column;
+		gap: 1rem;
+	}
+	
+	.mobile-menu.active {
+		display: flex;
+	}
+	
 	@media (max-width: 640px) {
+		header {
+			position: relative;
+		}
+		
 		.internal-links {
 			display: none;
 		}
+		
+		.mobile-menu-toggle {
+			display: block;
+		}
+		
+		.logo span {
+			font-size: 1rem;
+		}
+		
+		.logo img {
+			height: 1.5rem;
+		}
 	}
 </style>
+
+<script>
+	// Mobile menu toggle
+	const toggle = document.querySelector('.mobile-menu-toggle');
+	const menu = document.querySelector('.mobile-menu');
+	
+	if (toggle && menu) {
+		toggle.addEventListener('click', () => {
+			menu.classList.toggle('active');
+		});
+		
+		// Close menu when clicking outside
+		document.addEventListener('click', (e) => {
+			if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+				menu.classList.remove('active');
+			}
+		});
+	}
+</script>

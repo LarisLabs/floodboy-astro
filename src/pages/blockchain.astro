@@ -259,30 +259,30 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
         
         return (
           <div 
-            className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-6 text-white shadow-lg`}
+            className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-4 sm:p-6 text-white shadow-lg`}
             onClick={handleCardClick}
           >
             <div className="relative z-10">
-              <h3 className="text-xl font-bold mb-2 cursor-pointer">
+              <h3 className="text-lg font-bold mb-2 cursor-pointer sm:text-xl break-all">
                 {store.nickname || 'Unnamed Store'}
               </h3>
               
-              <p className="text-white/80 text-sm mb-4 cursor-pointer">
+              <p className="text-white/80 text-xs sm:text-sm mb-4 cursor-pointer line-clamp-2">
                 {store.description || 'No description available'}
               </p>
               
-              <div className="flex items-center justify-between text-sm cursor-pointer">
+              <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:text-sm cursor-pointer">
                 <span className="font-mono">{formatAddress(store.address)}</span>
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-2 sm:gap-4">
                   <span>{store.fieldCount || 0} fields</span>
                   <span>{store.sensorCount || 0} sensors</span>
                 </div>
               </div>
               
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <a 
                   href={`/blockchain/${store.address}`}
-                  className="bg-white/20 backdrop-blur px-3 py-1 rounded text-sm hover:bg-white/30"
+                  className="bg-white/20 backdrop-blur px-2 py-1 rounded text-xs hover:bg-white/30 sm:px-3 sm:text-sm"
                   onClick={(e) => e.stopPropagation()}
                 >
                   View Data
@@ -291,7 +291,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                   href={`${CONTRACTS[store.chainId].EXPLORER_URL}/address/${store.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-white/20 backdrop-blur px-3 py-1 rounded text-sm hover:bg-white/30"
+                  className="bg-white/20 backdrop-blur px-2 py-1 rounded text-xs hover:bg-white/30 sm:px-3 sm:text-sm"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Explorer
@@ -304,7 +304,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
       
       // Loading Skeleton
       const LoadingSkeleton = () => (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map(i => (
             <div key={i} className="rounded-xl bg-gray-200 p-6">
               <div className="skeleton h-6 w-3/4 rounded mb-2"></div>
@@ -485,20 +485,20 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
         }, [chainId, sortOrder]);
         
         return (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
             {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">IoT Sensor Stores</h1>
-              <p className="text-gray-600">Browse all deployed sensor data stores</p>
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2 sm:text-3xl">IoT Sensor Stores</h1>
+              <p className="text-sm text-gray-600 sm:text-base">Browse all deployed sensor data stores</p>
             </div>
             
             {/* Controls */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <select
                   value={chainId}
                   onChange={(e) => setChainId(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-4 py-2"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
                 >
                   <option value={8899}>JIBCHAIN L1</option>
                   <option value={700011}>SiChang</option>
@@ -511,7 +511,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                     setSortOrder(e.target.value);
                     fetchStores(); // Refresh with new sort
                   }}
-                  className="border border-gray-300 rounded-lg px-4 py-2"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -527,7 +527,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <button
                 onClick={fetchStores}
                 disabled={loading}
-                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
               >
                 {loading ? 'Loading...' : 'Refresh'}
               </button>
@@ -544,14 +544,14 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             {loading ? (
               <LoadingSkeleton />
             ) : stores.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
                 {stores.map((store, index) => (
                   <StoreCard key={store.address} store={store} index={index} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-600 text-lg">No stores deployed on {getChainById(chainId).name} yet</p>
+              <div className="text-center py-8 sm:py-12">
+                <p className="text-gray-600 text-base sm:text-lg">No stores deployed on {getChainById(chainId).name} yet</p>
                 <p className="text-gray-500 mt-2">Deploy your first store to get started</p>
               </div>
             )}
@@ -561,7 +561,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <div className="text-center mt-8">
                 <button 
                   onClick={() => fetchStores(true)}
-                  className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm sm:px-6 sm:text-base"
                 >
                   Load More ({totalStores - stores.length} remaining)
                 </button>
@@ -571,7 +571,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             {/* Loading More Indicator */}
             {loadingMore && (
               <div className="text-center mt-8">
-                <button disabled className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg opacity-50">
+                <button disabled className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg opacity-50 text-sm sm:px-6 sm:text-base">
                   Loading...
                 </button>
               </div>
