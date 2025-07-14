@@ -13,7 +13,7 @@ export const CONTRACTS = {
     EXPLORER_URL: "https://sichang.thaichain.org",
   },
   8899: { // JIBCHAIN L1
-    DEPLOYER_ADDRESS: "0x99f528a4726f4fc7b24f20ba4631d6bd70ec28d9", // Deployed 2025-01-14, block 5950200
+    DEPLOYER_ADDRESS: "0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a", // Deployed 2025-07-14
     EXPLORER_URL: "https://exp.jibchain.net",
   },
 } as const;
