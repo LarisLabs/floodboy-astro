@@ -37,13 +37,20 @@ When debugging blockchain connections or web3 issues:
 - `/sensors` - Sensor monitoring (placeholder)
 - `/analytics` - Analytics (placeholder)
 - `/blockchain` - Smart contract dashboard
-- `/demo` - Interactive sensor UI explorer
+- `/simulator` - Interactive sensor UI simulator
 - `/blog` - Blog section
 - `/about` - About page
 
 ## Blockchain Configuration
+
+### Production Deployment (2025-07-14)
+**Factory Contract**: `0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a`
+**Network**: JIBCHAIN L1 (Chain ID: 8899)
+**Explorer**: https://exp.jibchain.net/address/0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a
+
+### Supported Networks
 The blockchain page connects to:
-- JIBCHAIN L1 (Chain ID: 8899)
+- JIBCHAIN L1 (Chain ID: 8899) - **Production**
 - SiChang (Chain ID: 700011)
 - Anvil local (Chain ID: 31337)
 
