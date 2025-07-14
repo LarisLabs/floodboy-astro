@@ -333,7 +333,7 @@ import '../styles/global.css';
         const [currentOffset, setCurrentOffset] = useState(0);
         const [loadingMore, setLoadingMore] = useState(false);
         const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
-        const STORES_PER_PAGE = 12;
+        const STORES_PER_PAGE = 20;
         
         // Fetch stores using multicall
         const fetchStores = async (loadMore = false) => {
