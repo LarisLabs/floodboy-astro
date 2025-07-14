@@ -1,0 +1,88 @@
+---
+// Get git commit hash at build time
+let gitHash = 'development';
+let gitDate = '';
+
+try {
+  const { execSync } = await import('child_process');
+  gitHash = execSync('git rev-parse --short HEAD').toString().trim();
+  gitDate = execSync('git log -1 --format=%cd --date=short').toString().trim();
+} catch (e) {
+  // If git is not available, use fallback
+  console.log('Git info not available:', e);
+}
+
+// Import blockchain config
+import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
+---
+
+<div class="system-info">
+  <div class="info-item">
+    <span class="label">Git:</span>
+    <span class="value">{gitHash}</span>
+    {gitDate && <span class="date">({gitDate})</span>}
+  </div>
+  <div class="info-item">
+    <span class="label">Factory (JIBCHAIN):</span>
+    <span class="value address" title={BLOCKCHAIN_CONFIG[8899].DEPLOYER_ADDRESS}>
+      {BLOCKCHAIN_CONFIG[8899].DEPLOYER_ADDRESS.slice(0, 6)}...{BLOCKCHAIN_CONFIG[8899].DEPLOYER_ADDRESS.slice(-4)}
+    </span>
+  </div>
+</div>
+
+<style>
+  .system-info {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .label {
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .value {
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .date {
+    color: #9ca3af;
+    font-size: 0.7rem;
+  }
+
+  .address {
+    cursor: pointer;
+  }
+
+  .address:hover {
+    color: #6366f1;
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .system-info {
+      bottom: 0.5rem;
+      left: 0.5rem;
+      font-size: 0.7rem;
+    }
+  }
+</style>

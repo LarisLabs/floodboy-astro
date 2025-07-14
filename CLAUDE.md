@@ -44,9 +44,10 @@ When debugging blockchain connections or web3 issues:
 ## Blockchain Configuration
 
 ### Production Deployment (2025-07-14)
-**Factory Contract**: `0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a`
+**Factory Contract**: `0x904f1CCDb682f0E7b82387190C0EbF9015152BE7`
 **Network**: JIBCHAIN L1 (Chain ID: 8899)
-**Explorer**: https://exp.jibchain.net/address/0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a
+**Explorer**: https://exp.jibchain.net/address/0x904f1CCDb682f0E7b82387190C0EbF9015152BE7
+**Configuration**: `src/config/blockchain.config.ts`
 
 ### Supported Networks
 The blockchain page connects to:

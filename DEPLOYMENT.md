@@ -5,7 +5,7 @@
 **Date**: 2025-07-14 07:08 GMT+7  
 **Network**: JIBCHAIN L1  
 **Chain ID**: 8899  
-**Factory Contract**: `0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a`
+**Factory Contract**: `0x904f1CCDb682f0E7b82387190C0EbF9015152BE7`
 
 ### Network Details
 
@@ -17,8 +17,8 @@
 ### Contract Addresses
 
 #### Factory Contract
-- **Address**: `0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a`
-- **Explorer**: https://exp.jibchain.net/address/0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a
+- **Address**: `0x904f1CCDb682f0E7b82387190C0EbF9015152BE7`
+- **Explorer**: https://exp.jibchain.net/address/0x904f1CCDb682f0E7b82387190C0EbF9015152BE7
 
 ### Deployment Configuration
 
@@ -60,8 +60,20 @@ The deployed factory contract enables:
 - Deployment transaction confirmed on JIBCHAIN L1
 - Contract accessible via blockchain explorer
 
+### Configuration
+
+The blockchain configuration is managed through a dedicated config file:
+- **Location**: `src/config/blockchain.config.ts`
+- **Type**: TypeScript configuration file (committed to version control)
+- **Update Method**: Directly edit the file and commit changes
+
+To update factory addresses or add new networks:
+1. Edit `src/config/blockchain.config.ts`
+2. Update the relevant chain configuration
+3. Commit and push the changes
+
 ### Related Documentation
 
 - [Smart Contract Dashboard](/blockchain)
-- [Network Configuration](src/config/networks.ts)
+- [Blockchain Configuration](src/config/blockchain.config.ts)
 - [Contract ABIs](src/constants/abi/)

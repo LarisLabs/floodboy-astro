@@ -1,22 +1,11 @@
 // Blockchain network configurations and contract constants
+import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 
 // Universal Multicall3 address (same on all chains)
 export const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
 
-export const CONTRACTS = {
-  31337: { // Anvil
-    DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-    EXPLORER_URL: "http://localhost:8545",
-  },
-  700011: { // SiChang
-    DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000", // To be deployed
-    EXPLORER_URL: "https://sichang.thaichain.org",
-  },
-  8899: { // JIBCHAIN L1
-    DEPLOYER_ADDRESS: "0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a", // Deployed 2025-07-14
-    EXPLORER_URL: "https://exp.jibchain.net",
-  },
-} as const;
+// Use configuration with environment variable support
+export const CONTRACTS = BLOCKCHAIN_CONFIG;
 
 // Contract ABIs
 export const DEPLOYER_ABI = [

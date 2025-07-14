@@ -143,20 +143,8 @@ const { address } = Astro.params;
 			const storeAddress = urlParts[urlParts.length - 1]; // Get the address parameter
 
 			// Contract ABIs and configurations
-			const CONTRACTS = {
-				31337: {
-					DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-					EXPLORER_URL: "http://localhost:8545",
-				},
-				700011: {
-					DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000",
-					EXPLORER_URL: "https://sichang.thaichain.org",
-				},
-				8899: {
-					DEPLOYER_ADDRESS: "0xc9CF38eCfB4EFa79CBfE1f4b3C1464379bcf2a0a", // Deployed 2025-07-14
-					EXPLORER_URL: "https://exp.jibchain.net",
-				},
-			};
+			// Import configuration dynamically
+			const CONTRACTS = ${JSON.stringify((await import('../../config/blockchain.config.ts')).BLOCKCHAIN_CONFIG)};
 
 			const STORE_ABI = [
 				{

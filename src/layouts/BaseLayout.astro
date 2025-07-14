@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import SystemInfo from '../components/SystemInfo.astro';
 
 export interface Props {
   title: string;
@@ -26,5 +27,6 @@ const { title, description = 'Floodboy - IoT Flood Monitoring System' } = Astro.
     <slot />
   </main>
   <Footer />
+  <SystemInfo />
 </body>
 </html>
