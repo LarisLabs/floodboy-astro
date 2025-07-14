@@ -1300,14 +1300,14 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 											onClick: () => {
 												// Simple CSV export
 												if (sensorRecords.length > 0 && storeData?.fields) {
-													const headers = ['Timestamp', 'Block', 'Transaction', ...storeData.fields.map(f => f.name)];
+													const headers = ['Timestamp', 'Block', ...storeData.fields.map(f => f.name), 'Transaction'];
 													const rows = sensorRecords.map(record => [
 														new Date(record.timestamp * 1000).toISOString(),
 														record.blockNumber || '',
-														record.transactionHash || '',
 														...storeData.fields.map((field, index) => 
 															record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
-														)
+														),
+														record.transactionHash || ''
 													]);
 													const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
 													const blob = new Blob([csv], { type: 'text/csv' });
@@ -1332,12 +1332,12 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 													React.createElement('tr', {},
 														React.createElement('th', {}, 'Timestamp'),
 														React.createElement('th', {}, 'Block'),
-														React.createElement('th', {}, 'Tx'),
 														...(storeData?.fields || []).map((field, index) => 
 															React.createElement('th', { key: index }, 
 																`${field.name} (${field.unit.replace(/ x\d+$/, '')})`
 															)
-														)
+														),
+														React.createElement('th', {}, 'Tx')
 													)
 												),
 												React.createElement('tbody', {},
@@ -1355,6 +1355,13 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 																	}, record.blockNumber.toString())
 																	: '-'
 															),
+															...(storeData?.fields || []).map((field, fieldIndex) => 
+																React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm' }, 
+																	record.values[fieldIndex] !== undefined ? 
+																		formatScaledValue(record.values[fieldIndex], field.unit) : 
+																		'-'
+																)
+															),
 															React.createElement('td', { className: 'text-sm' }, 
 																record.transactionHash ? 
 																	React.createElement('a', { 
@@ -1363,13 +1370,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 																		className: 'text-blue-600 hover:text-blue-800 hover:underline font-mono'
 																	}, `${record.transactionHash.slice(0, 6)}...${record.transactionHash.slice(-4)}`)
 																	: '-'
-															),
-															...(storeData?.fields || []).map((field, fieldIndex) => 
-																React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm' }, 
-																	record.values[fieldIndex] !== undefined ? 
-																		formatScaledValue(record.values[fieldIndex], field.unit) : 
-																		'-'
-																)
 															)
 														)
 													)
