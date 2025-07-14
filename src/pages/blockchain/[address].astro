@@ -1171,7 +1171,7 @@ const { address } = Astro.params;
 													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 												),
 												React.createElement('div', { className: `text-2xl font-bold ${exceedsSensorRange ? 'text-red-900' : color.bold}` }, 
-													`${value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}${exceedsSensorRange ? ' ⚠️' : ''}`
+													`${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}${exceedsSensorRange ? ' ⚠️' : ''}`
 												),
 												exceedsSensorRange && React.createElement('div', { className: 'text-xs text-red-600 mt-1' }, 
 													'Exceeds 2.5m sensor range'
