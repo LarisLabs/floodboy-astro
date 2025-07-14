@@ -332,6 +332,7 @@ import '../styles/global.css';
         const [totalStores, setTotalStores] = useState(0);
         const [currentOffset, setCurrentOffset] = useState(0);
         const [loadingMore, setLoadingMore] = useState(false);
+        const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
         const STORES_PER_PAGE = 12;
         
         // Fetch stores using multicall
@@ -374,16 +375,25 @@ import '../styles/global.css';
               return;
             }
             
-            // Calculate offset for pagination
-            const offset = loadMore ? currentOffset + STORES_PER_PAGE : 0;
-            const count = Math.min(STORES_PER_PAGE, Number(storeCount) - offset);
+            // Calculate which stores to fetch
+            const totalCount = Number(storeCount);
+            const offset = loadMore ? currentOffset : 0;
+            const count = Math.min(STORES_PER_PAGE, totalCount - offset);
             
             if (count <= 0) {
               setLoadingMore(false);
               return;
             }
             
-            // Get stores using reverse method (newest first)
+            console.log('Fetching stores:', {
+              totalStores: totalCount,
+              offset,
+              count,
+              sortOrder
+            });
+            
+            // Get stores using reverse method
+            // getStoresReverse(offset, count) should return stores from end-offset-count to end-offset
             const storeAddresses = await publicClient.readContract({
               address: factoryAddress,
               abi: DEPLOYER_ABI,
@@ -443,17 +453,30 @@ import '../styles/global.css';
                 owner: infoResult.success ? infoResult.data[1] : null,
                 description: infoResult.success ? infoResult.data[5] : '',
                 fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
-                sensorCount: sensorCountResult.success ? Number(sensorCountResult.data) : 0
+                sensorCount: sensorCountResult.success ? Number(sensorCountResult.data) : 0,
+                deployedBlock: infoResult.success ? Number(infoResult.data[4]) : 0,
+                // Calculate the actual index in the factory array
+                // getStoresReverse returns from (total - offset - count) to (total - offset)
+                factoryIndex: totalCount - offset - count + i
               });
+            }
+            
+            // Sort based on user preference
+            if (sortOrder === 'oldest') {
+              // For oldest first, lower index comes first
+              processedStores.sort((a, b) => a.factoryIndex - b.factoryIndex);
+            } else {
+              // For newest first, higher index comes first
+              processedStores.sort((a, b) => b.factoryIndex - a.factoryIndex);
             }
             
             // Update stores - append if loading more, replace if not
             if (loadMore) {
               setStores(prev => [...prev, ...processedStores]);
-              setCurrentOffset(offset);
+              setCurrentOffset(currentOffset + count);
             } else {
               setStores(processedStores);
-              setCurrentOffset(0);
+              setCurrentOffset(count);
             }
           } catch (err) {
             console.error('Error fetching stores:', err);
@@ -464,10 +487,10 @@ import '../styles/global.css';
           }
         };
         
-        // Fetch stores on mount and chain change
+        // Fetch stores on mount, chain change, or sort change
         useEffect(() => {
           fetchStores();
-        }, [chainId]);
+        }, [chainId, sortOrder]);
         
         return (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -488,6 +511,18 @@ import '../styles/global.css';
                   <option value={8899}>JIBCHAIN L1</option>
                   <option value={700011}>SiChang</option>
                   <option value={31337}>Anvil Local</option>
+                </select>
+                
+                <select
+                  value={sortOrder}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value);
+                    fetchStores(); // Refresh with new sort
+                  }}
+                  className="border border-gray-300 rounded-lg px-4 py-2"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
                 </select>
                 
                 {totalStores > 0 && (
