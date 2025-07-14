@@ -272,7 +272,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               </p>
               
               <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:text-sm cursor-pointer">
-                <span className="font-mono">{formatAddress(store.address)}</span>
+                <span className="font-mono text-xs sm:text-sm break-all">{formatAddress(store.address)}</span>
                 <div className="flex flex-wrap gap-2 sm:gap-4">
                   <span>{store.fieldCount || 0} fields</span>
                   <span>{store.sensorCount || 0} sensors</span>
