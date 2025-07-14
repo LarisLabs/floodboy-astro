@@ -330,10 +330,18 @@ import '../styles/global.css';
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState(null);
         const [totalStores, setTotalStores] = useState(0);
+        const [currentOffset, setCurrentOffset] = useState(0);
+        const [loadingMore, setLoadingMore] = useState(false);
+        const STORES_PER_PAGE = 12;
         
         // Fetch stores using multicall
-        const fetchStores = async () => {
-          setLoading(true);
+        const fetchStores = async (loadMore = false) => {
+          if (loadMore) {
+            setLoadingMore(true);
+          } else {
+            setLoading(true);
+            setCurrentOffset(0);
+          }
           setError(null);
           
           try {
@@ -356,26 +364,39 @@ import '../styles/global.css';
               setTotalStores(Number(storeCount));
             } catch (err) {
               console.error('Could not fetch store count:', err);
-              throw err; // Propagate error instead of falling back to mock data
+              throw err;
             }
             
             if (Number(storeCount) === 0) {
               setStores([]);
               setLoading(false);
+              setLoadingMore(false);
               return;
             }
             
-            // Get the first 12 stores (newest first)
+            // Calculate offset for pagination
+            const offset = loadMore ? currentOffset + STORES_PER_PAGE : 0;
+            const count = Math.min(STORES_PER_PAGE, Number(storeCount) - offset);
+            
+            if (count <= 0) {
+              setLoadingMore(false);
+              return;
+            }
+            
+            // Get stores using reverse method (newest first)
             const storeAddresses = await publicClient.readContract({
               address: factoryAddress,
               abi: DEPLOYER_ABI,
               functionName: 'getStoresReverse',
-              args: [0n, 12n]
+              args: [BigInt(offset), BigInt(count)]
             });
             
             if (!storeAddresses || storeAddresses.length === 0) {
-              setStores([]);
+              if (!loadMore) {
+                setStores([]);
+              }
               setLoading(false);
+              setLoadingMore(false);
               return;
             }
             
@@ -426,12 +447,20 @@ import '../styles/global.css';
               });
             }
             
-            setStores(processedStores);
+            // Update stores - append if loading more, replace if not
+            if (loadMore) {
+              setStores(prev => [...prev, ...processedStores]);
+              setCurrentOffset(offset);
+            } else {
+              setStores(processedStores);
+              setCurrentOffset(0);
+            }
           } catch (err) {
             console.error('Error fetching stores:', err);
             setError(err.message);
           } finally {
             setLoading(false);
+            setLoadingMore(false);
           }
         };
         
@@ -501,10 +530,22 @@ import '../styles/global.css';
             )}
             
             {/* Load More */}
-            {!loading && stores.length < totalStores && (
+            {!loading && !loadingMore && stores.length < totalStores && (
               <div className="text-center mt-8">
-                <button className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300">
+                <button 
+                  onClick={() => fetchStores(true)}
+                  className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300"
+                >
                   Load More ({totalStores - stores.length} remaining)
+                </button>
+              </div>
+            )}
+            
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <div className="text-center mt-8">
+                <button disabled className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg opacity-50">
+                  Loading...
                 </button>
               </div>
             )}
