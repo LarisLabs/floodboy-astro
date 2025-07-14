@@ -623,6 +623,20 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
 				const [isLoading, setIsLoading] = React.useState(true);
+				
+				// Helper function to get explorer URL based on chain
+				const getExplorerUrl = (chainId) => {
+					switch(chainId) {
+						case 8899:
+							return window.chains.jibchainL1.blockExplorers.default.url;
+						case 700011:
+							return window.chains.sichang.blockExplorers.default.url;
+						case 31337:
+							return 'http://localhost:8545'; // Local anvil doesn't have a real explorer
+						default:
+							return window.chains.jibchainL1.blockExplorers.default.url; // Default to JBC
+					}
+				};
 				const [waterLevel, setWaterLevel] = React.useState(0);
 				const [temperature, setTemperature] = React.useState(0);
 				const [isOnline, setIsOnline] = React.useState(true);
@@ -676,7 +690,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 						});
 
 						return {
-							label: `${field.name} (${field.unit})`,
+							label: `${field.name} (${field.unit.replace(/ x\d+$/, '')})`,
 							data: data,
 							borderColor: colors[fieldIndex % colors.length],
 							backgroundColor: colors[fieldIndex % colors.length] + '20',
@@ -846,7 +860,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 							// Update state with enhanced data
 							setStoreData({
 								address: storeAddress,
-								name: "Floodboy Sensor Store",
+								name: "FloodBoy: IoT-Powered Blockchain Sensor Store",
 								owner: owner,
 								fields: fields,
 								lastTimestamp: latestRecord?.timestamp || 0,
@@ -885,7 +899,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 							// Set fallback data
 							setStoreData({
 								address: storeAddress,
-								name: "Floodboy Sensor Store (Offline)",
+								name: "FloodBoy: IoT-Powered Blockchain Sensor Store (Offline)",
 								owner: "Unable to load",
 								fields: [],
 								lastTimestamp: 0
@@ -1057,7 +1071,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 									onClick: () => window.location.reload()
 								}, '🔄 Refresh'),
 								React.createElement('a', { 
-									href: `https://exp.jibchain.net/address/${storeAddress}`,
+									href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
 									target: '_blank',
 									className: 'px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition text-sm sm:px-4 sm:text-base'
 								}, '🔗 Explorer')
@@ -1070,7 +1084,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 						React.createElement('div', { className: 'flex items-center justify-between mb-4' },
 							React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
 							React.createElement('a', { 
-								href: `https://exp.jibchain.net/address/${storeAddress}`,
+								href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
 								target: '_blank',
 								className: 'text-blue-600 hover:text-blue-700 text-sm'
 							}, 'View on explorer ↗')
@@ -1163,7 +1177,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 												),
 												React.createElement('div', { className: `text-2xl font-bold ${exceedsSensorRange ? 'text-red-900' : color.bold}` }, 
-													`${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit}${exceedsSensorRange ? ' ⚠️' : ''}`
+													`${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit.replace(/ x\d+$/, '')}${exceedsSensorRange ? ' ⚠️' : ''}`
 												),
 												exceedsSensorRange && React.createElement('div', { className: 'text-xs text-red-600 mt-1' }, 
 													'Exceeds 2.5m sensor range'
@@ -1216,11 +1230,11 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 											onClick: () => {
 												// Simple CSV export
 												if (sensorRecords.length > 0 && storeData?.fields) {
-													const headers = ['Timestamp', 'Sensor', 'Block', ...storeData.fields.map(f => f.name)];
+													const headers = ['Timestamp', 'Block', 'Transaction', ...storeData.fields.map(f => f.name)];
 													const rows = sensorRecords.map(record => [
 														new Date(record.timestamp * 1000).toISOString(),
-														record.sensor,
 														record.blockNumber || '',
+														record.transactionHash || '',
 														...storeData.fields.map((field, index) => 
 															record.values[index] !== undefined ? formatScaledValue(record.values[index], field.unit) : ''
 														)
@@ -1247,11 +1261,11 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 												React.createElement('thead', {},
 													React.createElement('tr', { className: 'border-b text-left' },
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
-														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
+														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Tx'),
 														...(storeData?.fields || []).map((field, index) => 
 															React.createElement('th', { key: index, className: 'py-2 text-gray-600' }, 
-																`${field.name} (${field.unit})`
+																`${field.name} (${field.unit.replace(/ x\d+$/, '')})`
 															)
 														)
 													)
@@ -1262,10 +1276,24 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 															React.createElement('td', { className: 'py-3 text-xs' }, 
 																new Date(record.timestamp * 1000).toLocaleString()
 															),
-															React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-																`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
+															React.createElement('td', { className: 'py-3 text-xs' }, 
+																record.blockNumber ? 
+																	React.createElement('a', { 
+																		href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
+																		target: '_blank',
+																		className: 'text-blue-600 hover:text-blue-800 hover:underline'
+																	}, record.blockNumber.toString())
+																	: '-'
 															),
-															React.createElement('td', { className: 'py-3 text-xs' }, record.blockNumber?.toString() || '-'),
+															React.createElement('td', { className: 'py-3 text-xs' }, 
+																record.transactionHash ? 
+																	React.createElement('a', { 
+																		href: `${getExplorerUrl(currentChain)}/tx/${record.transactionHash}`,
+																		target: '_blank',
+																		className: 'text-blue-600 hover:text-blue-800 hover:underline font-mono'
+																	}, `${record.transactionHash.slice(0, 6)}...${record.transactionHash.slice(-4)}`)
+																	: '-'
+															),
 															...(storeData?.fields || []).map((field, fieldIndex) => 
 																React.createElement('td', { key: fieldIndex, className: 'py-3 font-medium' }, 
 																	record.values[fieldIndex] !== undefined ? 
