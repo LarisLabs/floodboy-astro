@@ -24,10 +24,12 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
       .store-card {
         transition: all 0.3s ease;
         cursor: pointer;
+        backdrop-filter: blur(10px);
       }
       
       .store-card:hover {
         transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
       }
       
       .skeleton {
@@ -39,6 +41,95 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
       @keyframes shimmer {
         0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
+      }
+      
+      /* Modern button styling */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 0.375rem;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      
+      .btn-primary {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+      }
+      
+      .btn-primary:hover {
+        background-color: #2563eb;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      }
+      
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+      
+      .btn-secondary {
+        background-color: #ffffff;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+      
+      .btn-secondary:hover {
+        background-color: #f9fafb;
+        border-color: #9ca3af;
+      }
+      
+      /* Modern select styling */
+      .select-modern {
+        background-color: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        padding: 0.5rem 2.5rem 0.5rem 1rem;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+      }
+      
+      .select-modern:hover {
+        border-color: #9ca3af;
+      }
+      
+      .select-modern:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+      
+      /* Card hover effects */
+      .card-link {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.875rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 0.25rem;
+        transition: all 0.2s ease;
+        text-decoration: none;
+      }
+      
+      @media (min-width: 640px) {
+        .card-link {
+          padding: 0.5rem 1rem;
+          font-size: 0.875rem;
+        }
       }
     </style>
   </head>
@@ -282,7 +373,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <div className="mt-4 flex flex-wrap gap-2">
                 <a 
                   href={`/blockchain/${store.address}`}
-                  className="bg-white/20 backdrop-blur px-2 py-1 rounded text-xs hover:bg-white/30 sm:px-3 sm:text-sm"
+                  className="card-link bg-white/20 backdrop-blur text-white hover:bg-white/30"
                   onClick={(e) => e.stopPropagation()}
                 >
                   View Data
@@ -291,7 +382,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                   href={`${CONTRACTS[store.chainId].EXPLORER_URL}/address/${store.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-white/20 backdrop-blur px-2 py-1 rounded text-xs hover:bg-white/30 sm:px-3 sm:text-sm"
+                  className="card-link bg-white/20 backdrop-blur text-white hover:bg-white/30"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Explorer
@@ -498,7 +589,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 <select
                   value={chainId}
                   onChange={(e) => setChainId(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
+                  className="select-modern w-full sm:w-auto"
                 >
                   <option value={8899}>JIBCHAIN L1</option>
                   <option value={700011}>SiChang</option>
@@ -511,7 +602,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                     setSortOrder(e.target.value);
                     fetchStores(); // Refresh with new sort
                   }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
+                  className="select-modern w-full sm:w-auto"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -527,7 +618,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <button
                 onClick={fetchStores}
                 disabled={loading}
-                className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm sm:px-4 sm:text-base w-full sm:w-auto"
+                className="btn btn-primary w-full sm:w-auto"
               >
                 {loading ? 'Loading...' : 'Refresh'}
               </button>
@@ -561,7 +652,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <div className="text-center mt-8">
                 <button 
                   onClick={() => fetchStores(true)}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm sm:px-6 sm:text-base"
+                  className="btn btn-secondary"
                 >
                   Load More ({totalStores - stores.length} remaining)
                 </button>
@@ -571,7 +662,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             {/* Loading More Indicator */}
             {loadingMore && (
               <div className="text-center mt-8">
-                <button disabled className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg opacity-50 text-sm sm:px-6 sm:text-base">
+                <button disabled className="btn btn-secondary">
                   Loading...
                 </button>
               </div>

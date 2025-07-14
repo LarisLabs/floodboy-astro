@@ -26,4 +26,10 @@ pnpm-debug.log*
 # wrangler files
 .wrangler
 .dev.vars
+
+# context and reference files
 01-context/
+
+# temporary screenshot files
+image.png
+image copy*.png

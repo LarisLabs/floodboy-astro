@@ -1,9 +1,13 @@
 # Project Overview
 This is an Astro-based IoT flood monitoring system called Floodboy.
 
-## Context Repositories
-**⚠️ CRITICAL: The `01-context/` directory is EXCLUDED from git and must NEVER be committed!**
+## Important File Exclusions
+**⚠️ CRITICAL: The following files/directories must NEVER be committed:**
+- `01-context/` directory - Contains reference repositories
+- `image.png` - Temporary screenshot files
+- `image copy*.png` - Any image copy files (e.g., "image copy.png", "image copy 2.png")
 
+## Context Repositories
 The `01-context/` directory contains reference repositories for learning purposes only:
 
 1. **web3-iot-factory**
