@@ -1230,10 +1230,9 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 											onClick: () => {
 												// Simple CSV export
 												if (sensorRecords.length > 0 && storeData?.fields) {
-													const headers = ['Timestamp', 'Sensor', 'Block', 'Transaction', ...storeData.fields.map(f => f.name)];
+													const headers = ['Timestamp', 'Block', 'Transaction', ...storeData.fields.map(f => f.name)];
 													const rows = sensorRecords.map(record => [
 														new Date(record.timestamp * 1000).toISOString(),
-														record.sensor,
 														record.blockNumber || '',
 														record.transactionHash || '',
 														...storeData.fields.map((field, index) => 
@@ -1262,7 +1261,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 												React.createElement('thead', {},
 													React.createElement('tr', { className: 'border-b text-left' },
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Timestamp'),
-														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor'),
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Block'),
 														React.createElement('th', { className: 'py-2 text-gray-600' }, 'Tx'),
 														...(storeData?.fields || []).map((field, index) => 
@@ -1277,9 +1275,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 														React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
 															React.createElement('td', { className: 'py-3 text-xs' }, 
 																new Date(record.timestamp * 1000).toLocaleString()
-															),
-															React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-																`${record.sensor.slice(0, 6)}...${record.sensor.slice(-4)}`
 															),
 															React.createElement('td', { className: 'py-3 text-xs' }, 
 																record.blockNumber ? 
