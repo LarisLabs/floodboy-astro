@@ -3,12 +3,16 @@ import BaseHead from '../../components/BaseHead.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
+import { BLOCKCHAIN_CONFIG } from '../../config/blockchain.config';
 
 // Enable server-side rendering for dynamic routes
 export const prerender = false;
 
 // Get the address parameter from the URL
 const { address } = Astro.params;
+
+// Prepare configuration for injection
+const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 ---
 
 <!doctype html>
@@ -100,7 +104,7 @@ const { address } = Astro.params;
 		</main>
 		<Footer />
 
-		<script type="module">
+		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson }}>
 			// Import viem modules
 			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
@@ -144,7 +148,7 @@ const { address } = Astro.params;
 
 			// Contract ABIs and configurations
 			// Configuration injected at build time
-			const CONTRACTS = ${JSON.stringify((await import('../../config/blockchain.config.ts')).BLOCKCHAIN_CONFIG)};
+			const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
 
 			const STORE_ABI = [
 				{
