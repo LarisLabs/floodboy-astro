@@ -235,7 +235,13 @@ This open source web application welcomes sponsors! Support options include:
 
 ### Call for Sponsors
 Cat Lab and LarisLabs are open for funding to support the development and maintenance of this open source FloodBoy web application:
-- **ETH Wallet**: `0x1D7EF8bF25CF7575cD220c33E8b20c02c491261b`
+
+**ETH Wallet**: `0x1D7EF8bF25CF7575cD220c33E8b20c02c491261b`
+
+**Supported Networks**:
+- Ethereum Mainnet
+- Optimism
+- BNB Chain
 
 Your sponsorship will help us improve the dashboard, add new features, and maintain the infrastructure.
 
