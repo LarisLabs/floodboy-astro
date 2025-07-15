@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the **open source web application** for FloodBoy, an advanced IoT-based flood monitoring system developed by the **Climate Change Data Center (CCDC)** at Chiang Mai University since **2014**. 
+This is the **open source web application** for FloodBoy, an advanced IoT-based flood monitoring system developed by the **Climate Change Data Center (CCDC)** at Chiang Mai University since **2024**. 
 
 **This Web Application:**
 - **Powered by**: Cat Lab
@@ -89,7 +89,7 @@ This is the **open source web application** for FloodBoy, an advanced IoT-based 
 | Operating Duration | 30 days (without sun) |
 | Communication | Real-time online |
 | Installation | Plug-and-play |
-| Development Period | Since 2014 |
+| Development Period | Since 2024 |
 
 ## Installation & Deployment
 
@@ -144,8 +144,7 @@ The web application is fully responsive and optimized for:
 
 ## Version History
 
-- **2014**: Initial FloodBoy sensor development by CCDC
-- **2014-2023**: Continuous sensor improvements and field testing
+- **2024**: Initial FloodBoy sensor development by CCDC
 - **2024**: FloodBoy sensors production ready by CCDC
 - **2025**: Open source web application launched by Cat Lab
 - **2025 (2568)**: Web application deployment with multi-chain support
