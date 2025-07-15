@@ -247,7 +247,6 @@ For more information about FloodBoy or deployment inquiries:
 
 **Climate Change Data Center (CCDC)**  
 Chiang Mai University  
-Email: ccdc@cmu.ac.th  
 Website: [https://cmuccdc.org](https://cmuccdc.org)  
 Facebook: [https://www.facebook.com/cmu.ccdc](https://www.facebook.com/cmu.ccdc)
 
