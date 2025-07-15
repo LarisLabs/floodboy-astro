@@ -18,7 +18,11 @@ This is the **open source web application** for FloodBoy, an advanced IoT-based 
 ## Web Application Features
 
 ### Blockchain Integration
-- **Multi-chain Support**: JIBCHAIN L1 (8899), SiChang (700011), and local Anvil
+- **Multi-chain Support**: 
+  - JIBCHAIN L1 (Chain ID: 8899)
+  - SiChang (Chain ID: 700011)
+  - DustBoy IoT (Chain ID: 555888) - Coming soon
+  - Local Anvil (Chain ID: 31337)
 - **Smart Contract Dashboard**: Browse all deployed IoT sensor stores
 - **Store Explorer**: View individual sensor configurations and metadata
 - **Multicall Optimization**: Efficient batch reading of blockchain data
@@ -148,8 +152,9 @@ The web application is fully responsive and optimized for:
 
 - **2014**: Initial FloodBoy sensor development by CCDC
 - **2014-2023**: Continuous sensor improvements and field testing
-- **2024**: Open source web application launched by Cat Lab
-- **2024 (2567)**: Beta Version deployment for real-world implementation
+- **2024**: FloodBoy sensors production ready by CCDC
+- **2025**: Open source web application launched by Cat Lab
+- **2025 (2568)**: Web application deployment with multi-chain support
 
 ## Contributing
 
@@ -228,16 +233,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Funding & Support
 
-### For FloodBoy Web Application
+### For FloodBoy Web Application by Cat Lab
 This open source web application welcomes sponsors! Support options include:
 - Corporate sponsorship
 - Technical partnerships  
 - Infrastructure support
 - Development contributions
 
-### For CCDC Research
-CCDC accepts donations to support flood monitoring research:
+### Call for Sponsors
+Cat Lab is open for funding to support the development and maintenance of this open source FloodBoy web application:
 - **ETH Wallet**: `0x1D7EF8bF25CF7575cD220c33E8b20c02c491261b`
+
+Your sponsorship will help us improve the dashboard, add new features, and maintain the infrastructure.
 
 For sponsorship opportunities, please contact us.
 
