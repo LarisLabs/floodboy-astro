@@ -106,23 +106,17 @@ This is the **open source web application** for FloodBoy, an advanced IoT-based 
    pnpm install
    ```
 
-3. **Configure Environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Run Development Server**
+3. **Run Development Server**
    ```bash
    pnpm dev
    ```
 
-5. **Build for Production**
+4. **Build for Production**
    ```bash
    pnpm build
    ```
 
-6. **Deploy to Cloudflare**
+5. **Deploy to Cloudflare**
    ```bash
    pnpm run deploy
    ```
