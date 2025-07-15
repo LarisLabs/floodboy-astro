@@ -145,7 +145,7 @@ The web application is fully responsive and optimized for:
 ## Version History
 
 - **2024**: Initial FloodBoy sensor development by CCDC
-- **2024**: FloodBoy sensors production ready by CCDC
+- **2025**: FloodBoy sensors production ready and deployment begins by CCDC
 - **2025**: Open source web application launched by Cat Lab
 - **2025 (2568)**: Web application deployment with multi-chain support
 
