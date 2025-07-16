@@ -4,21 +4,74 @@ import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
 import { BLOCKCHAIN_CONFIG } from '../../config/blockchain.config';
+import { getAddressFromAlias, getAliasFromAddress, STORE_ALIASES } from '../../config/aliases.config';
 
 // Enable server-side rendering for dynamic routes
 export const prerender = false;
 
 // Get the address parameter from the URL
-const { address } = Astro.params;
+const { address: addressOrAlias } = Astro.params;
+
+// Validate Ethereum address format
+const isEthereumAddress = /^0x[a-fA-F0-9]{40}$/i.test(addressOrAlias);
+
+let resolvedAddress = addressOrAlias;
+let aliasInfo = null;
+let error = null;
+
+if (!isEthereumAddress) {
+  // Try to resolve as alias
+  const addressFromAlias = getAddressFromAlias(addressOrAlias);
+  if (addressFromAlias) {
+    resolvedAddress = addressFromAlias;
+    // Find the full alias info
+    const storeAlias = STORE_ALIASES.find(a => a.alias.toLowerCase() === addressOrAlias.toLowerCase());
+    if (storeAlias) {
+      aliasInfo = {
+        alias: storeAlias.alias,
+        displayName: storeAlias.displayName
+      };
+    }
+  } else {
+    error = `Invalid alias: ${addressOrAlias}`;
+    resolvedAddress = null;
+  }
+} else {
+  // Check if this address has an alias
+  const alias = getAliasFromAddress(addressOrAlias);
+  if (alias) {
+    const storeAlias = STORE_ALIASES.find(a => a.address.toLowerCase() === addressOrAlias.toLowerCase());
+    if (storeAlias) {
+      aliasInfo = {
+        alias: storeAlias.alias,
+        displayName: storeAlias.displayName
+      };
+    }
+  }
+}
+
+// Prepare data for client-side
+const pageData = {
+  originalParam: addressOrAlias,
+  address: resolvedAddress,
+  aliasInfo: aliasInfo,
+  error: error
+};
 
 // Prepare configuration for injection
 const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
+const pageDataJson = JSON.stringify(pageData);
+
+// Update page title based on alias or address
+const pageTitle = aliasInfo 
+  ? `${aliasInfo.displayName} | ${SITE_TITLE}`
+  : `Blockchain Store ${addressOrAlias} | ${SITE_TITLE}`;
 ---
 
 <!doctype html>
 <html lang="en">
 	<head>
-		<BaseHead title={`Blockchain Store ${address} | ${SITE_TITLE}`} description={SITE_DESCRIPTION} />
+		<BaseHead title={pageTitle} description={SITE_DESCRIPTION} />
 		
 		<!-- React and Babel for JSX -->
 		<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -224,7 +277,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 		</main>
 		<Footer />
 
-		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson }}>
+		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, PAGE_DATA: pageDataJson }}>
 			// Import viem modules
 			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
@@ -262,9 +315,14 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
-			// Get the address from the URL path
-			const urlParts = window.location.pathname.split('/');
-			const storeAddress = urlParts[urlParts.length - 1]; // Get the address parameter
+			// Parse page data from server
+			const pageData = JSON.parse(PAGE_DATA);
+			
+			// Use resolved address from server or fall back to URL parsing
+			const storeAddress = pageData.address || (() => {
+				const urlParts = window.location.pathname.split('/');
+				return urlParts[urlParts.length - 1];
+			})();
 
 			// Contract ABIs and configurations
 			// Configuration injected at build time
@@ -1113,6 +1171,31 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 					};
 				}, [blockNumber, currentChain]);
 
+				// Check for alias resolution error first
+				if (pageData.error) {
+					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
+						React.createElement('div', { className: 'text-center' },
+							React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
+								React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Invalid Store Alias'),
+								React.createElement('p', { className: 'text-red-600 mb-4' }, pageData.error),
+								React.createElement('p', { className: 'text-gray-600 text-sm mb-4' }, 
+									'The alias you entered does not exist. Please check the URL and try again.'
+								),
+								React.createElement('a', { 
+									href: '/blockchain',
+									className: 'inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+								}, 'View All Stores'),
+								React.createElement('div', { className: 'mt-4' },
+									React.createElement('a', { 
+										href: '/s/',
+										className: 'text-sm text-blue-600 hover:text-blue-800'
+									}, 'View Store Directory')
+								)
+							)
+						)
+					);
+				}
+
 				if (isLoading) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
@@ -1163,8 +1246,15 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 					React.createElement('div', { className: 'mb-8' },
 						React.createElement('div', { className: 'flex items-center justify-between' },
 							React.createElement('div', {},
-								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Public Sensor Store View'),
-								React.createElement('p', { className: 'text-gray-600' }, 'View sensor data stored on the blockchain'),
+								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 
+									pageData.aliasInfo ? pageData.aliasInfo.displayName : 'Public Sensor Store View'
+								),
+								React.createElement('p', { className: 'text-gray-600' }, 
+									pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
+								),
+								pageData.aliasInfo && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' }, 
+									`Alias: /${pageData.aliasInfo.alias}`
+								),
 								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress),
 								
 								// Block indicator for JBC chain
