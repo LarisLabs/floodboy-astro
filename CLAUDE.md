@@ -251,7 +251,7 @@ mcp__puppeteer__puppeteer_screenshot --name "homepage"
 
 ### GitHub Projects Workflow
 
-**Project Board**: https://github.com/orgs/LarisLabs/projects/6
+**Project Board**: https://github.com/orgs/LarisLabs/projects/7
 
 #### Creating Projects
 ```bash
@@ -260,6 +260,9 @@ gh project create --owner LarisLabs --title "Project Name" --format json
 
 # Make project public
 gh project edit PROJECT_NUMBER --owner LarisLabs --visibility PUBLIC
+
+# Link project to repository
+gh project link PROJECT_NUMBER --owner LarisLabs --repo LarisLabs/floodboy-astro
 
 # Add issue to project
 gh project item-add PROJECT_NUMBER --owner LarisLabs --url ISSUE_URL
@@ -278,7 +281,12 @@ gh project field-list PROJECT_NUMBER --owner LarisLabs
 ```
 
 #### Linking Project to Repository
-After creating a project, manually link it to the repository:
+Use the CLI to link project to repository:
+```bash
+gh project link PROJECT_NUMBER --owner LarisLabs --repo LarisLabs/floodboy-astro
+```
+
+Or manually through web interface:
 1. Open project settings (⋯ menu → Settings)
 2. Under "Manage access" → "Repository access"
 3. Add "LarisLabs/floodboy-astro"
