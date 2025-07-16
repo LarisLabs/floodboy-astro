@@ -249,6 +249,43 @@ mcp__puppeteer__puppeteer_screenshot --name "homepage"
 - Restart dev server AFTER building (step 4)
 - Use MCP Puppeteer to visually verify changes (step 5)
 
+### GitHub Projects Workflow
+
+**Project Board**: https://github.com/orgs/LarisLabs/projects/6
+
+#### Creating Projects
+```bash
+# Create new project for LarisLabs organization
+gh project create --owner LarisLabs --title "Project Name" --format json
+
+# Make project public
+gh project edit PROJECT_NUMBER --owner LarisLabs --visibility PUBLIC
+
+# Add issue to project
+gh project item-add PROJECT_NUMBER --owner LarisLabs --url ISSUE_URL
+```
+
+#### Working with Projects
+```bash
+# View project in browser
+gh project view PROJECT_NUMBER --owner LarisLabs --web
+
+# List project items
+gh project item-list PROJECT_NUMBER --owner LarisLabs
+
+# Check project fields (to find Status field ID)
+gh project field-list PROJECT_NUMBER --owner LarisLabs
+```
+
+#### Linking Project to Repository
+After creating a project, manually link it to the repository:
+1. Open project settings (⋯ menu → Settings)
+2. Under "Manage access" → "Repository access"
+3. Add "LarisLabs/floodboy-astro"
+4. Project will appear in repository's Projects tab
+
+**Note**: GitHub Projects are always created at org/user level, then linked to repositories.
+
 ## Core Short Codes
 
 ### `ccc` - Create Context & Compact
