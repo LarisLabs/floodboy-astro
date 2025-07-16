@@ -1,0 +1,32 @@
+---
+// src/pages/s/[identifier].astro
+import { STORE_ALIASES, getAddressFromAlias } from '../../config/aliases.config';
+
+// Generate static paths for all aliases at build time
+export async function getStaticPaths() {
+  return STORE_ALIASES.map(alias => ({
+    params: { identifier: alias.alias }
+  }));
+}
+
+// Enable SSR for dynamic fallback (direct address access)
+export const prerender = false;
+
+const { identifier } = Astro.params;
+
+// Try to resolve as alias first
+let address = getAddressFromAlias(identifier);
+
+// If not an alias, check if it's a valid address
+if (!address && identifier.startsWith('0x') && identifier.length === 42) {
+  address = identifier;
+}
+
+// If we have a valid address, redirect
+if (address) {
+  return Astro.redirect(`/blockchain/${address}`, 301);
+}
+
+// Otherwise redirect to blockchain listing
+return Astro.redirect('/blockchain', 302);
+---
