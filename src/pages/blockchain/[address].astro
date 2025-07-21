@@ -703,7 +703,7 @@ const pageTitle = aliasInfo
 									
 									// Additional warning text below
 									p.textSize(10);
-									p.text(`Exceeds ${currentInstallationHeight}m range`, waterArea + 75, labelY + 15);
+									p.text(`Exceeds ${currentInstallationHeight.toFixed(1)}m range`, waterArea + 75, labelY + 15);
 									p.textSize(12); // Reset text size
 								} else {
 									p.text(currentWaterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
@@ -817,6 +817,7 @@ const pageTitle = aliasInfo
 				};
 				const [waterLevel, setWaterLevel] = React.useState(0);
 				const [temperature, setTemperature] = React.useState(0);
+				const [installationHeight, setInstallationHeight] = React.useState(3.0); // Default 3m, will be updated from contract
 				const [isOnline, setIsOnline] = React.useState(true);
 				const [error, setError] = React.useState(null);
 				const [lastUpdated, setLastUpdated] = React.useState(null);
@@ -1062,6 +1063,11 @@ const pageTitle = aliasInfo
 								setTemperature(processedData.temperature);
 							} else if (processedData.temp !== undefined) {
 								setTemperature(processedData.temp);
+							}
+							
+							// Set installation height if available
+							if (processedData.installation_height !== undefined) {
+								setInstallationHeight(processedData.installation_height);
 							}
 
 							if (latestRecord) {
@@ -1330,18 +1336,18 @@ const pageTitle = aliasInfo
 									React.createElement('div', { className: 'flex justify-center' },
 										React.createElement(FloodboyVisualization, {
 											waterLevel: waterLevel,
-											airLevel: 2.5 - waterLevel,
+											airLevel: installationHeight - waterLevel,
 											sensorMode: 'water',
-											installationHeight: 2.5,
+											installationHeight: installationHeight,
 											showMeasurement: true,
 											isOnline: isOnline && lastUpdated && (Date.now() - lastUpdated.getTime()) < 3600000, // Online if data < 1 hour old
 											isDead: lastUpdated && (Date.now() - lastUpdated.getTime()) > 86400000 // Dead if data > 24 hours old
 										})
 									),
 									React.createElement('div', { className: 'text-center text-sm mt-2' },
-										waterLevel > 2.5 ? 
+										waterLevel > installationHeight ? 
 											React.createElement('span', { className: 'text-red-600 font-medium' },
-												`⚠️ Water Level: ${waterLevel.toFixed(2)}m (exceeds 2.5m sensor range)`
+												`⚠️ Water Level: ${waterLevel.toFixed(2)}m (exceeds ${installationHeight.toFixed(1)}m sensor range)`
 											) :
 											React.createElement('span', { className: 'text-gray-600' },
 												`Current Water Level: ${waterLevel.toFixed(2)}m`
@@ -1399,7 +1405,7 @@ const pageTitle = aliasInfo
 											
 											// Check if this is water level and exceeds sensor range
 											const isWaterLevel = field.name.toLowerCase().includes('water') && field.name.toLowerCase().includes('level');
-											const exceedsSensorRange = hasData && isWaterLevel && value > 2.5;
+											const exceedsSensorRange = hasData && isWaterLevel && value > installationHeight;
 											
 											return React.createElement('div', { 
 												key: index, 
@@ -1414,7 +1420,7 @@ const pageTitle = aliasInfo
 														: 'No data'
 												),
 												exceedsSensorRange && React.createElement('div', { className: 'text-xs text-red-600 mt-1' }, 
-													'Exceeds 2.5m sensor range'
+													`Exceeds ${installationHeight.toFixed(1)}m sensor range`
 												)
 											);
 										})
