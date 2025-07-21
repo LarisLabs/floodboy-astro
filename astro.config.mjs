@@ -15,7 +15,7 @@ const alias = import.meta.env.PROD ? {
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://example.com",
+  site: "https://blockchain.floodboy.online",
   integrations: [mdx(), sitemap(), react()],
   adapter: cloudflare({
     mode: 'directory',
