@@ -168,7 +168,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             {"internalType": "string", "name": "nickname", "type": "string"},
             {"internalType": "address", "name": "owner", "type": "address"},
             {"internalType": "uint256", "name": "authorizedSensorCount", "type": "uint256"},
-            {"internalType": "bool", "name": "isEventOnly", "type": "bool"},
             {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
             {"internalType": "string", "name": "description", "type": "string"}
           ],
@@ -534,10 +533,10 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 chainId,
                 nickname: infoResult.success ? infoResult.data[0] : 'Unknown',
                 owner: infoResult.success ? infoResult.data[1] : null,
-                description: infoResult.success ? infoResult.data[5] : '',
+                description: infoResult.success ? infoResult.data[4] : '',
                 fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
                 sensorCount: sensorCountResult.success ? Number(sensorCountResult.data) : 0,
-                deployedBlock: infoResult.success ? Number(infoResult.data[4]) : 0,
+                deployedBlock: infoResult.success ? Number(infoResult.data[3]) : 0,
                 // Calculate the actual index in the factory array
                 // getStoresReverse returns from (total - offset - count) to (total - offset)
                 factoryIndex: totalCount - offset - count + i
