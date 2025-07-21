@@ -576,19 +576,41 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               });
             }
             
-            // Phase 2: Check for data using getLatestRecord with timestamp check
-            // We'll check the owner address first as it's the most common pattern
+            // Phase 2: Check for data by trying multiple possible sensor addresses
+            // We'll check: 1) owner address, 2) store address itself, 3) a known sensor pattern
             const phase2Calls = [];
-            storeInfos.forEach(store => {
+            const phase2StoreIndices = []; // Track which store each call belongs to
+            
+            storeInfos.forEach((store, index) => {
+              // Check owner address
               if (store.owner) {
-                // Check if owner has data
                 phase2Calls.push({
                   target: store.address,
                   abi: STORE_ABI,
                   functionName: 'getLatestRecord',
                   args: [store.owner]
                 });
+                phase2StoreIndices.push({ storeIndex: index, checkType: 'owner' });
               }
+              
+              // Also check the store address itself (some sensors use this)
+              phase2Calls.push({
+                target: store.address,
+                abi: STORE_ABI,
+                functionName: 'getLatestRecord',
+                args: [store.address]
+              });
+              phase2StoreIndices.push({ storeIndex: index, checkType: 'self' });
+              
+              // Check a common sensor address pattern we've seen (0x193228...)
+              const knownSensorAddress = '0x193228e835e91db71e0f135b697fa86274c2e808';
+              phase2Calls.push({
+                target: store.address,
+                abi: STORE_ABI,
+                functionName: 'getLatestRecord',
+                args: [knownSensorAddress]
+              });
+              phase2StoreIndices.push({ storeIndex: index, checkType: 'known' });
             });
             
             // Execute phase 2 multicall
@@ -597,27 +619,24 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               phase2Results = await simpleMulticall(publicClient, phase2Calls);
             }
             
-            // Process final results
+            // Process results - mark store as having data if ANY check returns data
             const processedStores = [];
-            let phase2Index = 0;
+            const storeHasData = new Array(storeInfos.length).fill(false);
+            
+            phase2Results.forEach((result, idx) => {
+              const { storeIndex } = phase2StoreIndices[idx];
+              if (result.success) {
+                const [timestamp] = result.data;
+                if (Number(timestamp) > 0) {
+                  storeHasData[storeIndex] = true;
+                }
+              }
+            });
+            
+            // Build final store list with hasData flag
             for (let i = 0; i < storeInfos.length; i++) {
               const store = storeInfos[i];
-              
-              // Check if store has data
-              if (store.owner && phase2Index < phase2Results.length) {
-                const result = phase2Results[phase2Index];
-                if (result.success) {
-                  const [timestamp, values] = result.data;
-                  // If timestamp > 0, there's data
-                  store.hasData = Number(timestamp) > 0;
-                } else {
-                  store.hasData = false;
-                }
-                phase2Index++;
-              } else {
-                store.hasData = false;
-              }
-              
+              store.hasData = storeHasData[i];
               processedStores.push(store);
             }
             
