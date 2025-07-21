@@ -601,16 +601,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 args: [store.address]
               });
               phase2StoreIndices.push({ storeIndex: index, checkType: 'self' });
-              
-              // Check a common sensor address pattern we've seen (0x193228...)
-              const knownSensorAddress = '0x193228e835e91db71e0f135b697fa86274c2e808';
-              phase2Calls.push({
-                target: store.address,
-                abi: STORE_ABI,
-                functionName: 'getLatestRecord',
-                args: [knownSensorAddress]
-              });
-              phase2StoreIndices.push({ storeIndex: index, checkType: 'known' });
             });
             
             // Execute phase 2 multicall
