@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 export function useP5Loader() {
   const [isLoaded, setIsLoaded] = useState(false);
