@@ -840,30 +840,11 @@ const pageTitle = aliasInfo
 				const createChart = React.useCallback(() => {
 					if (!chartRef.current || !sensorRecords.length || !storeData?.fields) return;
 
-					// If chart exists, update data instead of recreating
+					// Always destroy and recreate when selectedFields changes
+					// This ensures the chart shows the correct fields
 					if (chartInstanceRef.current) {
-						const sortedRecords = [...sensorRecords].sort((a, b) => a.timestamp - b.timestamp);
-						const labels = sortedRecords.map(record => 
-							new Date(record.timestamp * 1000).toLocaleString()
-						);
-						
-						// Find water_depth field
-						const waterDepthField = storeData.fields.find(f => f.name === 'water_depth');
-						if (waterDepthField) {
-							const fieldIndex = storeData.fields.findIndex(f => f.name === 'water_depth');
-							const data = sortedRecords.map(record => {
-								if (record.values[fieldIndex] !== undefined) {
-									return parseFloat(formatScaledValue(record.values[fieldIndex], waterDepthField.unit));
-								}
-								return null;
-							});
-							
-							// Update existing chart
-							chartInstanceRef.current.data.labels = labels;
-							chartInstanceRef.current.data.datasets[0].data = data;
-							chartInstanceRef.current.update('none'); // Update without animation
-							return;
-						}
+						chartInstanceRef.current.destroy();
+						chartInstanceRef.current = null;
 					}
 
 					const ctx = chartRef.current.getContext('2d');
@@ -980,20 +961,15 @@ const pageTitle = aliasInfo
 							}
 						}
 					});
-				}, [sensorRecords, storeData]);
+				}, [sensorRecords, storeData, selectedFields]);
 
 				// Update chart when data changes
 				React.useEffect(() => {
 					if (activeTab === 'chart' && sensorRecords.length > 0 && selectedFields.length > 0) {
-						// Destroy existing chart when fields change
-						if (chartInstanceRef.current) {
-							chartInstanceRef.current.destroy();
-							chartInstanceRef.current = null;
-						}
-						// Use requestAnimationFrame for smoother updates
-						requestAnimationFrame(() => {
+						// Small delay to ensure canvas is ready
+						setTimeout(() => {
 							createChart();
-						});
+						}, 100);
 					}
 					
 					// Cleanup on unmount
