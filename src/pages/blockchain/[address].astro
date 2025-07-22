@@ -839,9 +839,30 @@ const pageTitle = aliasInfo
 				const createChart = React.useCallback(() => {
 					if (!chartRef.current || !sensorRecords.length || !storeData?.fields) return;
 
-					// Destroy existing chart
+					// If chart exists, update data instead of recreating
 					if (chartInstanceRef.current) {
-						chartInstanceRef.current.destroy();
+						const sortedRecords = [...sensorRecords].sort((a, b) => a.timestamp - b.timestamp);
+						const labels = sortedRecords.map(record => 
+							new Date(record.timestamp * 1000).toLocaleString()
+						);
+						
+						// Find water_depth field
+						const waterDepthField = storeData.fields.find(f => f.name === 'water_depth');
+						if (waterDepthField) {
+							const fieldIndex = storeData.fields.findIndex(f => f.name === 'water_depth');
+							const data = sortedRecords.map(record => {
+								if (record.values[fieldIndex] !== undefined) {
+									return parseFloat(formatScaledValue(record.values[fieldIndex], waterDepthField.unit));
+								}
+								return null;
+							});
+							
+							// Update existing chart
+							chartInstanceRef.current.data.labels = labels;
+							chartInstanceRef.current.data.datasets[0].data = data;
+							chartInstanceRef.current.update('none'); // Update without animation
+							return;
+						}
 					}
 
 					const ctx = chartRef.current.getContext('2d');
@@ -877,16 +898,22 @@ const pageTitle = aliasInfo
 								label: `Water Depth (${field.unit.replace(/ x\d+$/, '')})`,
 								data: data,
 								borderColor: colors[0], // Always use blue for water
-								backgroundColor: colors[0] + '20',
+								backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue with low opacity
 								borderWidth: 2,
 								tension: 0.4,
 								fill: true, // Fill area under the line
 								spanGaps: true,
-								pointRadius: 3,
-								pointHoverRadius: 5
+								pointRadius: 2,
+								pointHoverRadius: 4,
+								pointBackgroundColor: colors[0],
+								pointBorderColor: '#fff',
+								pointBorderWidth: 2
 							};
 						});
 
+					// Check if this is an update or initial creation
+					const isUpdate = chartInstanceRef.current !== null;
+					
 					chartInstanceRef.current = new Chart(ctx, {
 						type: 'line',
 						data: {
@@ -896,6 +923,9 @@ const pageTitle = aliasInfo
 						options: {
 							responsive: true,
 							maintainAspectRatio: false,
+							animation: {
+								duration: isUpdate ? 0 : 750 // No animation on updates
+							},
 							plugins: {
 								title: {
 									display: true,
@@ -940,10 +970,21 @@ const pageTitle = aliasInfo
 
 				// Update chart when data changes
 				React.useEffect(() => {
-					if (activeTab === 'chart') {
-						setTimeout(createChart, 100); // Small delay to ensure canvas is ready
+					if (activeTab === 'chart' && sensorRecords.length > 0) {
+						// Use requestAnimationFrame for smoother updates
+						requestAnimationFrame(() => {
+							createChart();
+						});
 					}
-				}, [activeTab, createChart]);
+					
+					// Cleanup on unmount
+					return () => {
+						if (chartInstanceRef.current) {
+							chartInstanceRef.current.destroy();
+							chartInstanceRef.current = null;
+						}
+					};
+				}, [activeTab, sensorRecords, createChart]);
 
 				// Define loadEnhancedStoreData function
 				const loadEnhancedStoreData = React.useCallback(async () => {
