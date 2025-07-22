@@ -1614,11 +1614,12 @@ const pageTitle = aliasInfo
 									activeTab === 'table' ? (
 										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
 											(() => {
-												// Filter to only show main fields (exclude _min, _max, _count)
+												// Filter to only show main fields that change (exclude _min, _max, _count, and installation_height)
 												const mainFields = storeData?.fields?.filter(field => 
 													!field.name.endsWith('_min') && 
 													!field.name.endsWith('_max') && 
-													!field.name.endsWith('_count')
+													!field.name.endsWith('_count') &&
+													!field.name.includes('installation_height')
 												) || [];
 												
 												return React.createElement('table', { className: 'modern-table' },
