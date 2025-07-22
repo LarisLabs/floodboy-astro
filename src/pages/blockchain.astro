@@ -200,8 +200,8 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
         },
         {
           "inputs": [],
-          "name": "isDataReady",
-          "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+          "name": "lastDataTimestamp",
+          "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
           "stateMutability": "view",
           "type": "function"
         },
@@ -561,11 +561,11 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 functionName: 'authorizedSignerCount'
               });
               
-              // Check if store has any data
+              // Get last data timestamp (0 = no data)
               calls.push({
                 target: address,
                 abi: STORE_ABI,
-                functionName: 'isDataReady'
+                functionName: 'lastDataTimestamp'
               });
             });
             
@@ -578,7 +578,9 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               const infoResult = results[i * 4];
               const fieldsResult = results[i * 4 + 1];
               const signerCountResult = results[i * 4 + 2];
-              const dataReadyResult = results[i * 4 + 3];
+              const timestampResult = results[i * 4 + 3];
+              
+              const lastDataTimestamp = timestampResult.success ? Number(timestampResult.data) : 0;
               
               processedStores.push({
                 address: storeAddresses[i],
@@ -588,7 +590,8 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 description: infoResult.success ? infoResult.data[4] : '',
                 fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
                 signerCount: signerCountResult.success ? Number(signerCountResult.data) : 0,
-                hasData: dataReadyResult.success ? dataReadyResult.data : false,
+                hasData: lastDataTimestamp > 0,
+                lastDataTimestamp,
                 deployedBlock: infoResult.success ? Number(infoResult.data[3]) : 0,
                 // Calculate the actual index in the factory array
                 // getStoresReverse returns from (total - offset - count) to (total - offset)
