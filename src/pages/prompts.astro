@@ -27,6 +27,8 @@ Final UI Design (Latest Sensor Data Card):
 
 Header Section:
 - Title: "Latest Sensor Data"
+- Store Nickname: Display nickname from factory contract (e.g., "FloodBoy001")
+- Store Description: Display description from factory contract (e.g., "Northern Thailand Flood Monitor")
 - Current Block: "Current Block: 5944625" (green dot indicator, no countdown)
 - Updated timestamp: "Updated: 7:25:08 PM"
 - Store address (truncated): "0xCd3Ec17d...d1A8Bb" with external link icon
@@ -50,30 +52,38 @@ Data Table:
 Columns: Metric | Current | Min | Max
 Rows:
 - Battery Voltage: 12.910 V | 12.910 V | 12.910 V
-- Installation Height: 3.0200 m | 3.0200 m | 3.0200 m  
-- Water Depth: 0.2730 m | 0.2730 m | 0.2730 m
+- Installation Height: 3.02 m | 3.02 m | 3.02 m  
+- Water Depth: 0.27 m | 0.27 m | 0.27 m
 
 Footer:
 - Last Updated: 7/22/2025, 7:25:08 PM
+- Store Owner: 0x943E41e4cc22f971284ae957A380D3DbeA1Dc481 (truncated with link)
+- Deployed Block: #5944625 (with block explorer link)
+- Sensor Count: 1 authorized sensor
 
 Data Processing Requirements:
 Unit Scaling:
-- x100 → divide by 100 (3 decimal places for voltage)
-- x1000 → divide by 1000 (3 decimal places)
-- x10000 → divide by 10000 (4 decimal places for meters)
-- Extract base unit from unit string (e.g., "V" from "V x100")
+- x100 → divide by 100 (3 decimal places for voltage) - Example: 1291 → 12.910 V
+- x1000 → divide by 1000 (3 decimal places) 
+- x10000 → divide by 10000 (2-4 decimal places for meters) - Examples: 30200 → 3.02 m, 2700 → 0.27 m
+- Extract base unit from unit string (e.g., "V" from "V x100", "m" from "m x10000")
 - Format timestamps in human-readable format (MM/dd/yyyy, h:mm:ss AM/PM)
+- Use appropriate decimal precision: voltage (3 decimals), meters (2 decimals for readability)
 
 Visual Design:
 - Clean white card with rounded corners and subtle shadow
+- Store nickname prominently displayed as main heading
+- Store description as subtitle below nickname
 - Alternating row colors (white/light gray)
 - Green status indicator for current block
 - Truncated addresses with external link icons
 - Sample count badges where applicable
 - Responsive table layout
+- Store metadata section with owner and deployment information
 
 Features:
 - Auto-refresh current block and data
+- Display store nickname and description from factory contract
 - Full-width chart with toggle between Water Depth and Battery Voltage views
 - Toggle buttons with active state highlighting (matching chart colors)
 - Loading indicators during data fetching
@@ -81,6 +91,7 @@ Features:
 - Always use the universal signer (0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd) for data retrieval
 - Show "No data" if no records exist
 - Responsive chart scaling for all screen sizes
+- Store metadata integration (nickname, description, owner, deployed block)
 
 Historical Data Requirements:
 - Use RecordStored events to build both water depth and battery voltage timelines
@@ -168,13 +179,16 @@ const FACTORY_ADDRESS = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb';
 const DEFAULT_STORE = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
 const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
 
-// Step 1: Get store information
+// Step 1: Get store information from factory contract
 const [nickname, owner, sensorCount, deployedBlock, description] = await client.readContract({
   address: FACTORY_ADDRESS,
   abi: FactoryABI,
   functionName: 'getStoreInfo',
   args: [storeAddress]
 });
+
+// Display store metadata in UI
+console.log('Store Info:', { nickname, description, owner, sensorCount, deployedBlock });
 
 // Step 2: Get field configurations
 const fields = await client.readContract({
@@ -228,14 +242,19 @@ const chartData = historicalEvents.map(event => ({
 // Chart toggle state management
 const [activeChart, setActiveChart] = useState('waterDepth'); // 'waterDepth' or 'batteryVoltage'
 
-// Data processing function
+// Data processing function with correct decimal precision
 function processValue(value, unit) {
   const baseUnit = unit.replace(/ x\\d+/, '');
-  if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit;
+  if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit; // Voltage: 3 decimals
   if (unit.includes('x1000')) return (Number(value) / 1000).toFixed(3) + ' ' + baseUnit;
-  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit;
+  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(2) + ' ' + baseUnit; // Meters: 2 decimals
   return value + ' ' + unit;
 }
+
+// Examples of correct processing:
+// Battery voltage: 1291 (x100) → 12.91 V (showing as 12.910 V with 3 decimals)
+// Installation height: 30200 (x10000) → 3.02 m
+// Water depth: 2700 (x10000) → 0.27 m
 
 Network Info:
 Chain ID: 8899 (JIBCHAIN L1)
