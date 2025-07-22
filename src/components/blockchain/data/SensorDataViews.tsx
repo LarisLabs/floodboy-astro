@@ -19,6 +19,7 @@ export const SensorDataViews = ({
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   
   const pageSize = 20;
 
@@ -49,6 +50,7 @@ export const SensorDataViews = ({
       ];
       
       setHistoricalData(mockData);
+      setLastUpdate(new Date());
     } catch (err) {
       setDataError(err instanceof Error ? err.message : 'Failed to fetch historical data');
     } finally {
@@ -109,7 +111,21 @@ export const SensorDataViews = ({
   return (
     <div className={getCardClasses(theme)}>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold">Sensor Data</h3>
+        <div>
+          <h3 className="text-lg font-semibold">Latest Sensor Data</h3>
+          <div className="flex items-center space-x-4 text-sm text-gray-400 mt-1">
+            {currentBlock && (
+              <div className="flex items-center space-x-1">
+                <span>Block:</span>
+                <span className="text-purple-400 font-mono">{currentBlock.toString()}</span>
+              </div>
+            )}
+            <div className="flex items-center space-x-1">
+              <span>Updated:</span>
+              <span className="text-gray-300">{lastUpdate.toLocaleTimeString()}</span>
+            </div>
+          </div>
+        </div>
         
         <div className="flex items-center space-x-4">
           {/* View Mode Toggle */}
