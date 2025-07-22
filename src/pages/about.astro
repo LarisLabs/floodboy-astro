@@ -4,73 +4,228 @@ import Layout from '../layouts/BlogPost.astro';
 
 <Layout
 	title="About FloodBoy: IoT-Powered Blockchain"
-	description="IoT-powered flood monitoring system for community safety"
-	pubDate={new Date('2025-07-14')}
+	description="Open source web application for FloodBoy flood monitoring system"
+	pubDate={new Date('2025-07-21')}
 	heroImage="/blog-placeholder-about.jpg"
 >
+	<h2>Overview</h2>
 	<p>
-		<strong>FloodBoy: IoT-Powered Blockchain</strong> is an innovative IoT-powered flood monitoring system designed to provide 
-		real-time water level data and early warning alerts to communities at risk of flooding. By combining 
-		cutting-edge sensor technology with blockchain transparency, FloodBoy: IoT-Powered Blockchain aims to create a more resilient 
-		and informed society.
+		This is the <strong>open source web application</strong> for FloodBoy, an advanced IoT-based flood monitoring system developed by the <strong>Climate Change Data Center (CCDC)</strong> at Chiang Mai University since <strong>2024</strong>.
 	</p>
-
-	<h2>Beta Version Notice</h2>
+	
 	<p>
-		<em>This application is currently in <strong>BETA</strong> and is intended for research purposes only.</em> 
-		We are actively developing and testing features to ensure reliability and accuracy before full deployment. 
-		Data displayed may be from simulated sensors or test environments. Please do not rely on this system 
-		for critical flood monitoring or emergency decisions at this time.
-	</p>
-
-	<h2>Our Mission</h2>
-	<p>
-		Flooding affects millions of people worldwide each year, causing devastating losses to life and property. 
-		FloodBoy: IoT-Powered Blockchain seeks to democratize access to flood monitoring technology by creating an open, transparent, 
-		and community-driven platform that empowers local communities to better prepare for and respond to 
-		flood events.
-	</p>
-
-	<h2>Technology Stack</h2>
-	<p>
-		Our system leverages modern web technologies and blockchain infrastructure:
+		<strong>This Web Application:</strong>
 	</p>
 	<ul>
-		<li><strong>IoT Sensors:</strong> Ultra-low power water level sensors with LoRaWAN connectivity</li>
-		<li><strong>Blockchain:</strong> Immutable data storage on JIBCHAIN for transparency and trust</li>
-		<li><strong>Real-time Updates:</strong> MQTT protocol for instant data transmission</li>
-		<li><strong>Web Interface:</strong> Built with Astro for optimal performance and accessibility</li>
+		<li><strong>Powered by</strong>: Cat Lab</li>
+		<li><strong>Sponsored by</strong>: LarisLabs</li>
+		<li><strong>Status</strong>: Open source and seeking additional sponsors</li>
 	</ul>
-
-	<h2>Research and Development</h2>
+	
 	<p>
-		As a research project, FloodBoy: IoT-Powered Blockchain is exploring innovative approaches to:
+		<strong>The FloodBoy Project:</strong>
 	</p>
 	<ul>
-		<li>Incentivized sensor deployment through blockchain rewards</li>
-		<li>Community-validated flood event reporting</li>
-		<li>Machine learning for flood prediction and pattern analysis</li>
-		<li>Integration with existing emergency response systems</li>
+		<li><strong>Developed by</strong>: CCDC, Chiang Mai University</li>
+		<li><strong>Hardware</strong>: IoT sensors with real-time monitoring capabilities</li>
+	</ul>
+	
+	<p class="text-sm bg-gray-50 p-4 rounded-lg">
+		กลุ่มวิจัย CCDC นำร่องพัฒนาเซ็นเซอร์ติดตามเฝ้าระวังและแจ้งเตือนน้ำท่วมขัง แบบเรียลไทม์ เพื่อสร้างการรับรู้ สนับสนุนข้อมูลภาครัฐ เตรียมความพร้อมรับมือภัยพิบัติ และส่งเสริมการปรับตัวของสังคม โดยวางแผนใน Beta Version เริ่มต้นทดสอบและนำใช้งานจริงภายในสิ้นปี 2567 นี้
+	</p>
+
+	<h2>Web Application Features</h2>
+	
+	<h3>Blockchain Integration</h3>
+	<ul>
+		<li><strong>Multi-chain Support</strong>:
+			<ul>
+				<li>JIBCHAIN L1 (Chain ID: 8899)</li>
+				<li>SiChang (Chain ID: 700011)</li>
+				<li>DustBoy IoT (Chain ID: 555888) - Coming soon</li>
+				<li>Local Anvil (Chain ID: 31337)</li>
+			</ul>
+		</li>
+		<li><strong>Smart Contract Dashboard</strong>: Browse all deployed IoT sensor stores</li>
+		<li><strong>Store Explorer</strong>: View individual sensor configurations and metadata</li>
+		<li><strong>Multicall Optimization</strong>: Efficient batch reading of blockchain data</li>
+		<li><strong>Factory Contract</strong>: <code>0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb</code> on JIBCHAIN (Updated Jul 21, 2025)</li>
 	</ul>
 
-	<h2>Sponsored by LarisLabs</h2>
-	<p>
-		<strong>LarisLabs</strong> is proud to sponsor the development of FloodBoy: IoT-Powered Blockchain as part of our commitment 
-		to using technology for social good. LarisLabs specializes in blockchain innovation, IoT solutions, 
-		and community-driven technology projects that make a positive impact on society.
-	</p>
-	<p>
-		Learn more about LarisLabs and our other initiatives at 
-		<a href="https://larislabs.com" target="_blank" rel="noopener noreferrer">larislabs.com</a>.
-	</p>
+	<h3>Data Visualization</h3>
+	<ul>
+		<li><strong>P5.js Visualizations</strong>: Interactive sensor data displays</li>
+		<li><strong>Chart.js Integration</strong>: Time-series graphs for historical data</li>
+		<li><strong>Custom FloodBoy Visualizer</strong>: Real-time water level animations</li>
+		<li><strong>Responsive Tables</strong>: Modern, mobile-friendly data tables</li>
+	</ul>
 
-	<h2>Get Involved</h2>
+	<h3>Interactive Simulator</h3>
+	<ul>
+		<li><strong>Sensor Simulator</strong>: Test and understand how FloodBoy sensors work</li>
+		<li><strong>Water Level Controls</strong>: Simulate different flood scenarios</li>
+		<li><strong>Air Distance Mode</strong>: Switch between water and air distance measurements</li>
+		<li><strong>Preset Scenarios</strong>: Normal, flooding, dry, offline, and dead sensor states</li>
+		<li><strong>Calibration Features</strong>: Understand sensor calibration process</li>
+	</ul>
+
+	<h2>Current Deployment Status</h2>
+	
+	<h3>JIBCHAIN L1 Deployment (July 21, 2025)</h3>
+	<ul>
+		<li><strong>Total Stores</strong>: 100 FloodBoy sensor stores</li>
+		<li><strong>Factory Contract</strong>: <code>0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb</code></li>
+		<li><strong>Deployer</strong>: <code>0x943E41e4cc22f971284ae957A380D3DbeA1Dc481</code></li>
+		<li><strong>Authorized Sensor</strong>: <code>0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd</code></li>
+		<li><strong>Status</strong>: 🟢 FULLY OPERATIONAL</li>
+	</ul>
+
+	<h3>Store Configuration</h3>
+	<p>Each FloodBoy store monitors:</p>
+	<ul>
+		<li>Battery voltage (V x100)</li>
+		<li>Installation height (m x10000)</li>
+		<li>Water depth (m x10000)</li>
+		<li>Min/Max values for trend analysis</li>
+		<li>Sample counts for data quality</li>
+	</ul>
+
+	<h2>FloodBoy Sensor Specifications</h2>
+	<table class="w-full border-collapse border border-gray-300">
+		<thead>
+			<tr class="bg-gray-100">
+				<th class="border border-gray-300 px-4 py-2 text-left">Feature</th>
+				<th class="border border-gray-300 px-4 py-2 text-left">Specification</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Measurement Accuracy</td>
+				<td class="border border-gray-300 px-4 py-2">±2mm</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Data Update Interval</td>
+				<td class="border border-gray-300 px-4 py-2">1 minute</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Power Source</td>
+				<td class="border border-gray-300 px-4 py-2">Solar + Battery</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Operating Duration</td>
+				<td class="border border-gray-300 px-4 py-2">30 days (without sun)</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Communication</td>
+				<td class="border border-gray-300 px-4 py-2">Real-time online</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Installation</td>
+				<td class="border border-gray-300 px-4 py-2">Plug-and-play</td>
+			</tr>
+			<tr>
+				<td class="border border-gray-300 px-4 py-2">Development Period</td>
+				<td class="border border-gray-300 px-4 py-2">Since 2024</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<h2>Impact</h2>
+	<p>FloodBoy has been successfully deployed across Northern Thailand, including:</p>
+	<ul>
+		<li>Don Chan area flood monitoring points</li>
+		<li>Sri Ping Mueang community</li>
+		<li>Mae On District risk areas</li>
+		<li>Mae Fah Luang University dormitory areas</li>
+	</ul>
+	
+	<p>The system enhances community resilience by providing:</p>
+	<ul>
+		<li>Early warning capabilities</li>
+		<li>Data-driven decision support</li>
+		<li>Historical flood pattern analysis</li>
+		<li>Real-time situation awareness</li>
+	</ul>
+
+	<h2>Version History</h2>
+	<ul>
+		<li><strong>2024</strong>: Initial FloodBoy sensor development by CCDC</li>
+		<li><strong>2025</strong>: FloodBoy sensors production ready and deployment begins by CCDC</li>
+		<li><strong>2025</strong>: Open source web application launched by Cat Lab</li>
+		<li><strong>2025 (2568)</strong>: Web application deployment with multi-chain support</li>
+		<li><strong>July 21, 2025</strong>: Deployed 100 FloodBoy sensor stores on JIBCHAIN L1</li>
+	</ul>
+
+	<h2>Acknowledgments</h2>
+	
+	<h3>Web Application Development</h3>
+	<ul>
+		<li><strong>Powered By</strong>: Cat Lab - Web application development and infrastructure</li>
+		<li><strong>Current Sponsor</strong>: LarisLabs - Primary sponsor for the web application</li>
+	</ul>
+	
+	<h3>FloodBoy Sensor Project</h3>
+	<ul>
+		<li><strong>Lead Developer</strong>: Nat Weerawan (PhD Student, Climate Change Management Program)</li>
+		<li><strong>Principal Investigator</strong>: Assoc. Prof. Dr. Sate Sampattagul</li>
+		<li><strong>Institution</strong>: Climate Change Data Center (CCDC), Chiang Mai University</li>
+	</ul>
+	
+	<h3>Technology Partners</h3>
+	<ul>
+		<li>Claude AI</li>
+		<li>Claude Code</li>
+		<li>GitHub Copilot</li>
+	</ul>
+
+	<h2>Call for Sponsors</h2>
 	<p>
-		We welcome researchers, developers, and communities interested in flood monitoring to join our beta 
-		testing program. Your feedback and contributions are invaluable in shaping FloodBoy: IoT-Powered Blockchain into a reliable 
-		tool for flood resilience.
+		We are actively seeking additional sponsors to support the development and maintenance of this open source web application. Your support will help us:
 	</p>
+	<ul>
+		<li>Enhance dashboard features</li>
+		<li>Improve real-time data visualization</li>
+		<li>Scale infrastructure for more sensors</li>
+		<li>Develop mobile applications</li>
+		<li>Implement advanced AI predictions</li>
+	</ul>
+	
+	<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-6">
+		<p class="font-semibold">Funding & Support</p>
+		<p class="mt-2">
+			Cat Lab and LarisLabs are open for funding to support the development and maintenance of this open source FloodBoy web application:
+		</p>
+		<p class="mt-2">
+			<strong>ETH Wallet</strong>: <code class="bg-gray-100 px-2 py-1 rounded">0x1D7EF8bF25CF7575cD220c33E8b20c02c491261b</code>
+		</p>
+		<p class="mt-2">
+			<strong>Supported Networks</strong>: Ethereum Mainnet, Optimism, BNB Chain
+		</p>
+	</div>
+
+	<h2>Institutional Support</h2>
+	<ul>
+		<li><strong>Chiang Mai University</strong> - Host institution</li>
+		<li><strong>UNISERV</strong> - Academic service unit</li>
+		<li><strong>3E Research Unit</strong> - Energy and Environmental Management</li>
+		<li><strong>MIdS School</strong> - Integrated Sciences Program</li>
+	</ul>
+
+	<h2>Contact</h2>
+	<p>For more information about FloodBoy or deployment inquiries:</p>
+	
 	<p>
-		For inquiries about research collaboration or beta testing, please contact us through LarisLabs.
+		<strong>Climate Change Data Center (CCDC)</strong><br>
+		Chiang Mai University<br>
+		Website: <a href="https://cmuccdc.org" target="_blank" rel="noopener noreferrer">https://cmuccdc.org</a><br>
+		Facebook: <a href="https://www.facebook.com/cmu.ccdc" target="_blank" rel="noopener noreferrer">https://www.facebook.com/cmu.ccdc</a>
+	</p>
+	
+	<hr class="my-8">
+	
+	<p class="text-center text-gray-600">
+		<strong>FloodBoy Web Application - Open Source Dashboard for Flood Monitoring</strong><br>
+		FloodBoy Sensors by CMU CCDC | Web App Powered by Cat Lab | Sponsored by LarisLabs<br>
+		<em>We welcome additional sponsors!</em>
 	</p>
 </Layout>
