@@ -3,217 +3,286 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { SITE_TITLE } from '../consts';
 ---
 
-<BaseLayout title={`Prompts - ${SITE_TITLE}`} description="Development prompts and shortcuts for FloodBoy">
+<BaseLayout title={`Prompts - ${SITE_TITLE}`} description="Development prompts for FloodBoy">
 	<div class="container mx-auto px-4 py-8 max-w-4xl">
-		<h1 class="text-4xl font-bold mb-8">Development Prompts</h1>
+		<h1 class="text-3xl font-bold mb-6">FloodBoy Development</h1>
 		
-		<div class="prose prose-lg max-w-none">
-			<section class="mb-12">
-				<h2 class="text-2xl font-semibold mb-4">Quick Reference Commands</h2>
-				<p class="text-gray-700 mb-6">
-					These short codes help streamline development workflow and maintain consistency across sessions.
-				</p>
-				
-				<div class="space-y-6">
-					<div class="bg-gray-50 p-6 rounded-lg">
-						<h3 class="font-mono text-xl font-bold text-blue-600 mb-2">ccc</h3>
-						<p class="text-gray-700 mb-2">
-							<strong>Create Context & Compact</strong> - Saves current session state for future reference
-						</p>
-						<ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
-							<li>Gathers changed files and recent commits</li>
-							<li>Exports conversation to markdown</li>
-							<li>Creates GitHub context issue</li>
-							<li>Compacts conversation for fresh start</li>
-						</ul>
-					</div>
+		<div class="space-y-8">
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Complete FloodBoy Webapp Specification</h2>
+				<div class="bg-blue-50 p-4 rounded border">
+					<pre class="text-sm whitespace-pre-wrap">Create a Webapp using Viem.js to display sensor data from smart contracts on JIBCHAIN L1.
 
-					<div class="bg-gray-50 p-6 rounded-lg">
-						<h3 class="font-mono text-xl font-bold text-green-600 mb-2">nnn</h3>
-						<p class="text-gray-700 mb-2">
-							<strong>Next Task Planning</strong> - Smart planning that auto-runs ccc if needed
-						</p>
-						<ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
-							<li>Checks for recent context issues</li>
-							<li>Performs deep analysis of codebase</li>
-							<li>Creates comprehensive implementation plan</li>
-							<li>NO coding - only research and planning</li>
-						</ul>
-					</div>
+Connection Details:
+- Chain ID: 8899
+- RPC URL: https://rpc-l1.jbc.xpool.pw
+- Block Explorer: https://exp.jibchain.net
 
-					<div class="bg-gray-50 p-6 rounded-lg">
-						<h3 class="font-mono text-xl font-bold text-purple-600 mb-2">lll</h3>
-						<p class="text-gray-700 mb-2">
-							<strong>List Project Status</strong> - Comprehensive project overview
-						</p>
-						<ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
-							<li>Shows open/closed issues</li>
-							<li>Lists recent pull requests</li>
-							<li>Displays git status</li>
-							<li>Provides visual summary</li>
-						</ul>
-					</div>
+Contract Addresses:
+- Factory Contract: 0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb
+- FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
+- Universal Signer: 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd (authorized for all stores)
 
-					<div class="bg-gray-50 p-6 rounded-lg">
-						<h3 class="font-mono text-xl font-bold text-orange-600 mb-2">rrr</h3>
-						<p class="text-gray-700 mb-2">
-							<strong>Create Retrospective</strong> - Document session learnings
-						</p>
-						<ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
-							<li>Exports full conversation</li>
-							<li>Creates detailed retrospective document</li>
-							<li>Captures lessons learned</li>
-							<li>Updates CLAUDE.md if needed</li>
-						</ul>
-					</div>
+Final UI Design (Latest Sensor Data Card):
 
-					<div class="bg-gray-50 p-6 rounded-lg">
-						<h3 class="font-mono text-xl font-bold text-red-600 mb-2">/tmux</h3>
-						<p class="text-gray-700 mb-2">
-							<strong>Start Tmux Session</strong> - 3-pane development layout
-						</p>
-						<ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
-							<li>Pane 0: Dev server (pnpm dev)</li>
-							<li>Pane 1: General commands</li>
-							<li>Pane 2: Git status watch</li>
-							<li>Automatic logging enabled</li>
-						</ul>
-					</div>
-				</div>
-			</section>
+Header Section:
+- Title: "Latest Sensor Data"
+- Current Block: "Current Block: 5944625" (green dot indicator, no countdown)
+- Updated timestamp: "Updated: 7:25:08 PM"
+- Store address (truncated): "0xCd3Ec17d...d1A8Bb" with external link icon
 
-			<section class="mb-12">
-				<h2 class="text-2xl font-semibold mb-4">Common Development Patterns</h2>
-				
-				<div class="space-y-6">
-					<div class="border-l-4 border-blue-500 pl-6">
-						<h3 class="font-semibold text-lg mb-2">Starting a New Feature</h3>
-						<ol class="list-decimal list-inside text-gray-700 space-y-2">
-							<li>Run <code class="bg-gray-200 px-2 py-1 rounded">nnn</code> to analyze and plan</li>
-							<li>Review the created plan issue</li>
-							<li>Create feature branch from issue</li>
-							<li>Implement following the plan</li>
-							<li>Test with build verification</li>
-							<li>Create PR with descriptive message</li>
-						</ol>
-					</div>
+Water Depth Chart Section:
+- Display a line chart showing water depth over time
+- Chart title: "Water Depth Over Time"
+- Y-axis: Water depth in meters (scaled from x10000 values)
+- X-axis: Timestamp (last 24 hours or available data range)
+- Chart color: Blue (#3B82F6) for water theme
+- Show data points and connect with smooth lines
+- Include hover tooltips showing exact values and timestamps
+- Responsive chart that works on mobile devices
+- If no historical data available, show "No historical data available" message
 
-					<div class="border-l-4 border-green-500 pl-6">
-						<h3 class="font-semibold text-lg mb-2">Bug Fix Workflow</h3>
-						<ol class="list-decimal list-inside text-gray-700 space-y-2">
-							<li>Document the bug with screenshots</li>
-							<li>Use direct feedback ("worst! why")</li>
-							<li>Fix systematically (UI → functionality → data)</li>
-							<li>Test thoroughly before committing</li>
-							<li>Create focused PR</li>
-						</ol>
-					</div>
+Data Table:
+Columns: Metric | Current | Min | Max
+Rows:
+- Battery Voltage: 12.910 V | 12.910 V | 12.910 V
+- Installation Height: 3.0200 m | 3.0200 m | 3.0200 m  
+- Water Depth: 0.2730 m | 0.2730 m | 0.2730 m
 
-					<div class="border-l-4 border-purple-500 pl-6">
-						<h3 class="font-semibold text-lg mb-2">Session Management</h3>
-						<ol class="list-decimal list-inside text-gray-700 space-y-2">
-							<li>Start with <code class="bg-gray-200 px-2 py-1 rounded">/tmux</code> for dev environment</li>
-							<li>Use <code class="bg-gray-200 px-2 py-1 rounded">lll</code> to check project state</li>
-							<li>Work on tasks with TodoWrite tracking</li>
-							<li>End with <code class="bg-gray-200 px-2 py-1 rounded">rrr</code> for retrospective</li>
-						</ol>
-					</div>
-				</div>
-			</section>
+Footer:
+- Last Updated: 7/22/2025, 7:25:08 PM
 
-			<section class="mb-12">
-				<h2 class="text-2xl font-semibold mb-4">Git Commit Format</h2>
-				<div class="bg-gray-900 text-white p-6 rounded-lg font-mono text-sm">
-					<pre>[type]: [brief description]
+Data Processing Requirements:
+Unit Scaling:
+- x100 → divide by 100 (3 decimal places for voltage)
+- x1000 → divide by 1000 (3 decimal places)
+- x10000 → divide by 10000 (4 decimal places for meters)
+- Extract base unit from unit string (e.g., "V" from "V x100")
+- Format timestamps in human-readable format (MM/dd/yyyy, h:mm:ss AM/PM)
 
-- What: [specific changes]
-- Why: [motivation]
-- Impact: [affected areas]
+Visual Design:
+- Clean white card with rounded corners and subtle shadow
+- Alternating row colors (white/light gray)
+- Green status indicator for current block
+- Truncated addresses with external link icons
+- Sample count badges where applicable
+- Responsive table layout
 
-Closes #[issue-number]
+Features:
+- Auto-refresh current block and data
+- Loading indicators during data fetching
+- Error handling with user-friendly messages
+- Always use the universal signer (0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd) for data retrieval
+- Show "No data" if no records exist
 
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
-Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;</pre>
-				</div>
-			</section>
-
-			<section class="mb-12">
-				<h2 class="text-2xl font-semibold mb-4">Testing Checklist</h2>
-				<div class="bg-yellow-50 p-6 rounded-lg">
-					<p class="font-semibold mb-3">Before pushing any changes:</p>
-					<ul class="space-y-2">
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Stop dev server in pane 0.0: <code class="bg-gray-200 px-1">Ctrl+C</code></span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Run build in pane 0.1: <code class="bg-gray-200 px-1">pnpm build</code></span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Verify build succeeds with no TypeScript errors</span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Restart dev server in pane 0.0: <code class="bg-gray-200 px-1">pnpm dev</code></span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Test all affected pages</span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Check browser console (should be zero errors)</span>
-						</li>
-						<li class="flex items-start">
-							<input type="checkbox" class="mt-1 mr-2" disabled />
-							<span>Test mobile responsiveness</span>
-						</li>
-					</ul>
+Historical Data Requirements:
+- Use RecordStored events to build water depth timeline
+- Handle RPC limits with pagination (max 2000 blocks per request)
+- Cache event data to reduce blockchain calls
+- Dynamically find water depth field index using getAllFields()
+- Sort events by timestamp for proper chart ordering
+- Include error handling for missing or corrupted event data
+- Show loading state while fetching historical events
+- Display "No historical data" message if events array is empty</pre>
 				</div>
 			</section>
 
 			<section>
-				<h2 class="text-2xl font-semibold mb-4">Key Principles</h2>
-				<div class="grid md:grid-cols-2 gap-6">
-					<div class="bg-blue-50 p-4 rounded-lg">
-						<h3 class="font-semibold mb-2">🎯 User-Driven Development</h3>
-						<p class="text-sm text-gray-700">
-							Direct feedback drives immediate improvements. Visual problems get visual solutions.
-						</p>
+				<h2 class="text-xl font-semibold mb-4">Required ABIs for Webapp</h2>
+				
+				<div class="space-y-4">
+					<div>
+						<h3 class="font-semibold mb-2">Factory Contract ABI (Key Functions)</h3>
+						<div class="bg-gray-900 text-gray-100 p-4 rounded text-xs">
+							<pre>{`[
+  {
+    "name": "getStoreInfo",
+    "inputs": [{"name": "store", "type": "address"}],
+    "outputs": [
+      {"name": "nickname", "type": "string"},
+      {"name": "owner", "type": "address"},
+      {"name": "authorizedSensorCount", "type": "uint256"},
+      {"name": "deployedBlock", "type": "uint128"},
+      {"name": "description", "type": "string"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]`}</pre>
+						</div>
 					</div>
-					<div class="bg-green-50 p-4 rounded-lg">
-						<h3 class="font-semibold mb-2">📝 Document Everything</h3>
-						<p class="text-sm text-gray-700">
-							Every session creates artifacts. Knowledge compounds through retrospectives.
-						</p>
+					
+					<div>
+						<h3 class="font-semibold mb-2">CatLabSecureSensorStore ABI (Key Functions)</h3>
+						<div class="bg-gray-900 text-gray-100 p-4 rounded text-xs">
+							<pre>{`[
+  {
+    "name": "getAllFields",
+    "outputs": [{
+      "components": [
+        {"name": "name", "type": "string"},
+        {"name": "unit", "type": "string"},
+        {"name": "dtype", "type": "string"}
+      ],
+      "type": "tuple[]"
+    }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "name": "getLatestRecord",
+    "inputs": [{"name": "sensor", "type": "address"}],
+    "outputs": [
+      {"name": "", "type": "uint256"},
+      {"name": "", "type": "int256[]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
+
+Note: Full ABIs are provided in /abis/ directory. 
+Include complete ABIs in your implementation.`}</pre>
+						</div>
 					</div>
-					<div class="bg-purple-50 p-4 rounded-lg">
-						<h3 class="font-semibold mb-2">🔄 Iterate Rapidly</h3>
-						<p class="text-sm text-gray-700">
-							Small changes, immediate testing. Build verification before every push.
-						</p>
-					</div>
-					<div class="bg-orange-50 p-4 rounded-lg">
-						<h3 class="font-semibold mb-2">💡 Simplicity Wins</h3>
-						<p class="text-sm text-gray-700">
-							The best solution is often the simplest. Complexity should be justified.
-						</p>
-					</div>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Implementation Example</h2>
+				<div class="bg-white border p-4 rounded">
+					<pre class="text-sm">{`import { createPublicClient, http } from 'viem';
+import FactoryABI from '@/abis/CatLabFactory.json';
+import StoreABI from '@/abis/CatLabSecureSensorStore.abi.json';
+
+// JIBCHAIN L1 Configuration
+const jibchain = {
+  id: 8899,
+  name: 'JIBCHAIN L1',
+  rpcUrls: {
+    default: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+  }
+};
+
+const client = createPublicClient({
+  chain: jibchain,
+  transport: http()
+});
+
+// Constants
+const FACTORY_ADDRESS = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb';
+const DEFAULT_STORE = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
+const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
+
+// Step 1: Get store information
+const [nickname, owner, sensorCount, deployedBlock, description] = await client.readContract({
+  address: FACTORY_ADDRESS,
+  abi: FactoryABI,
+  functionName: 'getStoreInfo',
+  args: [storeAddress]
+});
+
+// Step 2: Get field configurations
+const fields = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getAllFields'
+});
+
+// Step 3: Get latest sensor data (using universal signer)
+const [timestamp, values] = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getLatestRecord',
+  args: [UNIVERSAL_SIGNER]
+});
+
+// Step 4: Get historical data using event logs
+// RecordStored event signature from CatLabSecureSensorStore:
+// event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)
+
+// Method 1: Get recent events (recommended for charts)
+const currentBlockNumber = await client.getBlockNumber();
+const fromBlock = currentBlockNumber - BigInt(28800); // ~24 hours (assuming 3sec blocks)
+
+const historicalEvents = await client.getContractEvents({
+  address: storeAddress,
+  abi: StoreABI,
+  eventName: 'RecordStored',
+  fromBlock: fromBlock,
+  toBlock: 'latest',
+  args: {
+    sensor: UNIVERSAL_SIGNER // Filter by sensor address
+  }
+});
+
+// Method 2: Get events with pagination for large datasets
+async function getHistoricalDataPaginated(storeAddress, sensorAddress, hoursBack = 24) {
+  const currentBlock = await client.getBlockNumber();
+  const blocksPerHour = 1200; // Approximately 3-second blocks
+  const fromBlock = currentBlock - BigInt(hoursBack * blocksPerHour);
+  
+  let allEvents = [];
+  const batchSize = 2000; // Process in batches to avoid RPC limits
+  
+  for (let start = fromBlock; start < currentBlock; start += BigInt(batchSize)) {
+    const end = start + BigInt(batchSize) > currentBlock ? currentBlock : start + BigInt(batchSize);
+    
+    const events = await client.getContractEvents({
+      address: storeAddress,
+      abi: StoreABI,
+      eventName: 'RecordStored',
+      fromBlock: start,
+      toBlock: end,
+      args: { sensor: sensorAddress }
+    });
+    
+    allEvents.push(...events);
+  }
+  
+  return allEvents;
+}
+
+// Process historical data for water depth chart
+// Note: Field indexes depend on store configuration - use getAllFields() to determine
+const fields = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getAllFields'
+});
+
+// Find water depth field index
+const waterDepthIndex = fields.findIndex(field => 
+  field.name.toLowerCase().includes('water_depth') && !field.name.includes('min') && !field.name.includes('max')
+);
+
+const chartData = historicalEvents.map(event => ({
+  timestamp: Number(event.args.timestamp) * 1000, // Convert to milliseconds for JS Date
+  waterDepth: waterDepthIndex >= 0 ? Number(event.args.values[waterDepthIndex]) / 10000 : 0,
+  blockNumber: Number(event.blockNumber),
+  transactionHash: event.transactionHash
+})).sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
+
+// Data processing function
+function processValue(value, unit) {
+  const baseUnit = unit.replace(/ x\d+/, '');
+  if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit;
+  if (unit.includes('x1000')) return (Number(value) / 1000).toFixed(3) + ' ' + baseUnit;
+  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit;
+  return value + ' ' + unit;
+}`}</pre>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Network Info</h2>
+				<div class="bg-blue-50 p-4 rounded">
+					<p><strong>Chain ID:</strong> 8899 (JIBCHAIN L1)</p>
+					<p><strong>RPC URL:</strong> https://rpc-l1.jbc.xpool.pw</p>
+					<p><strong>Block Explorer:</strong> <a href="https://exp.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://exp.jibchain.net</a></p>
+					<p><strong>FloodBoy001 Store:</strong> 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb</p>
 				</div>
 			</section>
 		</div>
 	</div>
 </BaseLayout>
-
-<style>
-	code {
-		@apply text-sm;
-	}
-	pre {
-		@apply overflow-x-auto;
-		white-space: pre;
-	}
-</style>
