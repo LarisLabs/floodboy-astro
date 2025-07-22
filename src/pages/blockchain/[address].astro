@@ -1613,56 +1613,67 @@ const pageTitle = aliasInfo
 								React.createElement('div', {},
 									activeTab === 'table' ? (
 										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
-											React.createElement('table', { className: 'modern-table' },
-												React.createElement('thead', {},
-													React.createElement('tr', {},
-														React.createElement('th', {}, 'Timestamp'),
-														React.createElement('th', {}, 'Block'),
-														...(storeData?.fields || []).map((field, index) => 
-															React.createElement('th', { key: index, title: `${field.name} (${field.unit})` }, 
-																field.name.split('_').map(word => 
-																	word.charAt(0).toUpperCase() + word.slice(1)
-																).join(' ')
-															)
-														),
-														React.createElement('th', {}, 'Tx')
-													)
-												),
-												React.createElement('tbody', {},
-													sensorRecords.slice(0, 10).map((record, index) => 
-														React.createElement('tr', { key: index },
-															React.createElement('td', { className: 'text-sm' }, 
-																new Date(record.timestamp * 1000).toLocaleString()
-															),
-															React.createElement('td', { className: 'text-sm' }, 
-																record.blockNumber ? 
-																	React.createElement('a', { 
-																		href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
-																		target: '_blank',
-																		className: 'text-blue-600 hover:text-blue-800 hover:underline'
-																	}, record.blockNumber.toString())
-																	: '-'
-															),
-															...(storeData?.fields || []).map((field, fieldIndex) => 
-																React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm' }, 
-																	record.values[fieldIndex] !== undefined ? 
-																		formatScaledValue(record.values[fieldIndex], field.unit) : 
-																		'-'
+											(() => {
+												// Filter to only show main fields (exclude _min, _max, _count)
+												const mainFields = storeData?.fields?.filter(field => 
+													!field.name.endsWith('_min') && 
+													!field.name.endsWith('_max') && 
+													!field.name.endsWith('_count')
+												) || [];
+												
+												return React.createElement('table', { className: 'modern-table' },
+													React.createElement('thead', {},
+														React.createElement('tr', {},
+															React.createElement('th', {}, 'Timestamp'),
+															React.createElement('th', {}, 'Block'),
+															...mainFields.map((field, index) => 
+																React.createElement('th', { key: index, title: `${field.name} (${field.unit})` }, 
+																	field.name.split('_').map(word => 
+																		word.charAt(0).toUpperCase() + word.slice(1)
+																	).join(' ')
 																)
 															),
-															React.createElement('td', { className: 'text-sm' }, 
-																record.transactionHash ? 
-																	React.createElement('a', { 
-																		href: `${getExplorerUrl(currentChain)}/tx/${record.transactionHash}`,
-																		target: '_blank',
-																		className: 'text-blue-600 hover:text-blue-800 hover:underline font-mono'
-																	}, `${record.transactionHash.slice(0, 6)}...${record.transactionHash.slice(-4)}`)
-																	: '-'
+															React.createElement('th', {}, 'Tx')
+														)
+													),
+													React.createElement('tbody', {},
+														sensorRecords.slice(0, 10).map((record, recordIndex) => 
+															React.createElement('tr', { key: recordIndex },
+																React.createElement('td', { className: 'text-sm' }, 
+																	new Date(record.timestamp * 1000).toLocaleString()
+																),
+																React.createElement('td', { className: 'text-sm' }, 
+																	record.blockNumber ? 
+																		React.createElement('a', { 
+																			href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
+																			target: '_blank',
+																			className: 'text-blue-600 hover:text-blue-800 hover:underline'
+																		}, record.blockNumber.toString())
+																		: '-'
+																),
+																...mainFields.map((field, fieldIndex) => {
+																	// Find the actual index in the original fields array
+																	const actualIndex = storeData.fields.findIndex(f => f.name === field.name);
+																	return React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm' }, 
+																		record.values[actualIndex] !== undefined ? 
+																			formatScaledValue(record.values[actualIndex], field.unit) : 
+																			'-'
+																	);
+																}),
+																React.createElement('td', { className: 'text-sm' }, 
+																	record.transactionHash ? 
+																		React.createElement('a', { 
+																			href: `${getExplorerUrl(currentChain)}/tx/${record.transactionHash}`,
+																			target: '_blank',
+																			className: 'text-blue-600 hover:text-blue-800 hover:underline font-mono'
+																		}, `${record.transactionHash.slice(0, 6)}...${record.transactionHash.slice(-4)}`)
+																		: '-'
+																)
 															)
 														)
 													)
-												)
-											)
+												);
+											})()
 										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
 											'No sensor data records found'
 										)
