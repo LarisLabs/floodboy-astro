@@ -86,7 +86,14 @@ const pageTitle = aliasInfo
 		
 		<!-- Chart.js with proper module loading -->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+		<script>
+			// Wait for Chart.js to load before loading the adapter
+			if (typeof Chart !== 'undefined') {
+				var script = document.createElement('script');
+				script.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+				document.head.appendChild(script);
+			}
+		</script>
 		
 		<!-- Tailwind CSS -->
 		
@@ -835,6 +842,7 @@ const pageTitle = aliasInfo
 				const [showAllRecords, setShowAllRecords] = React.useState(false);
 				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
 				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
+				const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from 0
 
 				// Create chart function
 				const createChart = React.useCallback(() => {
@@ -952,7 +960,11 @@ const pageTitle = aliasInfo
 											? datasets.length > 0 ? datasets[0].label : 'Value'
 											: 'Value'
 									},
-									beginAtZero: true
+									beginAtZero: startFromZero,
+									...(startFromZero ? {} : {
+										// For relative scale, add some padding
+										grace: '5%'
+									})
 								}
 							},
 							interaction: {
@@ -961,7 +973,7 @@ const pageTitle = aliasInfo
 							}
 						}
 					});
-				}, [sensorRecords, storeData, selectedFields]);
+				}, [sensorRecords, storeData, selectedFields, startFromZero]);
 
 				// Update chart when data changes
 				React.useEffect(() => {
@@ -979,7 +991,7 @@ const pageTitle = aliasInfo
 							chartInstanceRef.current = null;
 						}
 					};
-				}, [activeTab, sensorRecords, selectedFields, createChart]);
+				}, [activeTab, sensorRecords, selectedFields, createChart, startFromZero]);
 
 				// Define loadEnhancedStoreData function
 				const loadEnhancedStoreData = React.useCallback(async () => {
@@ -1976,9 +1988,10 @@ const pageTitle = aliasInfo
 								
 								// Field selection checkboxes when chart is active
 								activeTab === 'chart' && storeData?.fields && React.createElement('div', { 
-									className: 'flex flex-wrap gap-4 mb-4 p-3 bg-gray-50 rounded-lg' 
+									className: 'flex flex-wrap items-center justify-between gap-4 mb-4 p-3 bg-gray-50 rounded-lg' 
 								},
-									React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 'Show fields:'),
+									React.createElement('div', { className: 'flex flex-wrap gap-4' },
+										React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 'Show fields:'),
 									storeData.fields
 										.filter(field => 
 											!field.name.endsWith('_min') && 
@@ -2009,6 +2022,21 @@ const pageTitle = aliasInfo
 												)
 											)
 										)
+									),
+									// Scale toggle
+									React.createElement('div', { className: 'flex items-center gap-2' },
+										React.createElement('label', { className: 'flex items-center gap-2 cursor-pointer' },
+											React.createElement('input', {
+												type: 'checkbox',
+												checked: startFromZero,
+												onChange: (e) => setStartFromZero(e.target.checked),
+												className: 'rounded text-blue-600'
+											}),
+											React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 
+												'Start Y-axis from 0'
+											)
+										)
+									)
 								),
 								
 								// Content based on active tab
