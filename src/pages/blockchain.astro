@@ -300,7 +300,7 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
         const gradientClass = gradients[index % 5];
         
         const handleCardClick = () => {
-          window.location.href = `/blockchain/${store.address}`;
+          window.location.href = `/blockchain/${store.nickname || store.address}`;
         };
         
         return (
@@ -332,17 +332,14 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                 {store.description || 'No description available'}
               </p>
               
-              <div className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:text-sm cursor-pointer">
-                <span className="font-mono text-xs sm:text-sm break-all">{formatAddress(store.address)}</span>
-                <div className="flex flex-wrap gap-2 sm:gap-4">
-                  <span>{store.fieldCount || 0} fields</span>
-                  <span>{store.signerCount || 0} signers</span>
-                </div>
+              <div className="flex flex-wrap gap-2 text-xs sm:gap-4 sm:text-sm cursor-pointer">
+                <span>{store.fieldCount || 0} fields</span>
+                <span>{store.signerCount || 0} signers</span>
               </div>
               
               <div className="mt-4 flex flex-wrap gap-2">
                 <a 
-                  href={`/blockchain/${store.address}`}
+                  href={`/blockchain/${store.nickname || store.address}`}
                   className="card-link bg-white/20 backdrop-blur text-white hover:bg-white/30"
                   onClick={(e) => e.stopPropagation()}
                 >
