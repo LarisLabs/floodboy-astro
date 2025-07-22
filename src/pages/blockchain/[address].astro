@@ -81,13 +81,11 @@ const pageTitle = aliasInfo
 		<!-- p5.js for visualization -->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
 		
-		<!-- Chart.js -->
+		<!-- Chart.js with proper module loading -->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-		<script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 		
 		<!-- Tailwind CSS -->
-		<script src="https://cdn.tailwindcss.com"></script>
 		
 		<style>
 			body {
@@ -181,7 +179,7 @@ const pageTitle = aliasInfo
 				width: 100%;
 				border-collapse: separate;
 				border-spacing: 0;
-				table-layout: auto; /* Changed from fixed to auto for fluid layout */
+				table-layout: auto;
 			}
 			.modern-table thead tr {
 				background-color: #f9fafb;
@@ -192,13 +190,26 @@ const pageTitle = aliasInfo
 				font-size: 0.875rem;
 				font-weight: 600;
 				color: #374151;
-				border-bottom: 1px solid #e5e7eb;
+				border-bottom: 2px solid #e5e7eb;
 				white-space: nowrap;
 			}
+			.modern-table th:first-child {
+				padding-left: 1.5rem;
+			}
+			.modern-table th:last-child {
+				padding-right: 1.5rem;
+			}
 			.modern-table td {
-				padding: 1rem;
+				padding: 0.75rem 1rem;
 				border-bottom: 1px solid #f3f4f6;
 				font-size: 0.875rem;
+				white-space: nowrap;
+			}
+			.modern-table td:first-child {
+				padding-left: 1.5rem;
+			}
+			.modern-table td:last-child {
+				padding-right: 1.5rem;
 			}
 			.modern-table tbody tr:hover {
 				background-color: #f9fafb;
@@ -213,19 +224,14 @@ const pageTitle = aliasInfo
 				/* Timestamp - no fixed width, natural sizing */
 				white-space: nowrap;
 			}
-			.modern-table th:nth-last-child(2),
-			.modern-table td:nth-last-child(2) {
-				/* Block - second to last column */
-				text-align: right;
-			}
 			.modern-table th:last-child,
 			.modern-table td:last-child {
-				/* Tx - last column */
+				/* Block (with tx link) - last column */
 				text-align: right;
 			}
-			/* Data columns - between timestamp and block/tx */
-			.modern-table th:not(:nth-child(1)):not(:nth-last-child(2)):not(:last-child),
-			.modern-table td:not(:nth-child(1)):not(:nth-last-child(2)):not(:last-child) {
+			/* Data columns - between timestamp and block */
+			.modern-table th:not(:nth-child(1)):not(:last-child),
+			.modern-table td:not(:nth-child(1)):not(:last-child) {
 				text-align: right;
 			}
 			
@@ -234,12 +240,22 @@ const pageTitle = aliasInfo
 				vertical-align: middle;
 			}
 			
+			/* Additional spacing for better readability */
+			.modern-table th:not(:last-child),
+			.modern-table td:not(:last-child) {
+				padding-right: 2rem;
+			}
+			
 			/* Responsive adjustments */
 			@media (max-width: 1024px) {
 				.modern-table th,
 				.modern-table td {
-					padding: 0.5rem;
+					padding: 0.75rem 1rem;
 					font-size: 0.75rem;
+				}
+				.modern-table th:not(:last-child),
+				.modern-table td:not(:last-child) {
+					padding-right: 1.5rem;
 				}
 			}
 			
@@ -788,6 +804,12 @@ const pageTitle = aliasInfo
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
 				const [isLoading, setIsLoading] = React.useState(true);
+				
+				// Helper function to format address
+				const formatAddress = (address) => {
+					if (!address) return '';
+					return `${address.slice(0, 6)}...${address.slice(-4)}`;
+				};
 				
 				// Helper function to get explorer URL based on chain
 				const getExplorerUrl = (chainId) => {
@@ -1451,9 +1473,9 @@ const pageTitle = aliasInfo
 											// Priority order for known fields
 											const priority = {
 												'battery_voltage': 1,
-												'water_depth': 2,
-												'water_level': 3,
-												'installation_height': 4
+												'installation_height': 2,
+												'water_depth': 3,
+												'water_level': 4
 											};
 											return (priority[a.baseName] || 999) - (priority[b.baseName] || 999);
 										});
@@ -1462,10 +1484,10 @@ const pageTitle = aliasInfo
 										return React.createElement('table', { className: 'w-full' },
 											React.createElement('thead', {},
 												React.createElement('tr', { className: 'border-b' },
-													React.createElement('th', { className: 'text-left py-2 px-3 text-sm font-semibold text-gray-700' }, 'Metric'),
-													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Current'),
-													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Min'),
-													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Max')
+													React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Metric'),
+													React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Current'),
+													React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Min'),
+													React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Max')
 												)
 											),
 											React.createElement('tbody', {},
@@ -1506,7 +1528,7 @@ const pageTitle = aliasInfo
 														className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
 													},
 														React.createElement('td', { 
-															className: `py-3 px-3 text-sm font-medium ${exceedsSensorRange ? 'text-red-700' : 'text-gray-900'}`
+															className: `py-3 px-4 text-sm font-medium ${exceedsSensorRange ? 'text-red-700' : 'text-gray-900'}`
 														}, 
 															displayName,
 															count && React.createElement('span', { 
@@ -1514,7 +1536,7 @@ const pageTitle = aliasInfo
 															}, `(${Math.round(count.value)} samples)`)
 														),
 														React.createElement('td', { 
-															className: `py-3 px-3 text-right font-bold ${
+															className: `py-3 px-4 text-right font-bold ${
 																mainValue !== null 
 																	? exceedsSensorRange ? 'text-red-900' : 'text-gray-900' 
 																	: 'text-gray-400 italic'
@@ -1525,7 +1547,7 @@ const pageTitle = aliasInfo
 															exceedsSensorRange && ' ⚠️'
 														),
 														React.createElement('td', { 
-															className: `py-3 px-3 text-right text-sm ${
+															className: `py-3 px-4 text-right text-sm ${
 																min?.value !== null ? 'text-gray-700' : 'text-gray-400'
 															}`
 														}, 
@@ -1535,7 +1557,7 @@ const pageTitle = aliasInfo
 															] : '—'
 														),
 														React.createElement('td', { 
-															className: `py-3 px-3 text-right text-sm ${
+															className: `py-3 px-4 text-right text-sm ${
 																max?.value !== null ? 'text-gray-700' : 'text-gray-400'
 															}`
 														}, 
@@ -1619,28 +1641,46 @@ const pageTitle = aliasInfo
 									activeTab === 'table' ? (
 										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto -mx-4 sm:-mx-6' },
 											(() => {
-												// Filter to only show main fields that change (exclude _min, _max, _count, and installation_height)
-												const mainFields = storeData?.fields?.filter(field => 
+												// Filter to only show main fields (exclude _min, _max, _count)
+												const allMainFields = storeData?.fields?.filter(field => 
 													!field.name.endsWith('_min') && 
 													!field.name.endsWith('_max') && 
-													!field.name.endsWith('_count') &&
-													!field.name.includes('installation_height')
+													!field.name.endsWith('_count')
 												) || [];
 												
+												// Create custom ordered fields: Depth, Height, Voltage
+												const fieldOrder = ['water_depth', 'installation_height', 'battery_voltage'];
+												const orderedFields = [];
+												
+												// Add fields in the specified order
+												fieldOrder.forEach(fieldName => {
+													const field = allMainFields.find(f => f.name === fieldName);
+													if (field) {
+														orderedFields.push(field);
+													}
+												});
+												
+												// Add any remaining fields that weren't in the specified order
+												allMainFields.forEach(field => {
+													if (!fieldOrder.includes(field.name)) {
+														orderedFields.push(field);
+													}
+												});
+												
 												return React.createElement('div', { className: 'px-4 sm:px-6' },
-													React.createElement('table', { className: 'modern-table' },
+													React.createElement('table', { className: 'modern-table w-full' },
 													React.createElement('thead', {},
 														React.createElement('tr', {},
-															React.createElement('th', {}, 'Timestamp'),
-															...mainFields.map((field, index) => 
-																React.createElement('th', { key: index, title: `${field.name} (${field.unit})` }, 
-																	field.name.split('_').map(word => 
-																		word.charAt(0).toUpperCase() + word.slice(1)
-																	).join(' ')
+															React.createElement('th', { className: 'text-left' }, 'Timestamp'),
+															...orderedFields.map((field, index) => 
+																React.createElement('th', { key: index, className: 'text-right', title: `${field.name} (${field.unit})` }, 
+																	// Use only the last word (after last underscore)
+																	field.name.split('_').pop().charAt(0).toUpperCase() + 
+																	field.name.split('_').pop().slice(1)
 																)
 															),
-															React.createElement('th', {}, 'Block'),
-															React.createElement('th', {}, 'Tx')
+															React.createElement('th', { className: 'text-right' }, 'Block'),
+															React.createElement('th', { className: 'text-right' }, 'Tx Hash')
 														)
 													),
 													React.createElement('tbody', {},
@@ -1661,31 +1701,26 @@ const pageTitle = aliasInfo
 																		}
 																	})()
 																),
-																...mainFields.map((field, fieldIndex) => {
+																...orderedFields.map((field, fieldIndex) => {
 																	// Find the actual index in the original fields array
 																	const actualIndex = storeData.fields.findIndex(f => f.name === field.name);
-																	return React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm' }, 
+																	return React.createElement('td', { key: fieldIndex, className: 'font-medium text-sm text-right' }, 
 																		record.values[actualIndex] !== undefined ? 
 																			formatScaledValue(record.values[actualIndex], field.unit) : 
 																			'-'
 																	);
 																}),
-																React.createElement('td', { className: 'text-sm' }, 
-																	record.blockNumber ? 
-																		React.createElement('a', { 
-																			href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
-																			target: '_blank',
-																			className: 'text-blue-600 hover:text-blue-800 hover:underline'
-																		}, record.blockNumber.toString())
-																		: '-'
+																React.createElement('td', { className: 'text-sm text-right' }, 
+																	record.blockNumber ? record.blockNumber.toString() : '-'
 																),
-																React.createElement('td', { className: 'text-sm' }, 
+																React.createElement('td', { className: 'text-sm text-right font-mono' }, 
 																	record.transactionHash ? 
 																		React.createElement('a', { 
 																			href: `${getExplorerUrl(currentChain)}/tx/${record.transactionHash}`,
 																			target: '_blank',
-																			className: 'text-blue-600 hover:text-blue-800 hover:underline font-mono'
-																		}, `${record.transactionHash.slice(0, 6)}...${record.transactionHash.slice(-4)}`)
+																			className: 'text-blue-600 hover:text-blue-800 hover:underline',
+																			title: `Transaction: ${record.transactionHash}`
+																		}, formatAddress(record.transactionHash))
 																		: '-'
 																)
 															)
