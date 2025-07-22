@@ -991,45 +991,8 @@ const pageTitle = aliasInfo
 							const currentBlock = await publicClient.getBlockNumber();
 							const fromBlock = currentBlock - BigInt(10000); // Last ~10k blocks
 
-							// Get authorized signers from events
-							const signerAuthorizedLogs = await publicClient.getContractEvents({
-								address: storeAddress,
-								abi: STORE_ABI,
-								eventName: 'SignerAuthorized',
-								fromBlock: BigInt(0), // Get all from genesis
-								toBlock: currentBlock
-							}).catch(() => []);
-							
-							const signerRevokedLogs = await publicClient.getContractEvents({
-								address: storeAddress,
-								abi: STORE_ABI,
-								eventName: 'SignerRevoked',
-								fromBlock: BigInt(0),
-								toBlock: currentBlock
-							}).catch(() => []);
-							
-							// Build list of authorized signers
-							const authorizedSignersMap = new Map();
-							// Owner is always authorized
-							authorizedSignersMap.set(owner.toLowerCase(), true);
-							
-							// Process authorized events
-							signerAuthorizedLogs.forEach(log => {
-								if (log.args && log.args.signer) {
-									authorizedSignersMap.set(log.args.signer.toLowerCase(), true);
-								}
-							});
-							
-							// Process revoked events (remove from authorized)
-							signerRevokedLogs.forEach(log => {
-								if (log.args && log.args.signer && log.args.signer.toLowerCase() !== owner.toLowerCase()) {
-									authorizedSignersMap.delete(log.args.signer.toLowerCase());
-								}
-							});
-							
-							const authorizedSensorAddresses = Array.from(authorizedSignersMap.keys())
-								.filter(addr => authorizedSignersMap.get(addr))
-								.map(addr => addr);
+							// Simple fix: Just use owner as the authorized signer for now
+							const authorizedSensorAddresses = [owner];
 
 							const eventLogs = await publicClient.getLogs({
 								address: storeAddress,
