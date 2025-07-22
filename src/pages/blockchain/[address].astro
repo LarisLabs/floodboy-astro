@@ -820,7 +820,7 @@ const pageTitle = aliasInfo
 				const [sensorRecords, setSensorRecords] = React.useState([]);
 				const [authorizedSensors, setAuthorizedSensors] = React.useState([]);
 				const [recentEvents, setRecentEvents] = React.useState([]);
-				const [activeTab, setActiveTab] = React.useState('table'); // 'table' or 'chart'
+				const [activeTab, setActiveTab] = React.useState('chart'); // 'table' or 'chart' - default to chart
 				const chartRef = React.useRef(null);
 				const chartInstanceRef = React.useRef(null);
 				
@@ -1766,29 +1766,17 @@ const pageTitle = aliasInfo
 											)
 										)
 									),
-									React.createElement('div', { className: 'flex flex-wrap items-center gap-3' },
-										React.createElement('div', { 
-											className: 'inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5' 
-										},
-											React.createElement('button', { 
-												className: `px-4 py-2 text-sm font-medium rounded-md transition-all ${
-													activeTab === 'table' 
-														? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
-														: 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-												}`,
-												onClick: () => setActiveTab('table')
-											}, '📊 Data Table'),
-											React.createElement('button', { 
-												className: `px-4 py-2 text-sm font-medium rounded-md transition-all ${
-													activeTab === 'chart' 
-														? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
-														: 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-												}`,
-												onClick: () => setActiveTab('chart')
-											}, '📈 Charts')
-										),
+									React.createElement('div', { className: 'flex flex-wrap items-center gap-2' },
 										React.createElement('button', { 
-											className: 'btn btn-success ml-auto sm:ml-0',
+											className: `btn ${activeTab === 'table' ? 'btn-primary' : 'btn-secondary'}`,
+											onClick: () => setActiveTab('table')
+										}, '📊 Data Table'),
+										React.createElement('button', { 
+											className: `btn ${activeTab === 'chart' ? 'btn-primary' : 'btn-secondary'}`,
+											onClick: () => setActiveTab('chart')
+										}, '📈 Charts'),
+										React.createElement('button', { 
+											className: 'btn btn-success',
 											onClick: () => {
 												// Export visible records
 												const recordsToExport = showAllRecords ? sensorRecords : sensorRecords.slice(0, recordsLimit);
