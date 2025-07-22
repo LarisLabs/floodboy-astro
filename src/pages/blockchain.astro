@@ -322,7 +322,7 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                 }
                 
                 const now = Date.now() / 1000;
-                const offlineThreshold = 24 * 60 * 60; // 24 hours
+                const offlineThreshold = 1 * 60 * 60; // 1 hour
                 const isOffline = (now - store.lastDataTimestamp) >= offlineThreshold;
                 
                 if (isOffline) {
@@ -610,7 +610,7 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                 {(() => {
                   // Three-state detection: online, offline, being installed
                   const now = Date.now() / 1000; // Current timestamp in seconds
-                  const offlineThreshold = 24 * 60 * 60; // 24 hours in seconds
+                  const offlineThreshold = 1 * 60 * 60; // 1 hour in seconds
                   
                   const installedStores = stores.filter(s => 
                     s.hasData && (now - s.lastDataTimestamp) < offlineThreshold

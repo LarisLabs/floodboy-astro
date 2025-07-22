@@ -1,7 +1,7 @@
 ---
 title: "Human-AI Collaboration: Real Sessions Building FloodBoy"
 description: "Authentic development stories from real coding sessions - how we solved table spacing disasters, optimized blockchain queries, and evolved from complexity to simplicity"
-pubDate: "Jan 22 2025"
+pubDate: "Jul 22 2025"
 heroImage: "/floodboy-logo.png"
 ---
 
