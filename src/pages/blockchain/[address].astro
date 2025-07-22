@@ -213,19 +213,19 @@ const pageTitle = aliasInfo
 				/* Timestamp - no fixed width, natural sizing */
 				white-space: nowrap;
 			}
-			.modern-table th:nth-child(2),
-			.modern-table td:nth-child(2) {
-				/* Block - compact */
+			.modern-table th:nth-last-child(2),
+			.modern-table td:nth-last-child(2) {
+				/* Block - second to last column */
 				text-align: right;
 			}
 			.modern-table th:last-child,
 			.modern-table td:last-child {
-				/* Tx - compact */
+				/* Tx - last column */
 				text-align: right;
 			}
-			/* Data columns - center aligned */
-			.modern-table th:not(:nth-child(1)):not(:nth-child(2)):not(:last-child),
-			.modern-table td:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) {
+			/* Data columns - between timestamp and block/tx */
+			.modern-table th:not(:nth-child(1)):not(:nth-last-child(2)):not(:last-child),
+			.modern-table td:not(:nth-child(1)):not(:nth-last-child(2)):not(:last-child) {
 				text-align: right;
 			}
 			
@@ -1451,9 +1451,9 @@ const pageTitle = aliasInfo
 											// Priority order for known fields
 											const priority = {
 												'battery_voltage': 1,
-												'installation_height': 2,
-												'water_depth': 3,
-												'water_level': 4
+												'water_depth': 2,
+												'water_level': 3,
+												'installation_height': 4
 											};
 											return (priority[a.baseName] || 999) - (priority[b.baseName] || 999);
 										});
@@ -1632,7 +1632,6 @@ const pageTitle = aliasInfo
 													React.createElement('thead', {},
 														React.createElement('tr', {},
 															React.createElement('th', {}, 'Timestamp'),
-															React.createElement('th', {}, 'Block'),
 															...mainFields.map((field, index) => 
 																React.createElement('th', { key: index, title: `${field.name} (${field.unit})` }, 
 																	field.name.split('_').map(word => 
@@ -1640,6 +1639,7 @@ const pageTitle = aliasInfo
 																	).join(' ')
 																)
 															),
+															React.createElement('th', {}, 'Block'),
 															React.createElement('th', {}, 'Tx')
 														)
 													),
@@ -1661,15 +1661,6 @@ const pageTitle = aliasInfo
 																		}
 																	})()
 																),
-																React.createElement('td', { className: 'text-sm' }, 
-																	record.blockNumber ? 
-																		React.createElement('a', { 
-																			href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
-																			target: '_blank',
-																			className: 'text-blue-600 hover:text-blue-800 hover:underline'
-																		}, record.blockNumber.toString())
-																		: '-'
-																),
 																...mainFields.map((field, fieldIndex) => {
 																	// Find the actual index in the original fields array
 																	const actualIndex = storeData.fields.findIndex(f => f.name === field.name);
@@ -1679,6 +1670,15 @@ const pageTitle = aliasInfo
 																			'-'
 																	);
 																}),
+																React.createElement('td', { className: 'text-sm' }, 
+																	record.blockNumber ? 
+																		React.createElement('a', { 
+																			href: `${getExplorerUrl(currentChain)}/block/${record.blockNumber}`,
+																			target: '_blank',
+																			className: 'text-blue-600 hover:text-blue-800 hover:underline'
+																		}, record.blockNumber.toString())
+																		: '-'
+																),
 																React.createElement('td', { className: 'text-sm' }, 
 																	record.transactionHash ? 
 																		React.createElement('a', { 
