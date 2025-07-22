@@ -1181,7 +1181,16 @@ const pageTitle = aliasInfo
 							});
 
 							setAuthorizedSensors(authorizedSensorAddresses);
-							setSensorRecords(allRecords);
+							
+							// Only update sensor records if they actually changed
+							setSensorRecords(prevRecords => {
+								// Check if records are different
+								if (prevRecords.length !== allRecords.length || 
+									JSON.stringify(prevRecords) !== JSON.stringify(allRecords)) {
+									return allRecords;
+								}
+								return prevRecords; // Keep the same reference to avoid re-render
+							});
 							setRecentEvents(eventLogs.slice(0, 5)); // Last 5 events
 
 							// Set sensor values with fallback
