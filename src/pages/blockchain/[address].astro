@@ -282,7 +282,7 @@ const pageTitle = aliasInfo
 
 		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, PAGE_DATA: pageDataJson }}>
 			// Import viem modules
-			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
 			
 			// Custom chain configurations
@@ -315,7 +315,7 @@ const pageTitle = aliasInfo
 			};
 			
 			// Make viem and chains available globally
-			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
+			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
 			// Parse page data from server
@@ -996,12 +996,15 @@ const pageTitle = aliasInfo
 								}
 							];
 							
+							// Import encodeFunctionData from viem
+							const { encodeFunctionData, decodeFunctionResult } = window.viem;
+							
 							// Prepare multicall
 							const calls = [
 								{
 									target: storeAddress,
 									allowFailure: true,
-									callData: publicClient.encodeFunctionData({
+									callData: encodeFunctionData({
 										abi: STORE_ABI,
 										functionName: 'owner'
 									})
@@ -1009,7 +1012,7 @@ const pageTitle = aliasInfo
 								{
 									target: storeAddress,
 									allowFailure: true,
-									callData: publicClient.encodeFunctionData({
+									callData: encodeFunctionData({
 										abi: STORE_ABI,
 										functionName: 'getAllFields'
 									})
@@ -1017,7 +1020,7 @@ const pageTitle = aliasInfo
 								{
 									target: storeAddress,
 									allowFailure: true,
-									callData: publicClient.encodeFunctionData({
+									callData: encodeFunctionData({
 										abi: STORE_ABI,
 										functionName: 'authorizedSignerCount'
 									})
@@ -1033,19 +1036,19 @@ const pageTitle = aliasInfo
 							});
 							
 							// Decode results
-							const owner = results[0].success ? publicClient.decodeFunctionResult({
+							const owner = results[0].success ? decodeFunctionResult({
 								abi: STORE_ABI,
 								functionName: 'owner',
 								data: results[0].returnData
 							}) : null;
 							
-							const fields = results[1].success ? publicClient.decodeFunctionResult({
+							const fields = results[1].success ? decodeFunctionResult({
 								abi: STORE_ABI,
 								functionName: 'getAllFields',
 								data: results[1].returnData
 							}) : [];
 							
-							const authorizedSignerCount = results[2].success ? publicClient.decodeFunctionResult({
+							const authorizedSignerCount = results[2].success ? decodeFunctionResult({
 								abi: STORE_ABI,
 								functionName: 'authorizedSignerCount',
 								data: results[2].returnData
