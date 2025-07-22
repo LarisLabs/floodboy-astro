@@ -26,7 +26,7 @@ This is the **open source web application** for FloodBoy, an advanced IoT-based 
 - **Smart Contract Dashboard**: Browse all deployed IoT sensor stores
 - **Store Explorer**: View individual sensor configurations and metadata
 - **Multicall Optimization**: Efficient batch reading of blockchain data
-- **Factory Contract**: `0x904f1CCDb682f0E7b82387190C0EbF9015152BE7` on JIBCHAIN
+- **Factory Contract**: `0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb` on JIBCHAIN (Updated Jul 21, 2025)
 
 ### Data Visualization
 - **P5.js Visualizations**: Interactive sensor data displays
@@ -148,6 +148,7 @@ The web application is fully responsive and optimized for:
 - **2025**: FloodBoy sensors production ready and deployment begins by CCDC
 - **2025**: Open source web application launched by Cat Lab
 - **2025 (2568)**: Web application deployment with multi-chain support
+- **July 21, 2025**: Deployed 100 FloodBoy sensor stores on JIBCHAIN L1
 
 ## Contributing
 
@@ -199,6 +200,23 @@ Contact us for sponsorship opportunities!
 - **UNISERV** - Academic service unit
 - **3E Research Unit** - Energy and Environmental Management
 - **MIdS School** - Integrated Sciences Program
+
+## Current Deployment Status
+
+### JIBCHAIN L1 Deployment (July 21, 2025)
+- **Total Stores**: 100 FloodBoy sensor stores
+- **Factory Contract**: `0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb`
+- **Deployer**: `0x943E41e4cc22f971284ae957A380D3DbeA1Dc481`
+- **Authorized Sensor**: `0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd`
+- **Status**: 🟢 FULLY OPERATIONAL
+
+### Store Configuration
+Each FloodBoy store monitors:
+- Battery voltage (V x100)
+- Installation height (m x10000)
+- Water depth (m x10000)
+- Min/Max values for trend analysis
+- Sample counts for data quality
 
 ## Impact
 

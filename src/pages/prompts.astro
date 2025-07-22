@@ -1,0 +1,288 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE_TITLE } from '../consts';
+---
+
+<BaseLayout title={`Prompts - ${SITE_TITLE}`} description="Development prompts for FloodBoy">
+	<div class="container mx-auto px-4 py-8 max-w-4xl">
+		<h1 class="text-3xl font-bold mb-6">FloodBoy Development</h1>
+		
+		<div class="space-y-8">
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Complete FloodBoy Webapp Specification</h2>
+				<div class="bg-blue-50 p-4 rounded border">
+					<pre class="text-sm whitespace-pre-wrap">Create a Webapp using Viem.js to display sensor data from smart contracts on JIBCHAIN L1.
+
+Connection Details:
+- Chain ID: 8899
+- RPC URL: https://rpc-l1.jbc.xpool.pw
+- Block Explorer: https://exp.jibchain.net
+
+Contract Addresses:
+- Factory Contract: 0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb
+- FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
+- Universal Signer: 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd (authorized for all stores)
+
+Final UI Design (Latest Sensor Data Card):
+
+Header Section:
+- Title: "Latest Sensor Data"
+- Current Block: "Current Block: 5944625" (green dot indicator, no countdown)
+- Updated timestamp: "Updated: 7:25:08 PM"
+- Store address (truncated): "0xCd3Ec17d...d1A8Bb" with external link icon
+
+Water Depth Chart Section:
+- Display a line chart showing water depth over time
+- Chart title: "Water Depth Over Time"
+- Y-axis: Water depth in meters (scaled from x10000 values)
+- X-axis: Timestamp (last 24 hours or available data range)
+- Chart color: Blue (#3B82F6) for water theme
+- Show data points and connect with smooth lines
+- Include hover tooltips showing exact values and timestamps
+- Responsive chart that works on mobile devices
+- If no historical data available, show "No historical data available" message
+
+Data Table:
+Columns: Metric | Current | Min | Max
+Rows:
+- Battery Voltage: 12.910 V | 12.910 V | 12.910 V
+- Installation Height: 3.0200 m | 3.0200 m | 3.0200 m  
+- Water Depth: 0.2730 m | 0.2730 m | 0.2730 m
+
+Footer:
+- Last Updated: 7/22/2025, 7:25:08 PM
+
+Data Processing Requirements:
+Unit Scaling:
+- x100 → divide by 100 (3 decimal places for voltage)
+- x1000 → divide by 1000 (3 decimal places)
+- x10000 → divide by 10000 (4 decimal places for meters)
+- Extract base unit from unit string (e.g., "V" from "V x100")
+- Format timestamps in human-readable format (MM/dd/yyyy, h:mm:ss AM/PM)
+
+Visual Design:
+- Clean white card with rounded corners and subtle shadow
+- Alternating row colors (white/light gray)
+- Green status indicator for current block
+- Truncated addresses with external link icons
+- Sample count badges where applicable
+- Responsive table layout
+
+Features:
+- Auto-refresh current block and data
+- Loading indicators during data fetching
+- Error handling with user-friendly messages
+- Always use the universal signer (0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd) for data retrieval
+- Show "No data" if no records exist
+
+Historical Data Requirements:
+- Use RecordStored events to build water depth timeline
+- Handle RPC limits with pagination (max 2000 blocks per request)
+- Cache event data to reduce blockchain calls
+- Dynamically find water depth field index using getAllFields()
+- Sort events by timestamp for proper chart ordering
+- Include error handling for missing or corrupted event data
+- Show loading state while fetching historical events
+- Display "No historical data" message if events array is empty</pre>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Required ABIs for Webapp</h2>
+				
+				<div class="space-y-4">
+					<div>
+						<h3 class="font-semibold mb-2">Factory Contract ABI (Key Functions)</h3>
+						<div class="bg-gray-900 text-gray-100 p-4 rounded text-xs">
+							<pre>{`[
+  {
+    "name": "getStoreInfo",
+    "inputs": [{"name": "store", "type": "address"}],
+    "outputs": [
+      {"name": "nickname", "type": "string"},
+      {"name": "owner", "type": "address"},
+      {"name": "authorizedSensorCount", "type": "uint256"},
+      {"name": "deployedBlock", "type": "uint128"},
+      {"name": "description", "type": "string"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]`}</pre>
+						</div>
+					</div>
+					
+					<div>
+						<h3 class="font-semibold mb-2">CatLabSecureSensorStore ABI (Key Functions)</h3>
+						<div class="bg-gray-900 text-gray-100 p-4 rounded text-xs">
+							<pre>{`[
+  {
+    "name": "getAllFields",
+    "outputs": [{
+      "components": [
+        {"name": "name", "type": "string"},
+        {"name": "unit", "type": "string"},
+        {"name": "dtype", "type": "string"}
+      ],
+      "type": "tuple[]"
+    }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "name": "getLatestRecord",
+    "inputs": [{"name": "sensor", "type": "address"}],
+    "outputs": [
+      {"name": "", "type": "uint256"},
+      {"name": "", "type": "int256[]"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
+
+Note: Full ABIs are provided in /abis/ directory. 
+Include complete ABIs in your implementation.`}</pre>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Implementation Example</h2>
+				<div class="bg-white border p-4 rounded">
+					<pre class="text-sm">{`import { createPublicClient, http } from 'viem';
+import FactoryABI from '@/abis/CatLabFactory.json';
+import StoreABI from '@/abis/CatLabSecureSensorStore.abi.json';
+
+// JIBCHAIN L1 Configuration
+const jibchain = {
+  id: 8899,
+  name: 'JIBCHAIN L1',
+  rpcUrls: {
+    default: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+  }
+};
+
+const client = createPublicClient({
+  chain: jibchain,
+  transport: http()
+});
+
+// Constants
+const FACTORY_ADDRESS = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb';
+const DEFAULT_STORE = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
+const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
+
+// Step 1: Get store information
+const [nickname, owner, sensorCount, deployedBlock, description] = await client.readContract({
+  address: FACTORY_ADDRESS,
+  abi: FactoryABI,
+  functionName: 'getStoreInfo',
+  args: [storeAddress]
+});
+
+// Step 2: Get field configurations
+const fields = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getAllFields'
+});
+
+// Step 3: Get latest sensor data (using universal signer)
+const [timestamp, values] = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getLatestRecord',
+  args: [UNIVERSAL_SIGNER]
+});
+
+// Step 4: Get historical data using event logs
+// RecordStored event signature from CatLabSecureSensorStore:
+// event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)
+
+// Method 1: Get recent events (recommended for charts)
+const currentBlockNumber = await client.getBlockNumber();
+const fromBlock = currentBlockNumber - BigInt(28800); // ~24 hours (assuming 3sec blocks)
+
+const historicalEvents = await client.getContractEvents({
+  address: storeAddress,
+  abi: StoreABI,
+  eventName: 'RecordStored',
+  fromBlock: fromBlock,
+  toBlock: 'latest',
+  args: {
+    sensor: UNIVERSAL_SIGNER // Filter by sensor address
+  }
+});
+
+// Method 2: Get events with pagination for large datasets
+async function getHistoricalDataPaginated(storeAddress, sensorAddress, hoursBack = 24) {
+  const currentBlock = await client.getBlockNumber();
+  const blocksPerHour = 1200; // Approximately 3-second blocks
+  const fromBlock = currentBlock - BigInt(hoursBack * blocksPerHour);
+  
+  let allEvents = [];
+  const batchSize = 2000; // Process in batches to avoid RPC limits
+  
+  for (let start = fromBlock; start < currentBlock; start += BigInt(batchSize)) {
+    const end = start + BigInt(batchSize) > currentBlock ? currentBlock : start + BigInt(batchSize);
+    
+    const events = await client.getContractEvents({
+      address: storeAddress,
+      abi: StoreABI,
+      eventName: 'RecordStored',
+      fromBlock: start,
+      toBlock: end,
+      args: { sensor: sensorAddress }
+    });
+    
+    allEvents.push(...events);
+  }
+  
+  return allEvents;
+}
+
+// Process historical data for water depth chart
+// Note: Field indexes depend on store configuration - use getAllFields() to determine
+const fields = await client.readContract({
+  address: storeAddress,
+  abi: StoreABI,
+  functionName: 'getAllFields'
+});
+
+// Find water depth field index
+const waterDepthIndex = fields.findIndex(field => 
+  field.name.toLowerCase().includes('water_depth') && !field.name.includes('min') && !field.name.includes('max')
+);
+
+const chartData = historicalEvents.map(event => ({
+  timestamp: Number(event.args.timestamp) * 1000, // Convert to milliseconds for JS Date
+  waterDepth: waterDepthIndex >= 0 ? Number(event.args.values[waterDepthIndex]) / 10000 : 0,
+  blockNumber: Number(event.blockNumber),
+  transactionHash: event.transactionHash
+})).sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
+
+// Data processing function
+function processValue(value, unit) {
+  const baseUnit = unit.replace(/ x\d+/, '');
+  if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit;
+  if (unit.includes('x1000')) return (Number(value) / 1000).toFixed(3) + ' ' + baseUnit;
+  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit;
+  return value + ' ' + unit;
+}`}</pre>
+				</div>
+			</section>
+
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Network Info</h2>
+				<div class="bg-blue-50 p-4 rounded">
+					<p><strong>Chain ID:</strong> 8899 (JIBCHAIN L1)</p>
+					<p><strong>RPC URL:</strong> https://rpc-l1.jbc.xpool.pw</p>
+					<p><strong>Block Explorer:</strong> <a href="https://exp.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://exp.jibchain.net</a></p>
+					<p><strong>FloodBoy001 Store:</strong> 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb</p>
+				</div>
+			</section>
+		</div>
+	</div>
+</BaseLayout>
