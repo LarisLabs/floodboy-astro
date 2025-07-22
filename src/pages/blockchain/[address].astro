@@ -1397,7 +1397,12 @@ const pageTitle = aliasInfo
 										
 										// Group fields by base name
 										const fieldGroups = {};
+										const processedFields = new Set();
+										
 										storeData.fields.forEach((field, index) => {
+											// Skip if already processed
+											if (processedFields.has(field.name)) return;
+											
 											// Extract base name (remove _min, _max, _count suffixes)
 											let baseName = field.name;
 											let suffix = '';
@@ -1412,7 +1417,18 @@ const pageTitle = aliasInfo
 												baseName = field.name.slice(0, -6);
 												suffix = 'count';
 											} else {
-												suffix = 'main';
+												// Check if this field has min/max variants
+												const hasMin = storeData.fields.some(f => f.name === field.name + '_min');
+												const hasMax = storeData.fields.some(f => f.name === field.name + '_max');
+												
+												if (hasMin || hasMax) {
+													// This is a main field with variants
+													suffix = 'main';
+												} else {
+													// This is a standalone field (like installation_height)
+													baseName = field.name;
+													suffix = 'standalone';
+												}
 											}
 											
 											if (!fieldGroups[baseName]) {
@@ -1426,6 +1442,8 @@ const pageTitle = aliasInfo
 													? parseFloat(formatScaledValue(sensorRecords[0].values[index], field.unit))
 													: null
 											};
+											
+											processedFields.add(field.name);
 										});
 										
 										// Convert to array and sort
@@ -1452,7 +1470,8 @@ const pageTitle = aliasInfo
 											),
 											React.createElement('tbody', {},
 												sortedGroups.map((group, groupIndex) => {
-													const main = group.fields.main || group.fields[Object.keys(group.fields)[0]];
+													const standalone = group.fields.standalone;
+													const main = group.fields.main || standalone || group.fields[Object.keys(group.fields)[0]];
 													const min = group.fields.min;
 													const max = group.fields.max;
 													const count = group.fields.count;
@@ -1483,6 +1502,33 @@ const pageTitle = aliasInfo
 													const mainValue = main.value;
 													const exceedsSensorRange = mainValue !== null && isWaterLevel && mainValue > installationHeight;
 													
+													// For standalone fields, we'll merge the cells
+													if (standalone && !min && !max) {
+														return React.createElement('tr', { 
+															key: groupIndex,
+															className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
+														},
+															React.createElement('td', { 
+																className: `py-3 px-3 text-sm font-medium ${exceedsSensorRange ? 'text-red-700' : 'text-gray-900'}`
+															}, 
+																displayName
+															),
+															React.createElement('td', { 
+																colSpan: 3,
+																className: `py-3 px-3 text-center font-bold ${
+																	mainValue !== null 
+																		? exceedsSensorRange ? 'text-red-900' : 'text-gray-900' 
+																		: 'text-gray-400 italic'
+																}`
+															}, 
+																formatValue(mainValue),
+																mainValue !== null && ` ${unit}`,
+																exceedsSensorRange && ' ⚠️'
+															)
+														);
+													}
+													
+													// Regular fields with min/max
 													return React.createElement('tr', { 
 														key: groupIndex,
 														className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
