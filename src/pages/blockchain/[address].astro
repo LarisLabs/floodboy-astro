@@ -842,8 +842,8 @@ const pageTitle = aliasInfo
 				const [showAllRecords, setShowAllRecords] = React.useState(false);
 				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
 				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
-				const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from 0
-				const [groupingInterval, setGroupingInterval] = React.useState('none'); // 'none', '15min', '30min', '1hr', '3hr', '6hr'
+				const [startFromZero, setStartFromZero] = React.useState(false); // Default to relative scale
+				const [groupingInterval, setGroupingInterval] = React.useState('30min'); // Default to 30 minute grouping
 
 				// Aggregate data by time intervals
 				const aggregateDataByInterval = React.useCallback((records, interval) => {
@@ -1326,8 +1326,21 @@ const pageTitle = aliasInfo
 							// Only update sensor records if they actually changed
 							setSensorRecords(prevRecords => {
 								// Check if records are different
-								if (prevRecords.length !== allRecords.length || 
-									JSON.stringify(prevRecords) !== JSON.stringify(allRecords)) {
+								if (prevRecords.length !== allRecords.length) {
+									return allRecords;
+								}
+								
+								// Deep comparison without JSON.stringify to handle BigInt
+								const hasChanged = prevRecords.some((record, index) => {
+									const newRecord = allRecords[index];
+									return record.timestamp !== newRecord.timestamp ||
+										   record.sensor !== newRecord.sensor ||
+										   record.transactionHash !== newRecord.transactionHash ||
+										   record.blockNumber !== newRecord.blockNumber ||
+										   record.values.some((val, i) => val !== newRecord.values[i]);
+								});
+								
+								if (hasChanged) {
 									return allRecords;
 								}
 								return prevRecords; // Keep the same reference to avoid re-render
@@ -1941,24 +1954,26 @@ const pageTitle = aliasInfo
 								},
 									React.createElement('div', { className: 'flex items-center justify-between mb-4' },
 									React.createElement('div', {},
-										React.createElement('h3', { className: 'text-lg font-semibold flex items-center gap-2' }, 
-											'Sensor Data Records',
-											sensorRecords.length > 0 && React.createElement('span', { 
-												className: 'text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-normal' 
-											}, `${sensorRecords.length} total`),
-											activeTab === 'chart' && groupingInterval !== 'none' && sensorRecords.length > 0 && React.createElement('span', { 
-												className: 'text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-normal' 
-											}, `→ ${(() => {
-												const grouped = aggregateDataByInterval([...sensorRecords].sort((a, b) => a.timestamp - b.timestamp), groupingInterval);
-												return `${grouped.length} grouped`;
-											})()}`),
-											currentChain === 8899 && blockNumber && React.createElement('span', { 
-												className: 'flex items-center gap-1 text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-normal' 
-											},
-												React.createElement('span', { 
-													className: 'inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse' 
-												}),
-												'Live'
+										React.createElement('h3', { className: 'text-lg font-semibold flex items-center flex-wrap gap-2' }, 
+											React.createElement('span', {}, 'Sensor Data Records'),
+											React.createElement('div', { className: 'flex items-center gap-2' },
+												sensorRecords.length > 0 && React.createElement('span', { 
+													className: 'text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-normal whitespace-nowrap' 
+												}, `${sensorRecords.length} total`),
+												activeTab === 'chart' && groupingInterval !== 'none' && sensorRecords.length > 0 && React.createElement('span', { 
+													className: 'text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-normal whitespace-nowrap' 
+												}, `→ ${(() => {
+													const grouped = aggregateDataByInterval([...sensorRecords].sort((a, b) => a.timestamp - b.timestamp), groupingInterval);
+													return `${grouped.length} grouped`;
+												})()}`),
+												currentChain === 8899 && blockNumber && React.createElement('span', { 
+													className: 'inline-flex items-center gap-1 text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-normal whitespace-nowrap' 
+												},
+													React.createElement('span', { 
+														className: 'inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse' 
+													}),
+													'Live'
+												)
 											)
 										),
 										React.createElement('p', { className: 'text-sm text-gray-600 flex items-center gap-2' }, 
