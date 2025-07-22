@@ -1835,7 +1835,8 @@ const pageTitle = aliasInfo
 											className: `btn ${activeTab === 'chart' ? 'btn-primary' : 'btn-secondary'}`,
 											onClick: () => setActiveTab('chart')
 										}, '📈 Charts'),
-										React.createElement('button', { 
+										// Only show Export button when maximized
+										isMaximized && React.createElement('button', { 
 											className: 'btn btn-success',
 											onClick: () => {
 												// Export visible records
