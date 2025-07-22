@@ -1378,65 +1378,159 @@ const pageTitle = aliasInfo
 										lastUpdated ? `Updated: ${lastUpdated.toLocaleString()}` : ''
 									)
 								),
-								React.createElement('div', { className: 'space-y-3' },
-									// Dynamic fields based on actual store data
-									storeData?.fields && storeData.fields.length > 0 ? (
-										storeData.fields.map((field, index) => {
-											let value = null;
-											let hasData = false;
-											// Clean unit display - remove "x 1000", "x1000", " x 1000", etc.
-											let unit = field.unit.replace(/\s*x\s*\d+/gi, '').trim();
+								React.createElement('div', { className: 'overflow-x-auto' },
+									// Group fields by base name for compact table display
+									(() => {
+										if (!storeData?.fields || storeData.fields.length === 0) {
+											// Fallback display
+											return React.createElement('div', { className: 'space-y-3' }, [
+												React.createElement('div', { key: 'water', className: 'bg-blue-50 p-4 rounded-lg' },
+													React.createElement('div', { className: 'text-sm text-blue-600 font-medium' }, 'Water Level'),
+													React.createElement('div', { className: 'text-2xl font-bold text-blue-900' }, `${waterLevel.toFixed(2)} m`)
+												),
+												React.createElement('div', { key: 'temp', className: 'bg-green-50 p-4 rounded-lg' },
+													React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
+													React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
+												)
+											]);
+										}
+										
+										// Group fields by base name
+										const fieldGroups = {};
+										storeData.fields.forEach((field, index) => {
+											// Extract base name (remove _min, _max, _count suffixes)
+											let baseName = field.name;
+											let suffix = '';
 											
-											// Get value from latest record
-											if (sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined) {
-												value = parseFloat(formatScaledValue(sensorRecords[0].values[index], field.unit));
-												hasData = true;
+											if (field.name.endsWith('_min')) {
+												baseName = field.name.slice(0, -4);
+												suffix = 'min';
+											} else if (field.name.endsWith('_max')) {
+												baseName = field.name.slice(0, -4);
+												suffix = 'max';
+											} else if (field.name.endsWith('_count')) {
+												baseName = field.name.slice(0, -6);
+												suffix = 'count';
+											} else {
+												suffix = 'main';
 											}
 											
-											// Color scheme for different field types
-											const colors = [
-												{ bg: 'bg-blue-50', text: 'text-blue-600', bold: 'text-blue-900' },
-												{ bg: 'bg-green-50', text: 'text-green-600', bold: 'text-green-900' },
-												{ bg: 'bg-purple-50', text: 'text-purple-600', bold: 'text-purple-900' },
-												{ bg: 'bg-yellow-50', text: 'text-yellow-600', bold: 'text-yellow-900' },
-												{ bg: 'bg-red-50', text: 'text-red-600', bold: 'text-red-900' }
-											];
-											const color = colors[index % colors.length];
+											if (!fieldGroups[baseName]) {
+												fieldGroups[baseName] = { baseName, fields: {} };
+											}
 											
-											// Check if this is water level and exceeds sensor range
-											const isWaterLevel = field.name.toLowerCase().includes('water') && field.name.toLowerCase().includes('level');
-											const exceedsSensorRange = hasData && isWaterLevel && value > installationHeight;
-											
-											return React.createElement('div', { 
-												key: index, 
-												className: `${exceedsSensorRange ? 'bg-red-50' : color.bg} p-4 rounded-lg` 
-											},
-												React.createElement('div', { className: `text-sm ${exceedsSensorRange ? 'text-red-600' : color.text} font-medium` }, 
-													field.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-												),
-												React.createElement('div', { className: `text-2xl font-bold ${exceedsSensorRange ? 'text-red-900' : hasData ? color.bold : 'text-gray-400 italic'}` }, 
-													hasData 
-														? `${unit.toLowerCase().includes('count') ? Math.round(value) : value.toFixed(unit.includes('V') ? 3 : 2)} ${unit.replace(/ x\d+$/, '')}${exceedsSensorRange ? ' ⚠️' : ''}`
-														: 'No data'
-												),
-												exceedsSensorRange && React.createElement('div', { className: 'text-xs text-red-600 mt-1' }, 
-													`Exceeds ${installationHeight.toFixed(2)}m sensor range`
+											fieldGroups[baseName].fields[suffix] = {
+												field,
+												index,
+												value: sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined
+													? parseFloat(formatScaledValue(sensorRecords[0].values[index], field.unit))
+													: null
+											};
+										});
+										
+										// Convert to array and sort
+										const sortedGroups = Object.values(fieldGroups).sort((a, b) => {
+											// Priority order for known fields
+											const priority = {
+												'battery_voltage': 1,
+												'installation_height': 2,
+												'water_depth': 3,
+												'water_level': 4
+											};
+											return (priority[a.baseName] || 999) - (priority[b.baseName] || 999);
+										});
+										
+										// Render compact table
+										return React.createElement('table', { className: 'w-full' },
+											React.createElement('thead', {},
+												React.createElement('tr', { className: 'border-b' },
+													React.createElement('th', { className: 'text-left py-2 px-3 text-sm font-semibold text-gray-700' }, 'Metric'),
+													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Current'),
+													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Min'),
+													React.createElement('th', { className: 'text-right py-2 px-3 text-sm font-semibold text-gray-700' }, 'Max')
 												)
-											);
-										})
-									) : (
-										// Fallback display when no fields available
-										[
-											React.createElement('div', { key: 'water', className: 'bg-blue-50 p-4 rounded-lg' },
-												React.createElement('div', { className: 'text-sm text-blue-600 font-medium' }, 'Water Level'),
-												React.createElement('div', { className: 'text-2xl font-bold text-blue-900' }, `${waterLevel.toFixed(2)} m`)
 											),
-											React.createElement('div', { key: 'temp', className: 'bg-green-50 p-4 rounded-lg' },
-												React.createElement('div', { className: 'text-sm text-green-600 font-medium' }, 'Temperature'),
-												React.createElement('div', { className: 'text-2xl font-bold text-green-900' }, `${temperature.toFixed(1)} °C`)
+											React.createElement('tbody', {},
+												sortedGroups.map((group, groupIndex) => {
+													const main = group.fields.main || group.fields[Object.keys(group.fields)[0]];
+													const min = group.fields.min;
+													const max = group.fields.max;
+													const count = group.fields.count;
+													
+													// Clean unit display
+													const unit = main.field.unit.replace(/\s*x\s*\d+/gi, '').trim();
+													
+													// Format display name
+													const displayName = group.baseName
+														.replace(/_/g, ' ')
+														.replace(/\b\w/g, l => l.toUpperCase());
+													
+													// Color for rows
+													const colors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-yellow-50'];
+													const rowColor = colors[groupIndex % colors.length];
+													
+													// Format value helper
+													const formatValue = (val, isCount = false) => {
+														if (val === null) return 'No data';
+														if (isCount || unit.toLowerCase().includes('count')) {
+															return `${Math.round(val)}`;
+														}
+														return val.toFixed(unit.includes('V') ? 3 : unit.includes('m') ? 4 : 2);
+													};
+													
+													// Check if water level exceeds sensor range
+													const isWaterLevel = group.baseName.toLowerCase().includes('water');
+													const mainValue = main.value;
+													const exceedsSensorRange = mainValue !== null && isWaterLevel && mainValue > installationHeight;
+													
+													return React.createElement('tr', { 
+														key: groupIndex,
+														className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
+													},
+														React.createElement('td', { 
+															className: `py-3 px-3 text-sm font-medium ${exceedsSensorRange ? 'text-red-700' : 'text-gray-900'}`
+														}, 
+															displayName,
+															count && React.createElement('span', { 
+																className: 'ml-2 text-xs text-gray-500'
+															}, `(${Math.round(count.value)} samples)`)
+														),
+														React.createElement('td', { 
+															className: `py-3 px-3 text-right font-bold ${
+																mainValue !== null 
+																	? exceedsSensorRange ? 'text-red-900' : 'text-gray-900' 
+																	: 'text-gray-400 italic'
+															}`
+														}, 
+															formatValue(mainValue),
+															mainValue !== null && ` ${unit}`,
+															exceedsSensorRange && ' ⚠️'
+														),
+														React.createElement('td', { 
+															className: `py-3 px-3 text-right text-sm ${
+																min?.value !== null ? 'text-gray-700' : 'text-gray-400'
+															}`
+														}, 
+															min ? [
+																formatValue(min.value),
+																min.value !== null && ` ${unit}`
+															] : '—'
+														),
+														React.createElement('td', { 
+															className: `py-3 px-3 text-right text-sm ${
+																max?.value !== null ? 'text-gray-700' : 'text-gray-400'
+															}`
+														}, 
+															max ? [
+																formatValue(max.value),
+																max.value !== null && ` ${unit}`
+															] : '—'
+														)
+													);
+												})
 											)
-										]
-									),
+										);
+									})(),
 									
 									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg mt-4' },
 										React.createElement('div', { className: 'text-xs text-gray-600' }, 'Last Updated'),
