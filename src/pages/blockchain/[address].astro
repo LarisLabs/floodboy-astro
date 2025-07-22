@@ -1362,7 +1362,16 @@ const pageTitle = aliasInfo
 								React.createElement('div', { className: 'flex justify-between items-start mb-4' },
 									React.createElement('h3', { className: 'text-lg font-semibold' }, 'Latest Sensor Data'),
 									sensorRecords.length > 0 && React.createElement('div', { className: 'text-sm text-gray-500' },
-										lastUpdated ? `Updated: ${lastUpdated.toLocaleString()}` : ''
+										lastUpdated ? (() => {
+											const today = new Date();
+											const isToday = lastUpdated.toDateString() === today.toDateString();
+											
+											if (isToday) {
+												return `Updated: ${lastUpdated.toLocaleTimeString()}`;
+											} else {
+												return `Updated: ${lastUpdated.toLocaleString()}`;
+											}
+										})() : ''
 									)
 								),
 								React.createElement('div', { className: 'overflow-x-auto' },
@@ -1544,7 +1553,16 @@ const pageTitle = aliasInfo
 									lastUpdated && React.createElement('div', { className: 'bg-gray-50 p-3 rounded-lg mt-4' },
 										React.createElement('div', { className: 'text-xs text-gray-600' }, 'Last Updated'),
 										React.createElement('div', { className: 'text-sm font-medium text-gray-800' }, 
-											lastUpdated.toLocaleString()
+											(() => {
+												const today = new Date();
+												const isToday = lastUpdated.toDateString() === today.toDateString();
+												
+												if (isToday) {
+													return lastUpdated.toLocaleTimeString();
+												} else {
+													return lastUpdated.toLocaleString();
+												}
+											})()
 										)
 									)
 								)
@@ -1629,7 +1647,19 @@ const pageTitle = aliasInfo
 														sensorRecords.slice(0, 10).map((record, recordIndex) => 
 															React.createElement('tr', { key: recordIndex },
 																React.createElement('td', { className: 'text-sm' }, 
-																	new Date(record.timestamp * 1000).toLocaleString()
+																	(() => {
+																		const recordDate = new Date(record.timestamp * 1000);
+																		const today = new Date();
+																		const isToday = recordDate.toDateString() === today.toDateString();
+																		
+																		if (isToday) {
+																			// Show only time for today's records
+																			return recordDate.toLocaleTimeString();
+																		} else {
+																			// Show full date and time for older records
+																			return recordDate.toLocaleString();
+																		}
+																	})()
 																),
 																React.createElement('td', { className: 'text-sm' }, 
 																	record.blockNumber ? 
