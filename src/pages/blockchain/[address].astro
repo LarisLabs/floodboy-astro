@@ -804,6 +804,7 @@ const pageTitle = aliasInfo
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
 				const [isLoading, setIsLoading] = React.useState(true);
+				const [isRefreshing, setIsRefreshing] = React.useState(false);
 				
 				// Helper function to format address
 				const formatAddress = (address) => {
@@ -944,7 +945,12 @@ const pageTitle = aliasInfo
 				// Enhanced blockchain data loading with events
 				React.useEffect(() => {
 					async function loadEnhancedStoreData() {
-						setIsLoading(true);
+						// Only set loading on initial load, use refreshing for updates
+						if (!storeData) {
+							setIsLoading(true);
+						} else {
+							setIsRefreshing(true);
+						}
 						setError(null);
 						
 						try {
@@ -1101,6 +1107,7 @@ const pageTitle = aliasInfo
 						}
 						
 						setIsLoading(false);
+						setIsRefreshing(false);
 					}
 
 					loadEnhancedStoreData();
@@ -1237,7 +1244,16 @@ const pageTitle = aliasInfo
 					);
 				}
 
-				return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
+				return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6 relative' },
+					// Refresh indicator
+					isRefreshing && React.createElement('div', { 
+						className: 'absolute top-4 right-4 z-10 flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-1.5'
+					},
+						React.createElement('div', { 
+							className: 'animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-purple-400'
+						}),
+						React.createElement('span', { className: 'text-sm text-gray-400' }, 'Updating...')
+					),
 					// Back to stores button
 					React.createElement('div', { className: 'mb-6' },
 						React.createElement('a', { 
