@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPublicClient, http } from 'viem';
 import { ThemeProvider, useTheme } from './blockchain/ui/ThemeProvider';
 import { ViewModeTabs } from './blockchain/ui/ViewModeTabs';
 import { BlockIndicator } from './blockchain/ui/BlockIndicator';
@@ -16,6 +17,12 @@ import { ErrorDisplay } from './blockchain/ui/ErrorDisplay';
 import { parseUrlParams } from '../utils/blockchain-helpers';
 import { SUPPORTED_CHAINS } from '../utils/blockchain-constants';
 import type { StoreData, BlockchainState, UIState } from '../types/blockchain';
+
+// Helper to get RPC URL for a chain
+const getRpcUrl = (chainId: number): string => {
+  const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
+  return chain?.rpcUrls.default.http[0] || 'http://localhost:8545';
+};
 
 const BlockchainDashboardInner = () => {
   const { theme } = useTheme();
@@ -36,11 +43,17 @@ const BlockchainDashboardInner = () => {
     theme: 'dark',
     viewMode: 'direct', // Default to direct view
   });
+  
+  // Separate refresh state to prevent blinking
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Data state
   const [stores, setStores] = useState<any[]>([]);
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [storeData, setStoreData] = useState<StoreData | null>(null);
+  
+  // Block watcher ref
+  const unwatchBlocksRef = useRef<(() => void) | null>(null);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -53,6 +66,48 @@ const BlockchainDashboardInner = () => {
       handleStoreLoad(urlParams.storeAddress);
     }
   }, []);
+
+  // Initialize public client and block watcher
+  useEffect(() => {
+    const chainId = blockchainState.chainId;
+    const rpcUrl = getRpcUrl(chainId);
+    
+    // Create public client
+    const publicClient = createPublicClient({
+      chain: SUPPORTED_CHAINS.find(c => c.id === chainId),
+      transport: http(rpcUrl),
+    });
+    
+    setBlockchainState(prev => ({ ...prev, publicClient }));
+    
+    // Start watching blocks
+    if (unwatchBlocksRef.current) {
+      unwatchBlocksRef.current();
+    }
+    
+    const unwatch = publicClient.watchBlocks({
+      onBlock: async (block) => {
+        // Update current block
+        setBlockchainState(prev => ({ ...prev, currentBlock: block.number }));
+        
+        // If we have store data, refresh it
+        if (storeData && selectedStore) {
+          handleStoreLoad(selectedStore.address, true);
+        }
+      },
+      pollingInterval: 3_000, // 3 seconds
+    });
+    
+    unwatchBlocksRef.current = unwatch;
+    
+    // Cleanup on unmount or chain change
+    return () => {
+      if (unwatchBlocksRef.current) {
+        unwatchBlocksRef.current();
+        unwatchBlocksRef.current = null;
+      }
+    };
+  }, [blockchainState.chainId, storeData, selectedStore]);
 
   const handleConnect = async () => {
     setUIState(prev => ({ ...prev, loading: true, error: null }));
@@ -88,13 +143,18 @@ const BlockchainDashboardInner = () => {
     console.log('Switching to chain:', chainId);
   };
 
-  const handleStoreLoad = async (storeAddress: string) => {
-    setUIState(prev => ({ ...prev, loading: true, error: null }));
+  const handleStoreLoad = async (storeAddress: string, isRefresh = false) => {
+    // Only show loading skeleton on initial load, not refresh
+    if (!isRefresh) {
+      setUIState(prev => ({ ...prev, loading: true, error: null }));
+    } else {
+      setIsRefreshing(true);
+    }
     
     try {
       // TODO: Implement actual store loading logic
       // This would fetch store data from blockchain
-      console.log('Loading store:', storeAddress);
+      console.log('Loading store:', storeAddress, isRefresh ? '(refresh)' : '(initial)');
       
       // Mock store data for now
       const mockStoreData: StoreData = {
@@ -131,7 +191,12 @@ const BlockchainDashboardInner = () => {
       setTimeout(() => {
         setStoreData(mockStoreData);
         setSelectedStore({ address: storeAddress, nickname: mockStoreData.nickname });
-        setUIState(prev => ({ ...prev, loading: false }));
+        
+        if (!isRefresh) {
+          setUIState(prev => ({ ...prev, loading: false }));
+        } else {
+          setIsRefreshing(false);
+        }
       }, 1000);
       
     } catch (err) {
@@ -140,6 +205,7 @@ const BlockchainDashboardInner = () => {
         loading: false,
         error: err instanceof Error ? err.message : 'Failed to load store data'
       }));
+      setIsRefreshing(false);
     }
   };
 
@@ -155,13 +221,6 @@ const BlockchainDashboardInner = () => {
     <div className="min-h-screen p-4 max-w-7xl mx-auto">
       {/* Fixed header controls */}
       <div className="fixed top-4 right-4 z-50 flex items-center space-x-4">
-        <BlockIndicator
-          currentBlock={blockchainState.currentBlock}
-          chainId={blockchainState.chainId}
-          isConnected={isConnected}
-          theme={theme}
-        />
-        <div className="border-l border-gray-600 h-6"></div>
         {/* ThemeToggle is rendered by ThemeProvider */}
       </div>
 
@@ -228,9 +287,19 @@ const BlockchainDashboardInner = () => {
         </div>
       )}
 
-      {/* Store data display */}
-      {storeData && (
-        <div className="space-y-8">
+      {/* Store data display - Never hide when refreshing */}
+      {storeData ? (
+        <div className="space-y-8 relative">
+          {/* Refresh indicator - small spinner in corner */}
+          {isRefreshing && (
+            <div className="absolute top-2 right-2 z-10">
+              <div className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-purple-400"></div>
+                <span className="text-sm text-gray-400">Updating...</span>
+              </div>
+            </div>
+          )}
+          
           {/* Store info and metadata */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
@@ -273,14 +342,14 @@ const BlockchainDashboardInner = () => {
             currentBlock={blockchainState.currentBlock}
           />
         </div>
-      )}
-
-      {/* Loading state */}
-      {uiState.loading && !storeData && (
-        <div className="space-y-8">
-          <LoadingSkeleton lines={5} />
-          <LoadingSkeleton lines={3} />
-        </div>
+      ) : (
+        /* Loading skeleton - Only show on initial load */
+        uiState.loading && (
+          <div className="space-y-8">
+            <LoadingSkeleton lines={5} />
+            <LoadingSkeleton lines={3} />
+          </div>
+        )
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
 import { BLOCKCHAIN_CONFIG } from '../../config/blockchain.config';
 import { getAddressFromAlias, getAliasFromAddress, STORE_ALIASES } from '../../config/aliases.config';
+import { CatLabSensorStoreABI, CatLabFactoryABI } from '../../abis';
 
 // Enable server-side rendering for dynamic routes
 export const prerender = false;
@@ -55,7 +56,9 @@ const pageData = {
   originalParam: addressOrAlias,
   address: resolvedAddress,
   aliasInfo: aliasInfo,
-  error: error
+  error: error,
+  storeABI: CatLabSensorStoreABI,
+  factoryABI: CatLabFactoryABI
 };
 
 // Prepare configuration for injection
@@ -93,6 +96,17 @@ const pageTitle = aliasInfo
 				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 				background-color: #f9fafb;
 				color: #111827;
+			}
+			
+			@keyframes fadeIn {
+				from {
+					opacity: 0;
+					transform: scale(0.95);
+				}
+				to {
+					opacity: 1;
+					transform: scale(1);
+				}
 			}
 			
 			/* P5 Container Styling for light theme */
@@ -282,7 +296,7 @@ const pageTitle = aliasInfo
 
 		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, PAGE_DATA: pageDataJson }}>
 			// Import viem modules
-			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
 			
 			// Custom chain configurations
@@ -315,7 +329,7 @@ const pageTitle = aliasInfo
 			};
 			
 			// Make viem and chains available globally
-			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog };
+			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
 			// Parse page data from server
@@ -330,37 +344,9 @@ const pageTitle = aliasInfo
 			// Contract ABIs and configurations
 			// Configuration injected at build time
 			const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
-
-			const STORE_ABI = [
-				{
-					"inputs": [],
-					"name": "getAllFields",
-					"outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
-					"name": "getLatestRecord",
-					"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [],
-					"name": "owner",
-					"outputs": [{"internalType": "address", "name": "", "type": "address"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [],
-					"name": "getAuthorizedSensors",
-					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				}
-			];
+			
+			// Use the ABI loaded from abis.js
+			const STORE_ABI = pageData.storeABI;
 
 			// Event definitions for reading blockchain events
 			const RECORD_STORED_EVENT = {
@@ -804,11 +790,12 @@ const pageTitle = aliasInfo
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
 				const [isLoading, setIsLoading] = React.useState(true);
+				const [isRefreshing, setIsRefreshing] = React.useState(false);
 				
 				// Helper function to format address
 				const formatAddress = (address) => {
 					if (!address) return '';
-					return `${address.slice(0, 6)}...${address.slice(-4)}`;
+					return `${address.slice(0, 10)}...${address.slice(-6)}`;
 				};
 				
 				// Helper function to get explorer URL based on chain
@@ -833,7 +820,7 @@ const pageTitle = aliasInfo
 				const [sensorRecords, setSensorRecords] = React.useState([]);
 				const [authorizedSensors, setAuthorizedSensors] = React.useState([]);
 				const [recentEvents, setRecentEvents] = React.useState([]);
-				const [activeTab, setActiveTab] = React.useState('table'); // 'table' or 'chart'
+				const [activeTab, setActiveTab] = React.useState('chart'); // 'table' or 'chart' - default to chart
 				const chartRef = React.useRef(null);
 				const chartInstanceRef = React.useRef(null);
 				
@@ -842,14 +829,22 @@ const pageTitle = aliasInfo
 				const [blockTimer, setBlockTimer] = React.useState(0);
 				const [showBlockIndicator, setShowBlockIndicator] = React.useState(true);
 				const blockTimerRef = React.useRef(null);
+				
+				// Enhanced view states
+				const [isMaximized, setIsMaximized] = React.useState(false);
+				const [showAllRecords, setShowAllRecords] = React.useState(false);
+				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
+				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
 
 				// Create chart function
 				const createChart = React.useCallback(() => {
 					if (!chartRef.current || !sensorRecords.length || !storeData?.fields) return;
 
-					// Destroy existing chart
+					// Always destroy and recreate when selectedFields changes
+					// This ensures the chart shows the correct fields
 					if (chartInstanceRef.current) {
 						chartInstanceRef.current.destroy();
+						chartInstanceRef.current = null;
 					}
 
 					const ctx = chartRef.current.getContext('2d');
@@ -860,34 +855,56 @@ const pageTitle = aliasInfo
 						new Date(record.timestamp * 1000).toLocaleString()
 					);
 
-					// Create datasets for each field
-					const datasets = storeData.fields.map((field, fieldIndex) => {
-						const colors = [
-							'rgb(59, 130, 246)', // Blue
-							'rgb(16, 185, 129)', // Green  
-							'rgb(168, 85, 247)', // Purple
-							'rgb(245, 158, 11)', // Yellow
-							'rgb(239, 68, 68)',  // Red
-						];
-						
-						const data = sortedRecords.map(record => {
-							if (record.values[fieldIndex] !== undefined) {
-								return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
-							}
-							return null;
+					// Create datasets - show only selected fields
+					const datasets = storeData.fields
+						.filter((field, fieldIndex) => {
+							// Show only selected fields (not _min, _max, _count variants)
+							return selectedFields.includes(field.name) && 
+								   !field.name.endsWith('_min') && 
+								   !field.name.endsWith('_max') && 
+								   !field.name.endsWith('_count');
+						})
+						.map((field, index) => {
+							const fieldIndex = storeData.fields.findIndex(f => f.name === field.name);
+							const colors = {
+								'water_depth': 'rgb(59, 130, 246)', // Blue
+								'installation_height': 'rgb(16, 185, 129)', // Green  
+								'battery_voltage': 'rgb(168, 85, 247)', // Purple
+							};
+							const color = colors[field.name] || colors['water_depth'];
+							
+							const data = sortedRecords.map(record => {
+								if (record.values[fieldIndex] !== undefined) {
+									return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
+								}
+								return null;
+							});
+
+							// Format field name for display
+							const fieldLabel = field.name.split('_').map(word => 
+								word.charAt(0).toUpperCase() + word.slice(1)
+							).join(' ');
+
+							return {
+								label: `${fieldLabel} (${field.unit.replace(/ x\d+$/, '')})`,
+								data: data,
+								borderColor: color,
+								backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+								borderWidth: 2,
+								tension: 0.4,
+								fill: field.name === 'water_depth', // Only fill water depth
+								spanGaps: true,
+								pointRadius: 2,
+								pointHoverRadius: 4,
+								pointBackgroundColor: color,
+								pointBorderColor: '#fff',
+								pointBorderWidth: 2
+							};
 						});
 
-						return {
-							label: `${field.name} (${field.unit.replace(/ x\d+$/, '')})`,
-							data: data,
-							borderColor: colors[fieldIndex % colors.length],
-							backgroundColor: colors[fieldIndex % colors.length] + '20',
-							tension: 0.4,
-							fill: false,
-							spanGaps: true
-						};
-					});
-
+					// Check if this is an update or initial creation
+					const isUpdate = chartInstanceRef.current !== null;
+					
 					chartInstanceRef.current = new Chart(ctx, {
 						type: 'line',
 						data: {
@@ -897,10 +914,19 @@ const pageTitle = aliasInfo
 						options: {
 							responsive: true,
 							maintainAspectRatio: false,
+							animation: {
+								duration: isUpdate ? 0 : 750 // No animation on updates
+							},
 							plugins: {
 								title: {
 									display: true,
-									text: 'Sensor Data Over Time'
+									text: selectedFields.length === 1 && selectedFields[0] === 'water_depth' 
+										? 'Water Depth Over Time' 
+										: 'Sensor Data Over Time',
+									font: {
+										size: 16,
+										weight: '600'
+									}
 								},
 								legend: {
 									display: true,
@@ -922,8 +948,11 @@ const pageTitle = aliasInfo
 									display: true,
 									title: {
 										display: true,
-										text: 'Value'
-									}
+										text: selectedFields.length === 1 
+											? datasets.length > 0 ? datasets[0].label : 'Value'
+											: 'Value'
+									},
+									beginAtZero: true
 								}
 							},
 							interaction: {
@@ -932,19 +961,34 @@ const pageTitle = aliasInfo
 							}
 						}
 					});
-				}, [sensorRecords, storeData]);
+				}, [sensorRecords, storeData, selectedFields]);
 
 				// Update chart when data changes
 				React.useEffect(() => {
-					if (activeTab === 'chart') {
-						setTimeout(createChart, 100); // Small delay to ensure canvas is ready
+					if (activeTab === 'chart' && sensorRecords.length > 0 && selectedFields.length > 0) {
+						// Small delay to ensure canvas is ready
+						setTimeout(() => {
+							createChart();
+						}, 100);
 					}
-				}, [activeTab, createChart]);
+					
+					// Cleanup on unmount
+					return () => {
+						if (chartInstanceRef.current) {
+							chartInstanceRef.current.destroy();
+							chartInstanceRef.current = null;
+						}
+					};
+				}, [activeTab, sensorRecords, selectedFields, createChart]);
 
-				// Enhanced blockchain data loading with events
-				React.useEffect(() => {
-					async function loadEnhancedStoreData() {
-						setIsLoading(true);
+				// Define loadEnhancedStoreData function
+				const loadEnhancedStoreData = React.useCallback(async () => {
+						// Only set loading on initial load, use refreshing for updates
+						if (!storeData) {
+							setIsLoading(true);
+						} else {
+							setIsRefreshing(true);
+						}
 						setError(null);
 						
 						try {
@@ -960,30 +1004,106 @@ const pageTitle = aliasInfo
 							const currentBlockNumber = await publicClient.getBlockNumber();
 							setBlockNumber(currentBlockNumber);
 
-							// Parallel loading of basic store info
-							const [owner, fields, authorizedSensorAddresses] = await Promise.all([
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'owner'
-								}),
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'getAllFields'
-								}),
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'getAuthorizedSensors'
-								}).catch(() => []) // Fallback if function doesn't exist
-							]);
+							// Use multicall3 for parallel loading
+							const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+							const MULTICALL3_ABI = [
+								{
+									inputs: [
+										{
+											components: [
+												{ name: 'target', type: 'address' },
+												{ name: 'allowFailure', type: 'bool' },
+												{ name: 'callData', type: 'bytes' }
+											],
+											name: 'calls',
+											type: 'tuple[]'
+										}
+									],
+									name: 'aggregate3',
+									outputs: [
+										{
+											components: [
+												{ name: 'success', type: 'bool' },
+												{ name: 'returnData', type: 'bytes' }
+											],
+											name: 'returnData',
+											type: 'tuple[]'
+										}
+									],
+									stateMutability: 'payable',
+									type: 'function'
+								}
+							];
+							
+							// Import encodeFunctionData from viem
+							const { encodeFunctionData, decodeFunctionResult } = window.viem;
+							
+							// Prepare multicall
+							const calls = [
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'owner'
+									})
+								},
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'getAllFields'
+									})
+								},
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'authorizedSignerCount'
+									})
+								}
+							];
+							
+							// Execute multicall
+							const results = await publicClient.readContract({
+								address: MULTICALL3_ADDRESS,
+								abi: MULTICALL3_ABI,
+								functionName: 'aggregate3',
+								args: [calls]
+							});
+							
+							// Decode results
+							const owner = results[0].success ? decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'owner',
+								data: results[0].returnData
+							}) : null;
+							
+							const fields = results[1].success ? decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'getAllFields',
+								data: results[1].returnData
+							}) : [];
+							
+							const authorizedSignerCount = results[2].success ? decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'authorizedSignerCount',
+								data: results[2].returnData
+							}) : 0;
 
-							console.log('Store info loaded:', { owner, fields, authorizedSensorAddresses });
+							console.log('Store info loaded:', { owner, fields, authorizedSignerCount });
 
-							// Load recent events from blockchain
+							// Load ALL events from blockchain
 							const currentBlock = await publicClient.getBlockNumber();
-							const fromBlock = currentBlock - BigInt(10000); // Last ~10k blocks
+							// For production deployment, we know the approximate deployment block
+							// This ensures we get ALL historical data without querying unnecessarily far back
+							const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
+							const fromBlock = deploymentBlock; // Get ALL records since deployment
+
+							// Simple fix: Just use owner as the authorized signer for now
+							const authorizedSensorAddresses = [owner];
 
 							const eventLogs = await publicClient.getLogs({
 								address: storeAddress,
@@ -995,11 +1115,11 @@ const pageTitle = aliasInfo
 								return [];
 							});
 
-							console.log('Event logs loaded:', eventLogs.length, 'events');
+							console.log('Event logs loaded:', eventLogs.length, 'events from block', fromBlock.toString(), 'to latest');
 
-							// Process events
+							// Process events - get ALL records
 							const processedRecords = processRecordLogs(eventLogs);
-							const recentRecords = processedRecords.slice(0, 10); // Last 10 records
+							const allRecords = processedRecords; // Get all records, no limit
 
 							// Get latest record data
 							let latestRecord = null;
@@ -1056,7 +1176,16 @@ const pageTitle = aliasInfo
 							});
 
 							setAuthorizedSensors(authorizedSensorAddresses);
-							setSensorRecords(recentRecords);
+							
+							// Only update sensor records if they actually changed
+							setSensorRecords(prevRecords => {
+								// Check if records are different
+								if (prevRecords.length !== allRecords.length || 
+									JSON.stringify(prevRecords) !== JSON.stringify(allRecords)) {
+									return allRecords;
+								}
+								return prevRecords; // Keep the same reference to avoid re-render
+							});
 							setRecentEvents(eventLogs.slice(0, 5)); // Last 5 events
 
 							// Set sensor values with fallback
@@ -1101,13 +1230,12 @@ const pageTitle = aliasInfo
 						}
 						
 						setIsLoading(false);
-					}
-
+						setIsRefreshing(false);
+				}, [storeAddress]);
+				
+				// Initial load on mount
+				React.useEffect(() => {
 					loadEnhancedStoreData();
-					
-					// Set up polling for real-time updates every 30 seconds
-					const interval = setInterval(loadEnhancedStoreData, 30000);
-					return () => clearInterval(interval);
 				}, []);
 
 				// Cleanup chart on unmount
@@ -1119,37 +1247,34 @@ const pageTitle = aliasInfo
 					};
 				}, []);
 
-				// Continuous block monitoring for JBC chain
+				// Simple block watcher using viem watchBlocks
 				React.useEffect(() => {
-					let blockMonitorInterval;
+					let unwatch;
 					
 					if (currentChain === 8899) {
-						const monitorBlocks = async () => {
-							try {
-								const publicClient = window.viem.createPublicClient({
-									chain: window.chains.jibchainL1,
-									transport: window.viem.http()
-								});
-								
-								const currentBlockNumber = await publicClient.getBlockNumber();
-								if (currentBlockNumber !== blockNumber) {
-									setBlockNumber(currentBlockNumber);
-								}
-							} catch (error) {
-								console.error('Error monitoring blocks:', error);
-							}
-						};
+						const publicClient = window.viem.createPublicClient({
+							chain: window.chains.jibchainL1,
+							transport: window.viem.http()
+						});
 						
-						// Monitor blocks every 3 seconds
-						blockMonitorInterval = setInterval(monitorBlocks, 3000);
+						// Use viem's watchBlocks for efficient block monitoring
+						unwatch = publicClient.watchBlocks({
+							onBlock: async (block) => {
+								setBlockNumber(block.number);
+								
+								// Don't auto-refresh data - let user control when to refresh
+								// This prevents chart from re-rendering constantly
+							},
+							pollingInterval: 3000, // 3 seconds
+						});
 					}
 					
 					return () => {
-						if (blockMonitorInterval) {
-							clearInterval(blockMonitorInterval);
+						if (unwatch) {
+							unwatch();
 						}
 					};
-				}, [currentChain, blockNumber]);
+				}, [currentChain, storeData, storeAddress]);
 
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
@@ -1185,6 +1310,30 @@ const pageTitle = aliasInfo
 						}
 					};
 				}, [blockNumber, currentChain]);
+				
+				// Keyboard shortcuts
+				React.useEffect(() => {
+					const handleKeyPress = (e) => {
+						// ESC to exit maximize
+						if (e.key === 'Escape' && isMaximized) {
+							setIsMaximized(false);
+						}
+						// F to toggle fullscreen (with modifier key)
+						if ((e.key === 'f' || e.key === 'F') && (e.ctrlKey || e.metaKey)) {
+							e.preventDefault();
+							if (!isMaximized) {
+								// When maximizing, default to 100 records
+								setRecordsLimit(100);
+							}
+							setIsMaximized(!isMaximized);
+						}
+					};
+					
+					if (typeof window !== 'undefined') {
+						window.addEventListener('keydown', handleKeyPress);
+						return () => window.removeEventListener('keydown', handleKeyPress);
+					}
+				}, [isMaximized]);
 
 				// Check for alias resolution error first
 				if (pageData.error) {
@@ -1211,7 +1360,8 @@ const pageTitle = aliasInfo
 					);
 				}
 
-				if (isLoading) {
+				// Only show loading spinner on initial load when no data exists
+				if (isLoading && !storeData) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
@@ -1237,7 +1387,16 @@ const pageTitle = aliasInfo
 					);
 				}
 
-				return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
+				return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6 relative' },
+					// Refresh indicator
+					isRefreshing && React.createElement('div', { 
+						className: 'absolute top-4 right-4 z-10 flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-1.5'
+					},
+						React.createElement('div', { 
+							className: 'animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-purple-400'
+						}),
+						React.createElement('span', { className: 'text-sm text-gray-400' }, 'Updating...')
+					),
 					// Back to stores button
 					React.createElement('div', { className: 'mb-6' },
 						React.createElement('a', { 
@@ -1270,25 +1429,7 @@ const pageTitle = aliasInfo
 								pageData.aliasInfo && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' }, 
 									`Alias: /${pageData.aliasInfo.alias}`
 								),
-								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress),
-								
-								// Block indicator for JBC chain
-								currentChain === 8899 && blockNumber && React.createElement('div', { className: 'flex items-center mt-3' },
-									React.createElement('span', { 
-										className: `w-2 h-2 ${
-											blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
-										} rounded-full mr-2 animate-pulse`
-									}),
-									React.createElement('span', { className: 'text-sm text-gray-600' }, 'Current Block:'),
-									React.createElement('span', { className: 'text-sm font-mono text-purple-600 ml-2' }, 
-										blockNumber.toString()
-									),
-									showBlockIndicator && React.createElement('span', { 
-										className: `text-xs ml-2 font-semibold ${
-											blockTimer >= 10 ? 'text-yellow-600' : 'text-green-600'
-										}`
-									}, `(${blockTimer}s)`)
-								)
+								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress)
 							),
 							React.createElement('div', { className: 'flex flex-wrap gap-2' },
 								React.createElement('button', { 
@@ -1381,19 +1522,64 @@ const pageTitle = aliasInfo
 						React.createElement('div', { className: 'space-y-6' },
 							
 							React.createElement('div', { className: 'card border rounded-lg p-6' },
-								React.createElement('div', { className: 'flex justify-between items-start mb-4' },
-									React.createElement('h3', { className: 'text-lg font-semibold' }, 'Latest Sensor Data'),
-									sensorRecords.length > 0 && React.createElement('div', { className: 'text-sm text-gray-500' },
-										lastUpdated ? (() => {
-											const today = new Date();
-											const isToday = lastUpdated.toDateString() === today.toDateString();
-											
-											if (isToday) {
-												return `Updated: ${lastUpdated.toLocaleTimeString()}`;
-											} else {
-												return `Updated: ${lastUpdated.toLocaleString()}`;
-											}
-										})() : ''
+								React.createElement('div', { className: 'mb-4' },
+									React.createElement('div', { className: 'flex justify-between items-start' },
+										React.createElement('div', {},
+											React.createElement('h3', { className: 'text-lg font-semibold' }, 'Latest Sensor Data'),
+											React.createElement('a', { 
+												href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
+												target: '_blank',
+												rel: 'noopener noreferrer',
+												className: 'text-sm text-gray-500 hover:text-purple-600 font-mono inline-flex items-center mt-1'
+											},
+												formatAddress(storeAddress),
+												React.createElement('svg', { 
+													className: 'w-3 h-3 ml-1',
+													fill: 'none',
+													stroke: 'currentColor',
+													viewBox: '0 0 24 24'
+												},
+													React.createElement('path', {
+														strokeLinecap: 'round',
+														strokeLinejoin: 'round',
+														strokeWidth: 2,
+														d: 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14'
+													})
+												)
+											)
+										),
+										sensorRecords.length > 0 && React.createElement('div', { className: 'text-right' },
+										// Block indicator for JBC chain (first line)
+										currentChain === 8899 && blockNumber && React.createElement('div', { className: 'flex items-center justify-end' },
+											React.createElement('span', { 
+												className: `w-2 h-2 ${
+													blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+												} rounded-full mr-2 animate-pulse`
+											}),
+											React.createElement('span', { className: 'text-sm text-gray-600' }, 'Current Block:'),
+											React.createElement('span', { className: 'text-sm font-mono text-purple-600 ml-1' }, 
+												blockNumber.toString()
+											),
+											showBlockIndicator && React.createElement('span', { 
+												className: `text-xs ml-1 font-semibold ${
+													blockTimer >= 10 ? 'text-yellow-600' : 'text-green-600'
+												}`
+											}, `(${blockTimer}s)`)
+										),
+										// Updated timestamp (second line)
+										React.createElement('div', { className: 'text-sm text-gray-500 mt-1' },
+											lastUpdated ? (() => {
+												const today = new Date();
+												const isToday = lastUpdated.toDateString() === today.toDateString();
+												
+												if (isToday) {
+													return `Updated: ${lastUpdated.toLocaleTimeString()}`;
+												} else {
+													return `Updated: ${lastUpdated.toLocaleString()}`;
+												}
+											})() : ''
+										)
+									)
 									)
 								),
 								React.createElement('div', { className: 'overflow-x-auto' },
@@ -1591,15 +1777,51 @@ const pageTitle = aliasInfo
 							),
 							
 							// Data Records Section (Chart/Table)
-							React.createElement('div', { className: 'card border rounded-lg p-4 sm:p-6' },
-								React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+							React.createElement(React.Fragment, {},
+								// Maximized overlay background - render BEFORE the content
+								isMaximized && React.createElement('div', {
+									className: 'fixed inset-0 bg-black bg-opacity-50 z-40',
+									onClick: () => setIsMaximized(false)
+								}),
+								
+								React.createElement('div', { 
+									className: `card border rounded-lg p-4 sm:p-6 transition-all duration-300 ${
+										isMaximized ? 'fixed inset-4 z-50 bg-white shadow-2xl overflow-auto' : ''
+									}`,
+									style: isMaximized ? { 
+										maxHeight: '90vh',
+										animation: 'fadeIn 0.3s ease-out'
+									} : {}
+								},
+									React.createElement('div', { className: 'flex items-center justify-between mb-4' },
 									React.createElement('div', {},
-										React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
-										React.createElement('p', { className: 'text-sm text-gray-600' }, 
-											`Latest ${Math.min(sensorRecords.length, 10)} records from all sensors`
+										React.createElement('h3', { className: 'text-lg font-semibold flex items-center gap-2' }, 
+											'Sensor Data Records',
+											sensorRecords.length > 0 && React.createElement('span', { 
+												className: 'text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-normal' 
+											}, `${sensorRecords.length} total`),
+											currentChain === 8899 && blockNumber && React.createElement('span', { 
+												className: 'flex items-center gap-1 text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-normal' 
+											},
+												React.createElement('span', { 
+													className: 'inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse' 
+												}),
+												'Live'
+											)
+										),
+										React.createElement('p', { className: 'text-sm text-gray-600 flex items-center gap-2' }, 
+											`Showing ${showAllRecords ? sensorRecords.length : Math.min(sensorRecords.length, recordsLimit)} records from all sensors`,
+											isRefreshing && React.createElement('span', { 
+												className: 'inline-flex items-center gap-1 text-xs' 
+											},
+												React.createElement('span', { 
+													className: 'inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse' 
+												}),
+												'Updating...'
+											)
 										)
 									),
-									React.createElement('div', { className: 'flex flex-wrap gap-2' },
+									React.createElement('div', { className: 'flex flex-wrap items-center gap-2' },
 										React.createElement('button', { 
 											className: `btn ${activeTab === 'table' ? 'btn-primary' : 'btn-secondary'}`,
 											onClick: () => setActiveTab('table')
@@ -1608,13 +1830,15 @@ const pageTitle = aliasInfo
 											className: `btn ${activeTab === 'chart' ? 'btn-primary' : 'btn-secondary'}`,
 											onClick: () => setActiveTab('chart')
 										}, '📈 Charts'),
-										React.createElement('button', { 
+										// Only show Export button when maximized
+										isMaximized && React.createElement('button', { 
 											className: 'btn btn-success',
 											onClick: () => {
-												// Simple CSV export
-												if (sensorRecords.length > 0 && storeData?.fields) {
+												// Export visible records
+												const recordsToExport = showAllRecords ? sensorRecords : sensorRecords.slice(0, recordsLimit);
+												if (recordsToExport.length > 0 && storeData?.fields) {
 													const headers = ['Timestamp', 'Block', ...storeData.fields.map(f => f.name), 'Transaction'];
-													const rows = sensorRecords.map(record => [
+													const rows = recordsToExport.map(record => [
 														new Date(record.timestamp * 1000).toISOString(),
 														record.blockNumber || '',
 														...storeData.fields.map((field, index) => 
@@ -1627,13 +1851,164 @@ const pageTitle = aliasInfo
 													const url = URL.createObjectURL(blob);
 													const a = document.createElement('a');
 													a.href = url;
-													a.download = `sensor-data-${storeAddress.slice(0, 8)}.csv`;
+													a.download = `sensor-data-${storeAddress.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`;
 													a.click();
 													URL.revokeObjectURL(url);
 												}
 											}
-										}, '💾 Export')
+										}, '💾 Export'),
+										React.createElement('button', {
+											className: `btn ${isMaximized ? 'btn-warning' : 'btn-secondary'}`,
+											onClick: () => {
+												if (!isMaximized) {
+													// When maximizing, default to 100 records
+													setRecordsLimit(100);
+												}
+												setIsMaximized(!isMaximized);
+											},
+											title: isMaximized ? 'Exit fullscreen (ESC)' : 'Maximize view (Ctrl+F)'
+										}, isMaximized ? '✕ Minimize' : '⛶ Maximize'),
+										React.createElement('button', {
+											className: `btn btn-secondary ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`,
+											onClick: () => {
+												if (!isRefreshing) {
+													loadEnhancedStoreData();
+												}
+											},
+											disabled: isRefreshing,
+											title: 'Refresh data'
+										}, isRefreshing ? '⟳ Loading...' : '⟳ Refresh')
 									)
+								),
+								
+								// Enhanced statistics when maximized
+								isMaximized && sensorRecords.length > 0 && React.createElement('div', { 
+									className: 'grid grid-cols-2 md:grid-cols-4 gap-4 mb-4' 
+								},
+									React.createElement('div', { 
+										className: 'bg-blue-50 rounded-lg p-3 cursor-help',
+										title: 'Total number of sensor data records stored on blockchain'
+									},
+										React.createElement('div', { className: 'text-xs text-blue-600 font-medium' }, 'Total Records'),
+										React.createElement('div', { className: 'text-2xl font-bold text-blue-700' }, sensorRecords.length)
+									),
+									React.createElement('div', { className: 'bg-green-50 rounded-lg p-3' },
+										React.createElement('div', { className: 'text-xs text-green-600 font-medium' }, 'Time Range'),
+										React.createElement('div', { className: 'text-sm font-bold text-green-700' }, 
+											sensorRecords.length > 0 ? (() => {
+												const oldest = new Date(sensorRecords[sensorRecords.length - 1].timestamp * 1000);
+												const newest = new Date(sensorRecords[0].timestamp * 1000);
+												const hours = Math.floor((newest - oldest) / (1000 * 60 * 60));
+												return hours > 24 ? `${Math.floor(hours / 24)}d ${hours % 24}h` : `${hours}h`;
+											})() : '-'
+										)
+									),
+									React.createElement('div', { className: 'bg-purple-50 rounded-lg p-3' },
+										React.createElement('div', { className: 'text-xs text-purple-600 font-medium' }, 'Update Frequency'),
+										React.createElement('div', { className: 'text-sm font-bold text-purple-700' }, 
+											sensorRecords.length > 1 ? (() => {
+												// Calculate average time between records
+												let totalDiff = 0;
+												for (let i = 1; i < Math.min(10, sensorRecords.length); i++) {
+													totalDiff += sensorRecords[i-1].timestamp - sensorRecords[i].timestamp;
+												}
+												const avgSeconds = totalDiff / Math.min(9, sensorRecords.length - 1);
+												return avgSeconds < 60 ? `~${Math.round(avgSeconds)}s` : `~${Math.round(avgSeconds / 60)}m`;
+											})() : '-'
+										)
+									),
+									React.createElement('div', { className: 'bg-amber-50 rounded-lg p-3' },
+										React.createElement('div', { className: 'text-xs text-amber-600 font-medium' }, 'Latest Update'),
+										React.createElement('div', { className: 'text-sm font-bold text-amber-700' }, 
+											sensorRecords.length > 0 ? (() => {
+												const latest = new Date(sensorRecords[0].timestamp * 1000);
+												const now = new Date();
+												const diffMinutes = Math.floor((now - latest) / (1000 * 60));
+												return diffMinutes < 1 ? 'Just now' : 
+													   diffMinutes < 60 ? `${diffMinutes}m ago` : 
+													   `${Math.floor(diffMinutes / 60)}h ago`;
+											})() : '-'
+										)
+									)
+								),
+								
+								// Show more/less controls when maximized
+								isMaximized && sensorRecords.length > 10 && React.createElement('div', { 
+									className: 'flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg' 
+								},
+									React.createElement('div', { className: 'flex items-center gap-4' },
+										React.createElement('label', { className: 'flex items-center gap-2' },
+											React.createElement('input', {
+												type: 'checkbox',
+												checked: showAllRecords,
+												onChange: (e) => setShowAllRecords(e.target.checked),
+												className: 'rounded text-blue-600'
+											}),
+											React.createElement('span', { className: 'text-sm' }, 
+												`Show all ${sensorRecords.length} records`
+											)
+										),
+										!showAllRecords && React.createElement('div', { className: 'flex items-center gap-2' },
+											React.createElement('label', { className: 'text-sm' }, 'Records per page:'),
+											React.createElement('select', {
+												value: recordsLimit,
+												onChange: (e) => setRecordsLimit(Number(e.target.value)),
+												className: 'text-sm border rounded px-2 py-1'
+											},
+												React.createElement('option', { value: 10 }, '10'),
+												React.createElement('option', { value: 25 }, '25'),
+												React.createElement('option', { value: 50 }, '50'),
+												React.createElement('option', { value: 100 }, '100'),
+												React.createElement('option', { value: 250 }, '250'),
+												React.createElement('option', { value: 500 }, '500')
+											)
+										)
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' },
+										isRefreshing && React.createElement('span', { className: 'flex items-center gap-2' },
+											React.createElement('span', { 
+												className: 'inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse' 
+											}),
+											'Live updating...'
+										)
+									)
+								),
+								
+								// Field selection checkboxes when chart is active
+								activeTab === 'chart' && storeData?.fields && React.createElement('div', { 
+									className: 'flex flex-wrap gap-4 mb-4 p-3 bg-gray-50 rounded-lg' 
+								},
+									React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 'Show fields:'),
+									storeData.fields
+										.filter(field => 
+											!field.name.endsWith('_min') && 
+											!field.name.endsWith('_max') && 
+											!field.name.endsWith('_count')
+										)
+										.map(field => 
+											React.createElement('label', { 
+												key: field.name,
+												className: 'flex items-center gap-2 cursor-pointer' 
+											},
+												React.createElement('input', {
+													type: 'checkbox',
+													checked: selectedFields.includes(field.name),
+													onChange: (e) => {
+														if (e.target.checked) {
+															setSelectedFields([...selectedFields, field.name]);
+														} else {
+															setSelectedFields(selectedFields.filter(f => f !== field.name));
+														}
+													},
+													className: 'rounded text-blue-600'
+												}),
+												React.createElement('span', { className: 'text-sm' }, 
+													field.name.split('_').map(word => 
+														word.charAt(0).toUpperCase() + word.slice(1)
+													).join(' ')
+												)
+											)
+										)
 								),
 								
 								// Content based on active tab
@@ -1674,9 +2049,15 @@ const pageTitle = aliasInfo
 															React.createElement('th', { className: 'text-left' }, 'Timestamp'),
 															...orderedFields.map((field, index) => 
 																React.createElement('th', { key: index, className: 'text-right', title: `${field.name} (${field.unit})` }, 
-																	// Use only the last word (after last underscore)
-																	field.name.split('_').pop().charAt(0).toUpperCase() + 
-																	field.name.split('_').pop().slice(1)
+																	// Show full field name when maximized, abbreviated when not
+																	isMaximized ? 
+																		// Full field name with proper formatting
+																		field.name.split('_').map(word => 
+																			word.charAt(0).toUpperCase() + word.slice(1)
+																		).join(' ') :
+																		// Abbreviated - only last word
+																		field.name.split('_').pop().charAt(0).toUpperCase() + 
+																		field.name.split('_').pop().slice(1)
 																)
 															),
 															React.createElement('th', { className: 'text-right' }, 'Block'),
@@ -1684,11 +2065,24 @@ const pageTitle = aliasInfo
 														)
 													),
 													React.createElement('tbody', {},
-														sensorRecords.slice(0, 10).map((record, recordIndex) => 
+														(showAllRecords ? sensorRecords : sensorRecords.slice(0, recordsLimit)).map((record, recordIndex) => 
 															React.createElement('tr', { key: recordIndex },
 																React.createElement('td', { className: 'text-sm' }, 
 																	(() => {
 																		const recordDate = new Date(record.timestamp * 1000);
+																		// Always show full date and time when maximized
+																		if (isMaximized) {
+																			return recordDate.toLocaleString('en-US', {
+																				year: 'numeric',
+																				month: '2-digit',
+																				day: '2-digit',
+																				hour: '2-digit',
+																				minute: '2-digit',
+																				second: '2-digit',
+																				hour12: false
+																			});
+																		}
+																		// Original logic for non-maximized view
 																		const today = new Date();
 																		const isToday = recordDate.toDateString() === today.toDateString();
 																		
@@ -1746,7 +2140,8 @@ const pageTitle = aliasInfo
 									) : null
 								)
 							)
-						),
+						)
+					),
 
 						// Cat Lab inspired sections
 						// Field Schema Section (Cat Lab style)
