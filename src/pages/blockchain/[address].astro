@@ -852,33 +852,40 @@ const pageTitle = aliasInfo
 						new Date(record.timestamp * 1000).toLocaleString()
 					);
 
-					// Create datasets for each field
-					const datasets = storeData.fields.map((field, fieldIndex) => {
-						const colors = [
-							'rgb(59, 130, 246)', // Blue
-							'rgb(16, 185, 129)', // Green  
-							'rgb(168, 85, 247)', // Purple
-							'rgb(245, 158, 11)', // Yellow
-							'rgb(239, 68, 68)',  // Red
-						];
-						
-						const data = sortedRecords.map(record => {
-							if (record.values[fieldIndex] !== undefined) {
-								return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
-							}
-							return null;
-						});
+					// Create datasets - by default only show water_depth
+					const datasets = storeData.fields
+						.filter((field, fieldIndex) => {
+							// Only show water_depth field (not _min, _max, _count variants)
+							return field.name === 'water_depth';
+						})
+						.map((field, index) => {
+							const fieldIndex = storeData.fields.findIndex(f => f.name === field.name);
+							const colors = [
+								'rgb(59, 130, 246)', // Blue for water depth
+								'rgb(16, 185, 129)', // Green  
+								'rgb(168, 85, 247)', // Purple
+							];
+							
+							const data = sortedRecords.map(record => {
+								if (record.values[fieldIndex] !== undefined) {
+									return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
+								}
+								return null;
+							});
 
-						return {
-							label: `${field.name} (${field.unit.replace(/ x\d+$/, '')})`,
-							data: data,
-							borderColor: colors[fieldIndex % colors.length],
-							backgroundColor: colors[fieldIndex % colors.length] + '20',
-							tension: 0.4,
-							fill: false,
-							spanGaps: true
-						};
-					});
+							return {
+								label: `Water Depth (${field.unit.replace(/ x\d+$/, '')})`,
+								data: data,
+								borderColor: colors[0], // Always use blue for water
+								backgroundColor: colors[0] + '20',
+								borderWidth: 2,
+								tension: 0.4,
+								fill: true, // Fill area under the line
+								spanGaps: true,
+								pointRadius: 3,
+								pointHoverRadius: 5
+							};
+						});
 
 					chartInstanceRef.current = new Chart(ctx, {
 						type: 'line',
@@ -892,7 +899,11 @@ const pageTitle = aliasInfo
 							plugins: {
 								title: {
 									display: true,
-									text: 'Sensor Data Over Time'
+									text: 'Water Depth Over Time',
+									font: {
+										size: 16,
+										weight: '600'
+									}
 								},
 								legend: {
 									display: true,
@@ -914,8 +925,9 @@ const pageTitle = aliasInfo
 									display: true,
 									title: {
 										display: true,
-										text: 'Value'
-									}
+										text: 'Water Depth (m)'
+									},
+									beginAtZero: true
 								}
 							},
 							interaction: {
