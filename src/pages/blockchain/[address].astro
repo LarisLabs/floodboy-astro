@@ -942,9 +942,8 @@ const pageTitle = aliasInfo
 					}
 				}, [activeTab, createChart]);
 
-				// Enhanced blockchain data loading with events
-				React.useEffect(() => {
-					async function loadEnhancedStoreData() {
+				// Define loadEnhancedStoreData function
+				const loadEnhancedStoreData = React.useCallback(async () => {
 						// Only set loading on initial load, use refreshing for updates
 						if (!storeData) {
 							setIsLoading(true);
@@ -966,24 +965,91 @@ const pageTitle = aliasInfo
 							const currentBlockNumber = await publicClient.getBlockNumber();
 							setBlockNumber(currentBlockNumber);
 
-							// Parallel loading of basic store info
-							const [owner, fields, authorizedSignerCount] = await Promise.all([
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'owner'
-								}),
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'getAllFields'
-								}),
-								publicClient.readContract({
-									address: storeAddress,
-									abi: STORE_ABI,
-									functionName: 'authorizedSignerCount'
-								}).catch(() => 0) // Fallback if function doesn't exist
-							]);
+							// Use multicall3 for parallel loading
+							const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+							const MULTICALL3_ABI = [
+								{
+									inputs: [
+										{
+											components: [
+												{ name: 'target', type: 'address' },
+												{ name: 'allowFailure', type: 'bool' },
+												{ name: 'callData', type: 'bytes' }
+											],
+											name: 'calls',
+											type: 'tuple[]'
+										}
+									],
+									name: 'aggregate3',
+									outputs: [
+										{
+											components: [
+												{ name: 'success', type: 'bool' },
+												{ name: 'returnData', type: 'bytes' }
+											],
+											name: 'returnData',
+											type: 'tuple[]'
+										}
+									],
+									stateMutability: 'payable',
+									type: 'function'
+								}
+							];
+							
+							// Prepare multicall
+							const calls = [
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: publicClient.encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'owner'
+									})
+								},
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: publicClient.encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'getAllFields'
+									})
+								},
+								{
+									target: storeAddress,
+									allowFailure: true,
+									callData: publicClient.encodeFunctionData({
+										abi: STORE_ABI,
+										functionName: 'authorizedSignerCount'
+									})
+								}
+							];
+							
+							// Execute multicall
+							const results = await publicClient.readContract({
+								address: MULTICALL3_ADDRESS,
+								abi: MULTICALL3_ABI,
+								functionName: 'aggregate3',
+								args: [calls]
+							});
+							
+							// Decode results
+							const owner = results[0].success ? publicClient.decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'owner',
+								data: results[0].returnData
+							}) : null;
+							
+							const fields = results[1].success ? publicClient.decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'getAllFields',
+								data: results[1].returnData
+							}) : [];
+							
+							const authorizedSignerCount = results[2].success ? publicClient.decodeFunctionResult({
+								abi: STORE_ABI,
+								functionName: 'authorizedSignerCount',
+								data: results[2].returnData
+							}) : 0;
 
 							console.log('Store info loaded:', { owner, fields, authorizedSignerCount });
 
@@ -1111,13 +1177,11 @@ const pageTitle = aliasInfo
 						
 						setIsLoading(false);
 						setIsRefreshing(false);
-					}
-
+				}, [storeAddress]);
+				
+				// Initial load on mount
+				React.useEffect(() => {
 					loadEnhancedStoreData();
-					
-					// Set up polling for real-time updates every 30 seconds
-					const interval = setInterval(loadEnhancedStoreData, 30000);
-					return () => clearInterval(interval);
 				}, []);
 
 				// Cleanup chart on unmount
@@ -1129,37 +1193,36 @@ const pageTitle = aliasInfo
 					};
 				}, []);
 
-				// Continuous block monitoring for JBC chain
+				// Simple block watcher using viem watchBlocks
 				React.useEffect(() => {
-					let blockMonitorInterval;
+					let unwatch;
 					
 					if (currentChain === 8899) {
-						const monitorBlocks = async () => {
-							try {
-								const publicClient = window.viem.createPublicClient({
-									chain: window.chains.jibchainL1,
-									transport: window.viem.http()
-								});
-								
-								const currentBlockNumber = await publicClient.getBlockNumber();
-								if (currentBlockNumber !== blockNumber) {
-									setBlockNumber(currentBlockNumber);
-								}
-							} catch (error) {
-								console.error('Error monitoring blocks:', error);
-							}
-						};
+						const publicClient = window.viem.createPublicClient({
+							chain: window.chains.jibchainL1,
+							transport: window.viem.http()
+						});
 						
-						// Monitor blocks every 3 seconds
-						blockMonitorInterval = setInterval(monitorBlocks, 3000);
+						// Use viem's watchBlocks for efficient block monitoring
+						unwatch = publicClient.watchBlocks({
+							onBlock: async (block) => {
+								setBlockNumber(block.number);
+								
+								// Auto-refresh data on new block if we have existing data
+								if (storeData && storeAddress) {
+									loadEnhancedStoreData();
+								}
+							},
+							pollingInterval: 3000, // 3 seconds
+						});
 					}
 					
 					return () => {
-						if (blockMonitorInterval) {
-							clearInterval(blockMonitorInterval);
+						if (unwatch) {
+							unwatch();
 						}
 					};
-				}, [currentChain, blockNumber]);
+				}, [currentChain, storeData, storeAddress]);
 
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
@@ -1221,7 +1284,8 @@ const pageTitle = aliasInfo
 					);
 				}
 
-				if (isLoading) {
+				// Only show loading spinner on initial load when no data exists
+				if (isLoading && !storeData) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
