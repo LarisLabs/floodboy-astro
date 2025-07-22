@@ -973,7 +973,7 @@ const pageTitle = aliasInfo
 							}
 						}
 					});
-				}, [sensorRecords, storeData, selectedFields]);
+				}, [sensorRecords, storeData, selectedFields, startFromZero]);
 
 				// Update chart when data changes
 				React.useEffect(() => {
@@ -991,7 +991,7 @@ const pageTitle = aliasInfo
 							chartInstanceRef.current = null;
 						}
 					};
-				}, [activeTab, sensorRecords, selectedFields, createChart]);
+				}, [activeTab, sensorRecords, selectedFields, createChart, startFromZero]);
 
 				// Define loadEnhancedStoreData function
 				const loadEnhancedStoreData = React.useCallback(async () => {
