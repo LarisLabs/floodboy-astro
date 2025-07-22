@@ -181,7 +181,7 @@ const pageTitle = aliasInfo
 				width: 100%;
 				border-collapse: separate;
 				border-spacing: 0;
-				table-layout: fixed;
+				table-layout: auto; /* Changed from fixed to auto for fluid layout */
 			}
 			.modern-table thead tr {
 				background-color: #f9fafb;
@@ -189,22 +189,16 @@ const pageTitle = aliasInfo
 			.modern-table th {
 				padding: 0.75rem 1rem;
 				text-align: left;
-				font-size: 0.75rem;
+				font-size: 0.875rem;
 				font-weight: 600;
-				color: #6b7280;
-				text-transform: uppercase;
-				letter-spacing: 0.05em;
+				color: #374151;
 				border-bottom: 1px solid #e5e7eb;
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 			.modern-table td {
 				padding: 1rem;
 				border-bottom: 1px solid #f3f4f6;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
+				font-size: 0.875rem;
 			}
 			.modern-table tbody tr:hover {
 				background-color: #f9fafb;
@@ -213,30 +207,26 @@ const pageTitle = aliasInfo
 				border-bottom: none;
 			}
 			
-			/* Column widths */
+			/* Fluid column widths */
 			.modern-table th:nth-child(1),
 			.modern-table td:nth-child(1) {
-				width: 200px; /* Timestamp */
-				min-width: 200px;
+				/* Timestamp - no fixed width, natural sizing */
+				white-space: nowrap;
 			}
 			.modern-table th:nth-child(2),
 			.modern-table td:nth-child(2) {
-				width: 80px; /* Block */
-				min-width: 80px;
-				text-align: center;
+				/* Block - compact */
+				text-align: right;
 			}
 			.modern-table th:last-child,
 			.modern-table td:last-child {
-				width: 100px; /* Tx */
-				min-width: 100px;
-				text-align: center;
+				/* Tx - compact */
+				text-align: right;
 			}
-			/* Data columns get equal remaining space */
+			/* Data columns - center aligned */
 			.modern-table th:not(:nth-child(1)):not(:nth-child(2)):not(:last-child),
 			.modern-table td:not(:nth-child(1)):not(:nth-child(2)):not(:last-child) {
-				width: calc((100% - 380px) / 4); /* Distribute remaining space equally */
-				min-width: 120px;
-				text-align: center;
+				text-align: right;
 			}
 			
 			/* Fix header alignment */
@@ -246,13 +236,10 @@ const pageTitle = aliasInfo
 			
 			/* Responsive adjustments */
 			@media (max-width: 1024px) {
-				.modern-table {
-					table-layout: auto;
-				}
 				.modern-table th,
 				.modern-table td {
-					white-space: normal;
 					padding: 0.5rem;
+					font-size: 0.75rem;
 				}
 			}
 			
@@ -1564,7 +1551,7 @@ const pageTitle = aliasInfo
 							),
 							
 							// Data Records Section (Chart/Table)
-							React.createElement('div', { className: 'card border rounded-lg p-6' },
+							React.createElement('div', { className: 'card border rounded-lg p-4 sm:p-6' },
 								React.createElement('div', { className: 'flex items-center justify-between mb-4' },
 									React.createElement('div', {},
 										React.createElement('h3', { className: 'text-lg font-semibold' }, 'Sensor Data Records'),
@@ -1612,7 +1599,7 @@ const pageTitle = aliasInfo
 								// Content based on active tab
 								React.createElement('div', {},
 									activeTab === 'table' ? (
-										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto' },
+										sensorRecords.length > 0 ? React.createElement('div', { className: 'overflow-x-auto -mx-4 sm:-mx-6' },
 											(() => {
 												// Filter to only show main fields that change (exclude _min, _max, _count, and installation_height)
 												const mainFields = storeData?.fields?.filter(field => 
@@ -1622,7 +1609,8 @@ const pageTitle = aliasInfo
 													!field.name.includes('installation_height')
 												) || [];
 												
-												return React.createElement('table', { className: 'modern-table' },
+												return React.createElement('div', { className: 'px-4 sm:px-6' },
+													React.createElement('table', { className: 'modern-table' },
 													React.createElement('thead', {},
 														React.createElement('tr', {},
 															React.createElement('th', {}, 'Timestamp'),
@@ -1673,6 +1661,7 @@ const pageTitle = aliasInfo
 															)
 														)
 													)
+												)
 												);
 											})()
 										) : React.createElement('div', { className: 'text-center text-gray-500 py-8' },
