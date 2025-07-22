@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
 import { BLOCKCHAIN_CONFIG } from '../../config/blockchain.config';
 import { getAddressFromAlias, getAliasFromAddress, STORE_ALIASES } from '../../config/aliases.config';
+import { CatLabSensorStoreABI, CatLabFactoryABI } from '../../abis';
 
 // Enable server-side rendering for dynamic routes
 export const prerender = false;
@@ -55,7 +56,9 @@ const pageData = {
   originalParam: addressOrAlias,
   address: resolvedAddress,
   aliasInfo: aliasInfo,
-  error: error
+  error: error,
+  storeABI: CatLabSensorStoreABI,
+  factoryABI: CatLabFactoryABI
 };
 
 // Prepare configuration for injection
@@ -330,37 +333,9 @@ const pageTitle = aliasInfo
 			// Contract ABIs and configurations
 			// Configuration injected at build time
 			const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
-
-			const STORE_ABI = [
-				{
-					"inputs": [],
-					"name": "getAllFields",
-					"outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
-					"name": "getLatestRecord",
-					"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [],
-					"name": "owner",
-					"outputs": [{"internalType": "address", "name": "", "type": "address"}],
-					"stateMutability": "view",
-					"type": "function"
-				},
-				{
-					"inputs": [],
-					"name": "getAuthorizedSensors",
-					"outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
-					"stateMutability": "view",
-					"type": "function"
-				}
-			];
+			
+			// Use the ABI loaded from abis.js
+			const STORE_ABI = pageData.storeABI;
 
 			// Event definitions for reading blockchain events
 			const RECORD_STORED_EVENT = {
