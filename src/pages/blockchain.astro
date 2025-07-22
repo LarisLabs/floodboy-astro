@@ -376,22 +376,17 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             className={`store-card relative rounded-xl overflow-hidden ${gradientClass} p-4 sm:p-6 text-white shadow-lg`}
             onClick={handleCardClick}
           >
-            {/* Status indicator - now with 3 states */}
+            {/* Status indicator - simplified to 2 states */}
             <div className="absolute top-4 right-4">
               {store.hasData ? (
                 <div className="flex items-center gap-1 bg-green-500/20 backdrop-blur px-2 py-1 rounded-full">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  <span className="text-xs font-medium">Installed</span>
-                </div>
-              ) : store.signerCount > 0 ? (
-                <div className="flex items-center gap-1 bg-yellow-500/20 backdrop-blur px-2 py-1 rounded-full">
-                  <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
-                  <span className="text-xs font-medium">Authorized</span>
+                  <span className="text-xs font-medium">Active</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 bg-gray-500/20 backdrop-blur px-2 py-1 rounded-full">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                  <span className="text-xs font-medium">Not Configured</span>
+                <div className="flex items-center gap-1 bg-yellow-500/20 backdrop-blur px-2 py-1 rounded-full">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                  <span className="text-xs font-medium">Pending</span>
                 </div>
               )}
             </div>
@@ -691,14 +686,13 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <LoadingSkeleton />
             ) : stores.length > 0 ? (
               <>
-                {/* Group stores by installation status - now with 3 states */}
+                {/* Group stores by installation status - simplified to 2 states */}
                 {(() => {
-                  // Use hasData flag for accurate detection
+                  // Simple two-state detection based on data presence
                   const installedStores = stores.filter(s => s.hasData);
-                  const authorizedStores = stores.filter(s => s.signerCount > 0 && !s.hasData);
-                  const notConfiguredStores = stores.filter(s => s.signerCount === 0);
+                  const beingInstalledStores = stores.filter(s => !s.hasData);
                   
-                  // Sort all groups by nickname (ascending: FloodBoy001, FloodBoy002, etc.)
+                  // Sort both groups by nickname (ascending: FloodBoy001, FloodBoy002, etc.)
                   const sortByNickname = (a, b) => {
                     // Extract number from nickname (e.g., "FloodBoy080" -> 80)
                     const getNumber = (store) => {
@@ -710,8 +704,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                   };
                   
                   installedStores.sort(sortByNickname);
-                  authorizedStores.sort(sortByNickname);
-                  notConfiguredStores.sort(sortByNickname);
+                  beingInstalledStores.sort(sortByNickname);
                   
                   return (
                     <>
@@ -730,31 +723,16 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                         </div>
                       )}
                       
-                      {/* Authorized but No Data Section */}
-                      {authorizedStores.length > 0 && (
-                        <div className="mb-8">
-                          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
-                            Authorized ({authorizedStores.length})
-                          </h2>
-                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-                            {authorizedStores.map((store, index) => (
-                              <StoreCard key={store.address} store={store} index={installedStores.length + index} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Not Configured Section */}
-                      {notConfiguredStores.length > 0 && (
+                      {/* Being Installed Section */}
+                      {beingInstalledStores.length > 0 && (
                         <div>
                           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
-                            Not Configured ({notConfiguredStores.length})
+                            <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                            Being Installed ({beingInstalledStores.length})
                           </h2>
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-                            {notConfiguredStores.map((store, index) => (
-                              <StoreCard key={store.address} store={store} index={installedStores.length + authorizedStores.length + index} />
+                            {beingInstalledStores.map((store, index) => (
+                              <StoreCard key={store.address} store={store} index={installedStores.length + index} />
                             ))}
                           </div>
                         </div>
