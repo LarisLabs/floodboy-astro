@@ -1,0 +1,22 @@
+{
+  "JIBCHAIN": {
+    "chainId": 8899,
+    "rpcUrl": "https://rpc-l1.jbc.xpool.pw",
+    "explorer": "https://exp.jibchain.net",
+    "contracts": {
+      "CatLabFactory": {
+        "address": "0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb",
+        "deploymentBlock": 5940320,
+        "owner": "0xfD5203Fa21E0F8a1e45cda0dc6740B874fFF5909",
+        "verified": false
+      },
+      "CatLabSensorStore_Example": {
+        "address": "0x887306B1EE95d20A6bC6f4390083d0bA2118f450",
+        "deploymentBlock": null,
+        "owner": "0x073caFeAD67E5bbD7537466C506976928ED8fF00",
+        "verified": true,
+        "note": "This is a manually deployed example store, not from factory"
+      }
+    }
+  }
+}
