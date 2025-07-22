@@ -1397,45 +1397,22 @@ const pageTitle = aliasInfo
 										
 										// Group fields by base name
 										const fieldGroups = {};
-										const processedFields = new Set();
 										
 										storeData.fields.forEach((field, index) => {
-											// Skip if already processed
-											if (processedFields.has(field.name)) return;
-											
-											// Extract base name (remove _min, _max, _count suffixes)
-											let baseName = field.name;
-											let suffix = '';
-											
-											if (field.name.endsWith('_min')) {
-												baseName = field.name.slice(0, -4);
-												suffix = 'min';
-											} else if (field.name.endsWith('_max')) {
-												baseName = field.name.slice(0, -4);
-												suffix = 'max';
-											} else if (field.name.endsWith('_count')) {
-												baseName = field.name.slice(0, -6);
-												suffix = 'count';
-											} else {
-												// Check if this field has min/max variants
-												const hasMin = storeData.fields.some(f => f.name === field.name + '_min');
-												const hasMax = storeData.fields.some(f => f.name === field.name + '_max');
-												
-												if (hasMin || hasMax) {
-													// This is a main field with variants
-													suffix = 'main';
-												} else {
-													// This is a standalone field (like installation_height)
-													baseName = field.name;
-													suffix = 'standalone';
-												}
+											// Skip _min, _max, _count fields - we'll collect them under their base name
+											if (field.name.endsWith('_min') || field.name.endsWith('_max') || field.name.endsWith('_count')) {
+												return;
 											}
+											
+											// This is a main field
+											const baseName = field.name;
 											
 											if (!fieldGroups[baseName]) {
 												fieldGroups[baseName] = { baseName, fields: {} };
 											}
 											
-											fieldGroups[baseName].fields[suffix] = {
+											// Store the main field
+											fieldGroups[baseName].fields.main = {
 												field,
 												index,
 												value: sensorRecords.length > 0 && sensorRecords[0].values[index] !== undefined
@@ -1443,7 +1420,34 @@ const pageTitle = aliasInfo
 													: null
 											};
 											
-											processedFields.add(field.name);
+											// Look for related _min, _max, _count fields
+											storeData.fields.forEach((relatedField, relatedIndex) => {
+												if (relatedField.name === baseName + '_min') {
+													fieldGroups[baseName].fields.min = {
+														field: relatedField,
+														index: relatedIndex,
+														value: sensorRecords.length > 0 && sensorRecords[0].values[relatedIndex] !== undefined
+															? parseFloat(formatScaledValue(sensorRecords[0].values[relatedIndex], relatedField.unit))
+															: null
+													};
+												} else if (relatedField.name === baseName + '_max') {
+													fieldGroups[baseName].fields.max = {
+														field: relatedField,
+														index: relatedIndex,
+														value: sensorRecords.length > 0 && sensorRecords[0].values[relatedIndex] !== undefined
+															? parseFloat(formatScaledValue(sensorRecords[0].values[relatedIndex], relatedField.unit))
+															: null
+													};
+												} else if (relatedField.name === baseName + '_count') {
+													fieldGroups[baseName].fields.count = {
+														field: relatedField,
+														index: relatedIndex,
+														value: sensorRecords.length > 0 && sensorRecords[0].values[relatedIndex] !== undefined
+															? parseFloat(formatScaledValue(sensorRecords[0].values[relatedIndex], relatedField.unit))
+															: null
+													};
+												}
+											});
 										});
 										
 										// Convert to array and sort
@@ -1470,8 +1474,7 @@ const pageTitle = aliasInfo
 											),
 											React.createElement('tbody', {},
 												sortedGroups.map((group, groupIndex) => {
-													const standalone = group.fields.standalone;
-													const main = group.fields.main || standalone || group.fields[Object.keys(group.fields)[0]];
+													const main = group.fields.main;
 													const min = group.fields.min;
 													const max = group.fields.max;
 													const count = group.fields.count;
@@ -1502,33 +1505,6 @@ const pageTitle = aliasInfo
 													const mainValue = main.value;
 													const exceedsSensorRange = mainValue !== null && isWaterLevel && mainValue > installationHeight;
 													
-													// For standalone fields, we'll merge the cells
-													if (standalone && !min && !max) {
-														return React.createElement('tr', { 
-															key: groupIndex,
-															className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
-														},
-															React.createElement('td', { 
-																className: `py-3 px-3 text-sm font-medium ${exceedsSensorRange ? 'text-red-700' : 'text-gray-900'}`
-															}, 
-																displayName
-															),
-															React.createElement('td', { 
-																colSpan: 3,
-																className: `py-3 px-3 text-center font-bold ${
-																	mainValue !== null 
-																		? exceedsSensorRange ? 'text-red-900' : 'text-gray-900' 
-																		: 'text-gray-400 italic'
-																}`
-															}, 
-																formatValue(mainValue),
-																mainValue !== null && ` ${unit}`,
-																exceedsSensorRange && ' ⚠️'
-															)
-														);
-													}
-													
-													// Regular fields with min/max
 													return React.createElement('tr', { 
 														key: groupIndex,
 														className: `${rowColor} ${exceedsSensorRange ? 'bg-red-50' : ''} border-b`
