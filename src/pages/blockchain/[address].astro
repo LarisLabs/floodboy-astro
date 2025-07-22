@@ -834,6 +834,7 @@ const pageTitle = aliasInfo
 				const [isMaximized, setIsMaximized] = React.useState(false);
 				const [showAllRecords, setShowAllRecords] = React.useState(false);
 				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
+				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
 
 				// Create chart function
 				const createChart = React.useCallback(() => {
@@ -873,19 +874,23 @@ const pageTitle = aliasInfo
 						new Date(record.timestamp * 1000).toLocaleString()
 					);
 
-					// Create datasets - by default only show water_depth
+					// Create datasets - show only selected fields
 					const datasets = storeData.fields
 						.filter((field, fieldIndex) => {
-							// Only show water_depth field (not _min, _max, _count variants)
-							return field.name === 'water_depth';
+							// Show only selected fields (not _min, _max, _count variants)
+							return selectedFields.includes(field.name) && 
+								   !field.name.endsWith('_min') && 
+								   !field.name.endsWith('_max') && 
+								   !field.name.endsWith('_count');
 						})
 						.map((field, index) => {
 							const fieldIndex = storeData.fields.findIndex(f => f.name === field.name);
-							const colors = [
-								'rgb(59, 130, 246)', // Blue for water depth
-								'rgb(16, 185, 129)', // Green  
-								'rgb(168, 85, 247)', // Purple
-							];
+							const colors = {
+								'water_depth': 'rgb(59, 130, 246)', // Blue
+								'installation_height': 'rgb(16, 185, 129)', // Green  
+								'battery_voltage': 'rgb(168, 85, 247)', // Purple
+							};
+							const color = colors[field.name] || colors['water_depth'];
 							
 							const data = sortedRecords.map(record => {
 								if (record.values[fieldIndex] !== undefined) {
@@ -894,18 +899,23 @@ const pageTitle = aliasInfo
 								return null;
 							});
 
+							// Format field name for display
+							const fieldLabel = field.name.split('_').map(word => 
+								word.charAt(0).toUpperCase() + word.slice(1)
+							).join(' ');
+
 							return {
-								label: `Water Depth (${field.unit.replace(/ x\d+$/, '')})`,
+								label: `${fieldLabel} (${field.unit.replace(/ x\d+$/, '')})`,
 								data: data,
-								borderColor: colors[0], // Always use blue for water
-								backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light blue with low opacity
+								borderColor: color,
+								backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
 								borderWidth: 2,
 								tension: 0.4,
-								fill: true, // Fill area under the line
+								fill: field.name === 'water_depth', // Only fill water depth
 								spanGaps: true,
 								pointRadius: 2,
 								pointHoverRadius: 4,
-								pointBackgroundColor: colors[0],
+								pointBackgroundColor: color,
 								pointBorderColor: '#fff',
 								pointBorderWidth: 2
 							};
@@ -929,7 +939,9 @@ const pageTitle = aliasInfo
 							plugins: {
 								title: {
 									display: true,
-									text: 'Water Depth Over Time',
+									text: selectedFields.length === 1 && selectedFields[0] === 'water_depth' 
+										? 'Water Depth Over Time' 
+										: 'Sensor Data Over Time',
 									font: {
 										size: 16,
 										weight: '600'
@@ -955,7 +967,9 @@ const pageTitle = aliasInfo
 									display: true,
 									title: {
 										display: true,
-										text: 'Water Depth (m)'
+										text: selectedFields.length === 1 
+											? datasets.length > 0 ? datasets[0].label : 'Value'
+											: 'Value'
 									},
 									beginAtZero: true
 								}
@@ -970,7 +984,12 @@ const pageTitle = aliasInfo
 
 				// Update chart when data changes
 				React.useEffect(() => {
-					if (activeTab === 'chart' && sensorRecords.length > 0) {
+					if (activeTab === 'chart' && sensorRecords.length > 0 && selectedFields.length > 0) {
+						// Destroy existing chart when fields change
+						if (chartInstanceRef.current) {
+							chartInstanceRef.current.destroy();
+							chartInstanceRef.current = null;
+						}
 						// Use requestAnimationFrame for smoother updates
 						requestAnimationFrame(() => {
 							createChart();
@@ -984,7 +1003,7 @@ const pageTitle = aliasInfo
 							chartInstanceRef.current = null;
 						}
 					};
-				}, [activeTab, sensorRecords, createChart]);
+				}, [activeTab, sensorRecords, selectedFields, createChart]);
 
 				// Define loadEnhancedStoreData function
 				const loadEnhancedStoreData = React.useCallback(async () => {
@@ -1977,6 +1996,43 @@ const pageTitle = aliasInfo
 											'Live updating...'
 										)
 									)
+								),
+								
+								// Field selection checkboxes when chart is active
+								activeTab === 'chart' && storeData?.fields && React.createElement('div', { 
+									className: 'flex flex-wrap gap-4 mb-4 p-3 bg-gray-50 rounded-lg' 
+								},
+									React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 'Show fields:'),
+									storeData.fields
+										.filter(field => 
+											!field.name.endsWith('_min') && 
+											!field.name.endsWith('_max') && 
+											!field.name.endsWith('_count')
+										)
+										.map(field => 
+											React.createElement('label', { 
+												key: field.name,
+												className: 'flex items-center gap-2 cursor-pointer' 
+											},
+												React.createElement('input', {
+													type: 'checkbox',
+													checked: selectedFields.includes(field.name),
+													onChange: (e) => {
+														if (e.target.checked) {
+															setSelectedFields([...selectedFields, field.name]);
+														} else {
+															setSelectedFields(selectedFields.filter(f => f !== field.name));
+														}
+													},
+													className: 'rounded text-blue-600'
+												}),
+												React.createElement('span', { className: 'text-sm' }, 
+													field.name.split('_').map(word => 
+														word.charAt(0).toUpperCase() + word.slice(1)
+													).join(' ')
+												)
+											)
+										)
 								),
 								
 								// Content based on active tab
