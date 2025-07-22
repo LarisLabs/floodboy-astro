@@ -434,7 +434,7 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
       // Loading Skeleton
       const LoadingSkeleton = () => (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map(i => (
+          {[...Array(12)].map((_, i) => (
             <div key={i} className="rounded-xl bg-gray-200 p-6">
               <div className="skeleton h-6 w-3/4 rounded mb-2"></div>
               <div className="skeleton h-4 w-full rounded mb-4"></div>
@@ -451,19 +451,11 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
         const [loading, setLoading] = useState(true);
         const [error, setError] = useState(null);
         const [totalStores, setTotalStores] = useState(0);
-        const [currentOffset, setCurrentOffset] = useState(0);
-        const [loadingMore, setLoadingMore] = useState(false);
-        const [sortOrder, setSortOrder] = useState('newest'); // 'newest' or 'oldest'
-        const STORES_PER_PAGE = 20;
+        const [sortOrder, setSortOrder] = useState('oldest'); // 'newest' or 'oldest' - default to oldest first
         
-        // Fetch stores using multicall
-        const fetchStores = async (loadMore = false) => {
-          if (loadMore) {
-            setLoadingMore(true);
-          } else {
-            setLoading(true);
-            setCurrentOffset(0);
-          }
+        // Fetch all stores using multicall
+        const fetchStores = async () => {
+          setLoading(true);
           setError(null);
           
           try {
@@ -492,42 +484,27 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
             if (Number(storeCount) === 0) {
               setStores([]);
               setLoading(false);
-              setLoadingMore(false);
               return;
             }
             
-            // Calculate which stores to fetch
             const totalCount = Number(storeCount);
-            const offset = loadMore ? currentOffset : 0;
-            const count = Math.min(STORES_PER_PAGE, totalCount - offset);
             
-            if (count <= 0) {
-              setLoadingMore(false);
-              return;
-            }
-            
-            console.log('Fetching stores:', {
+            console.log('Fetching all stores:', {
               totalStores: totalCount,
-              offset,
-              count,
               sortOrder
             });
             
-            // Get stores using reverse method
-            // getStoresReverse(offset, count) should return stores from end-offset-count to end-offset
+            // Get ALL stores at once
             const storeAddresses = await publicClient.readContract({
               address: factoryAddress,
               abi: DEPLOYER_ABI,
               functionName: 'getStoresReverse',
-              args: [BigInt(offset), BigInt(count)]
+              args: [BigInt(0), BigInt(totalCount)]
             });
             
             if (!storeAddresses || storeAddresses.length === 0) {
-              if (!loadMore) {
-                setStores([]);
-              }
+              setStores([]);
               setLoading(false);
-              setLoadingMore(false);
               return;
             }
             
@@ -588,9 +565,8 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
                 hasData: lastDataTimestamp > 0,
                 lastDataTimestamp,
                 deployedBlock: infoResult.success ? Number(infoResult.data[3]) : 0,
-                // Calculate the actual index in the factory array
-                // getStoresReverse returns from (total - offset - count) to (total - offset)
-                factoryIndex: totalCount - offset - count + i
+                // Store index in the factory array
+                factoryIndex: i
               });
             }
             
@@ -603,20 +579,13 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               processedStores.sort((a, b) => b.factoryIndex - a.factoryIndex);
             }
             
-            // Update stores - append if loading more, replace if not
-            if (loadMore) {
-              setStores(prev => [...prev, ...processedStores]);
-              setCurrentOffset(currentOffset + count);
-            } else {
-              setStores(processedStores);
-              setCurrentOffset(count);
-            }
+            // Set all stores
+            setStores(processedStores);
           } catch (err) {
             console.error('Error fetching stores:', err);
             setError(err.message);
           } finally {
             setLoading(false);
-            setLoadingMore(false);
           }
         };
         
@@ -745,27 +714,6 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
               <div className="text-center py-8 sm:py-12">
                 <p className="text-gray-600 text-base sm:text-lg">No stores deployed on {getChainById(chainId).name} yet</p>
                 <p className="text-gray-500 mt-2">Deploy your first store to get started</p>
-              </div>
-            )}
-            
-            {/* Load More */}
-            {!loading && !loadingMore && stores.length < totalStores && (
-              <div className="text-center mt-8">
-                <button 
-                  onClick={() => fetchStores(true)}
-                  className="btn btn-secondary"
-                >
-                  Load More ({totalStores - stores.length} remaining)
-                </button>
-              </div>
-            )}
-            
-            {/* Loading More Indicator */}
-            {loadingMore && (
-              <div className="text-center mt-8">
-                <button disabled className="btn btn-secondary">
-                  Loading...
-                </button>
               </div>
             )}
           </div>
