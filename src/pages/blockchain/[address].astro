@@ -1267,10 +1267,8 @@ const pageTitle = aliasInfo
 							onBlock: async (block) => {
 								setBlockNumber(block.number);
 								
-								// Auto-refresh data on new block if we have existing data
-								if (storeData && storeAddress) {
-									loadEnhancedStoreData();
-								}
+								// Don't auto-refresh data - let user control when to refresh
+								// This prevents chart from re-rendering constantly
 							},
 							pollingInterval: 3000, // 3 seconds
 						});
@@ -1873,7 +1871,17 @@ const pageTitle = aliasInfo
 												setIsMaximized(!isMaximized);
 											},
 											title: isMaximized ? 'Exit fullscreen (ESC)' : 'Maximize view (Ctrl+F)'
-										}, isMaximized ? '✕ Minimize' : '⛶ Maximize')
+										}, isMaximized ? '✕ Minimize' : '⛶ Maximize'),
+										React.createElement('button', {
+											className: `btn btn-secondary ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`,
+											onClick: () => {
+												if (!isRefreshing) {
+													loadEnhancedStoreData();
+												}
+											},
+											disabled: isRefreshing,
+											title: 'Refresh data'
+										}, isRefreshing ? '⟳ Loading...' : '⟳ Refresh')
 									)
 								),
 								
