@@ -10,6 +10,12 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
+    <!-- Viem for blockchain interactions -->
+    <script type="module">
+        import * as viem from 'https://esm.sh/viem@2.21.32';
+        window.viem = viem;
+    </script>
+    
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
@@ -24,70 +30,350 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         
-        // Viem client setup (using global fetch for browser compatibility)
-        const createViemClient = () => {
-            const jibchain = {
+        // Wait for Viem to be available
+        const waitForViem = () => {
+            return new Promise((resolve) => {
+                const checkViem = () => {
+                    if (window.viem) {
+                        resolve(window.viem);
+                    } else {
+                        setTimeout(checkViem, 100);
+                    }
+                };
+                checkViem();
+            });
+        };
+        
+        // Initialize Viem client
+        let viemClient = null;
+        const initializeViem = async () => {
+            if (viemClient) return viemClient;
+            
+            const viem = await waitForViem();
+            const { createPublicClient, http } = viem;
+            
+            // JIBCHAIN L1 chain definition
+            const jibchainL1 = {
                 id: 8899,
                 name: 'JIBCHAIN L1',
+                network: 'jibchain',
+                nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
                 rpcUrls: {
-                    default: { http: ['https://rpc2-l1.jbc.xpool.pw'] }
+                    default: { http: ['https://rpc2-l1.jbc.xpool.pw'] },
+                    public: { http: ['https://rpc2-l1.jbc.xpool.pw'] }
                 }
             };
             
-            return {
-                async readContract({ address, abi, functionName, args = [] }) {
-                    const iface = new ethers.utils.Interface(abi);
-                    const data = iface.encodeFunctionData(functionName, args);
-                    
-                    const response = await fetch(jibchain.rpcUrls.default.http[0], {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'eth_call',
-                            params: [{ to: address, data }, 'latest'],
-                            id: 1
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.error) throw new Error(result.error.message);
-                    
-                    return iface.decodeFunctionResult(functionName, result.result);
-                }
-            };
+            viemClient = createPublicClient({
+                chain: jibchainL1,
+                transport: http()
+            });
+            
+            return viemClient;
         };
 
         // Default contract constants
         const DEFAULT_STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
         const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
         
-        // ABIs
-        const getAllFieldsABI = [{
-            name: 'getAllFields',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{
-                type: 'tuple[]',
-                components: [
-                    { name: 'name', type: 'string' },
-                    { name: 'unit', type: 'string' },
-                    { name: 'dtype', type: 'string' }
-                ]
-            }]
-        }];
+        // FloodBoy sensor presets - real contract addresses from stores page (expanded selection)
+        const FLOODBOY_PRESETS = [
+            // Batch 1 - Early deployment sensors
+            { name: 'FloodBoy001', address: '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb', batch: 1 },
+            { name: 'FloodBoy002', address: '0x81ECfbd31D86bc8f3A581bD2f7c0f54B7498AC94', batch: 1 },
+            { name: 'FloodBoy003', address: '0x935B21D73bE382ba9D5Af56007502ea1d5E3348B', batch: 1 },
+            { name: 'FloodBoy011', address: '0xC7ca88151eC5869377e7478b8AB55f4d79558e2f', batch: 1 },
+            { name: 'FloodBoy013', address: '0x093800c0aB6958E702b0b0764eb044Bd2Ad35F19', batch: 1 },
+            { name: 'FloodBoy014', address: '0x5Be2ff7282EAD4B9280CA55F057442BFa2fdF438', batch: 1 },
+            { name: 'FloodBoy015', address: '0x86A230780268E400F4f8B37eb9DCe565b8143A1D', batch: 1 },
+            { name: 'FloodBoy017', address: '0xE7a15b70Af3545813CFA5b693cC3bB6A4431d7D3', batch: 1 },
+            { name: 'FloodBoy019', address: '0xFec1d835318b7Cfe60f9D91Ec7214Eed813d2501', batch: 1 },
+            { name: 'FloodBoy020', address: '0x1701A62B62813160dE104461573A9e6069405655', batch: 1 },
+            
+            // Batch 2 - Mid deployment
+            { name: 'FloodBoy025', address: '0x8794901C3Fec5a99a870E3A996ecB419608613Dd', batch: 2 },
+            { name: 'FloodBoy030', address: '0xCDb87B98aFAE5dA56bc115ffBA8619819dcc7a4f', batch: 2 },
+            { name: 'FloodBoy035', address: '0xdE7C6d2Ce38E60cBC0e051A0aC59FAddb69eB7fF', batch: 2 },
+            { name: 'FloodBoy040', address: '0x68ccd0049Da498bf9e3314a3f70A327a205aa7b3', batch: 2 },
+            
+            // Batch 3 - Later deployment
+            { name: 'FloodBoy050', address: '0x171BF0F4Ccce0ce6Fa22D83A7691C51321167e9B', batch: 3 },
+            { name: 'FloodBoy060', address: '0x6A891076a01b8e3C6D91f047e8A9B9Bf88C06124', batch: 3 },
+            
+            // Batch 4 - Recent deployment
+            { name: 'FloodBoy070', address: '0xb20E14EEDD4e818930b6294FCA3FF9A2a34AaCFf', batch: 4 },
+            { name: 'FloodBoy080', address: '0x2A9046822cE79867b55c794eee14033C0e820D40', batch: 4 },
+            
+            // Batch 5 - Latest deployment
+            { name: 'FloodBoy090', address: '0xcCdED0B3262561d7f2702bF3720c874a1d099F7a', batch: 5 },
+            { name: 'FloodBoy100', address: '0x569b4fEC8f0DF90eBAd3f1b15fE729Dc124dca9C', batch: 5 }
+        ];
         
-        const getLatestRecordABI = [{
-            name: 'getLatestRecord',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'sensor', type: 'address' }],
-            outputs: [
-                { name: '', type: 'uint256' },
-                { name: '', type: 'int256[]' }
+        // Simple ABI for event logs
+        const RECORD_STORED_EVENT = {
+            type: 'event',
+            name: 'RecordStored',
+            inputs: [
+                { name: 'sensor', type: 'address', indexed: true },
+                { name: 'timestamp', type: 'uint256', indexed: false },
+                { name: 'values', type: 'int256[]', indexed: false }
             ]
-        }];
+        };
+
+        // Function to fetch historical event logs using Viem with proper block range strategy
+        const fetchSensorDataFromLogs = async (storeAddress) => {
+            try {
+                console.log('Fetching historical event logs for store:', storeAddress);
+                
+                // Initialize Viem client
+                const client = await initializeViem();
+                
+                // Get current block number and use proper deployment block strategy
+                const currentBlock = await client.getBlockNumber();
+                // Use known JIBCHAIN L1 deployment block for efficiency (around block 5.9M)
+                const deploymentBlock = BigInt(5900000);
+                const fromBlock = deploymentBlock; // Get ALL records since deployment
+                
+                console.log(`Searching from deployment block ${fromBlock.toString()} (${currentBlock - fromBlock} blocks) to latest`);
+                
+                // Fetch RecordStored events using Viem with robust error handling
+                const eventLogs = await client.getLogs({
+                    address: storeAddress,
+                    event: RECORD_STORED_EVENT,
+                    fromBlock: fromBlock,
+                    toBlock: 'latest'
+                }).catch((err) => {
+                    console.log('Event loading failed, using fallback:', err.message);
+                    return []; // Return empty array as fallback
+                });
+                
+                console.log(`Found ${eventLogs.length} RecordStored events over ${currentBlock - fromBlock} blocks`);
+                
+                if (eventLogs.length === 0) {
+                    console.log('No events found, falling back to contract call...');
+                    throw new Error('No RecordStored events found for this contract');
+                }
+                
+                // Process all events with robust filtering and sorting
+                const processedRecords = processRecordLogs(eventLogs);
+                
+                if (processedRecords.length === 0) {
+                    throw new Error('No valid event records after processing');
+                }
+                
+                // Convert to historical data format
+                return convertToHistoricalData(processedRecords);
+                
+            } catch (err) {
+                console.error('Error fetching sensor data from logs:', err);
+                console.log('Falling back to direct contract calls...');
+                return await fetchSensorDataFromContract(storeAddress);
+            }
+        };
+        
+        // Function to process event logs with robust filtering and sorting
+        const processRecordLogs = (logs) => {
+            console.log(`Processing ${logs.length} raw event logs`);
+            
+            const validRecords = logs
+                .filter(log => {
+                    // Filter for valid logs with required fields
+                    return log.args && 
+                           log.args.sensor && 
+                           log.args.timestamp && 
+                           log.args.values &&
+                           log.args.values.length >= 3;
+                })
+                .map(log => ({
+                    sensor: log.args.sensor,
+                    timestamp: Number(log.args.timestamp),
+                    values: log.args.values.map(v => Number(v)),
+                    blockNumber: log.blockNumber,
+                    transactionHash: log.transactionHash
+                }))
+                .sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending (newest first)
+            
+            console.log(`Filtered to ${validRecords.length} valid records`);
+            return validRecords;
+        };
+        
+        // Function to convert processed records to historical data format
+        const convertToHistoricalData = (processedRecords) => {
+            try {
+                console.log(`Converting ${processedRecords.length} records to historical data`);
+                
+                if (processedRecords.length === 0) {
+                    throw new Error('No records to process');
+                }
+                
+                // Get latest record for current readings
+                const latestRecord = processedRecords[0];
+                const { timestamp, values } = latestRecord;
+                
+                console.log('Latest record:', { 
+                    timestamp: new Date(timestamp * 1000).toISOString(),
+                    values: values.map(v => v.toString())
+                });
+                
+                // Process current readings from latest record
+                const currentReadings = [
+                    {
+                        name: 'WATER DEPTH',
+                        value: (values[0] / 10000).toFixed(2),
+                        unit: 'm',
+                        raw: values[0].toString(),
+                        color: 'blue',
+                        timestamp: new Date(timestamp * 1000)
+                    },
+                    {
+                        name: 'BATTERY VOLTAGE',
+                        value: (values[1] / 100).toFixed(2),
+                        unit: 'V',
+                        raw: values[1].toString(),
+                        color: 'green',
+                        timestamp: new Date(timestamp * 1000)
+                    },
+                    {
+                        name: 'INSTALLATION HEIGHT',
+                        value: (values[2] / 10000).toFixed(2),
+                        unit: 'm',
+                        raw: values[2].toString(),
+                        color: 'purple',
+                        timestamp: new Date(timestamp * 1000)
+                    }
+                ];
+                
+                // Process ALL records for historical timeline (up to 50 for performance)
+                const maxRecords = Math.min(processedRecords.length, 50);
+                const historicalData = processedRecords
+                    .slice(0, maxRecords)
+                    .reverse() // Reverse to chronological order for chart
+                    .map(record => ({
+                        timestamp: new Date(record.timestamp * 1000),
+                        waterDepth: record.values[0] / 10000,
+                        batteryVoltage: record.values[1] / 100,
+                        installHeight: record.values[2] / 10000,
+                        blockNumber: record.blockNumber
+                    }));
+                
+                console.log(`Generated historical timeline with ${historicalData.length} data points`);
+                console.log('Time range:', {
+                    from: historicalData[0]?.timestamp.toISOString(),
+                    to: historicalData[historicalData.length - 1]?.timestamp.toISOString()
+                });
+                
+                return {
+                    currentReadings,
+                    historicalData,
+                    totalEvents: processedRecords.length,
+                    timeRange: {
+                        from: historicalData[0]?.timestamp,
+                        to: historicalData[historicalData.length - 1]?.timestamp
+                    }
+                };
+                
+            } catch (err) {
+                console.error('Error converting to historical data:', err);
+                throw err;
+            }
+        };
+        
+        // Utility function to format sensor preset display
+        const formatSensorOption = (preset) => {
+            return `${preset.name} (Batch ${preset.batch}) - ${preset.address.slice(0, 6)}...${preset.address.slice(-4)}`;
+        };
+        
+        // Enhanced fallback function using direct contract calls with Viem
+        const fetchSensorDataFromContract = async (storeAddress) => {
+            try {
+                console.log('Using enhanced contract call fallback');
+                
+                // Initialize Viem client
+                const client = await initializeViem();
+                
+                // getLatestRecord ABI
+                const getLatestRecordABI = {
+                    name: 'getLatestRecord',
+                    type: 'function',
+                    stateMutability: 'view',
+                    inputs: [{ name: 'sensor', type: 'address' }],
+                    outputs: [
+                        { name: '', type: 'uint256' },
+                        { name: '', type: 'int256[]' }
+                    ]
+                };
+                
+                // Call getLatestRecord using Viem
+                const [timestamp, values] = await client.readContract({
+                    address: storeAddress,
+                    abi: [getLatestRecordABI],
+                    functionName: 'getLatestRecord',
+                    args: [UNIVERSAL_SIGNER]
+                });
+                
+                console.log('Contract call result:', { 
+                    timestamp: timestamp.toString(), 
+                    values: values.map(v => v.toString()) 
+                });
+                
+                if (values.length < 3) {
+                    throw new Error('Insufficient sensor data from contract call');
+                }
+                
+                // Process current readings from contract call
+                const currentReadings = [
+                    {
+                        name: 'WATER DEPTH',
+                        value: (Number(values[0]) / 10000).toFixed(2),
+                        unit: 'm',
+                        raw: values[0].toString(),
+                        color: 'blue',
+                        timestamp: new Date(Number(timestamp) * 1000)
+                    },
+                    {
+                        name: 'BATTERY VOLTAGE',
+                        value: (Number(values[1]) / 100).toFixed(2),
+                        unit: 'V',
+                        raw: values[1].toString(),
+                        color: 'green',
+                        timestamp: new Date(Number(timestamp) * 1000)
+                    },
+                    {
+                        name: 'INSTALLATION HEIGHT',
+                        value: (Number(values[2]) / 10000).toFixed(2),
+                        unit: 'm',
+                        raw: values[2].toString(),
+                        color: 'purple',
+                        timestamp: new Date(Number(timestamp) * 1000)
+                    }
+                ];
+                
+                // Create single-point historical data for contract fallback
+                const currentTime = new Date(Number(timestamp) * 1000);
+                const historicalData = [{
+                    timestamp: currentTime,
+                    waterDepth: Number(values[0]) / 10000,
+                    batteryVoltage: Number(values[1]) / 100,
+                    installHeight: Number(values[2]) / 10000,
+                    blockNumber: null // Not available from contract call
+                }];
+                
+                return {
+                    currentReadings,
+                    historicalData,
+                    totalEvents: 1, // Only single point from contract
+                    isContractFallback: true,
+                    timeRange: {
+                        from: currentTime,
+                        to: currentTime
+                    }
+                };
+                
+            } catch (err) {
+                console.error('Error in contract call fallback:', err);
+                throw new Error('Failed to fetch sensor data: ' + err.message);
+            }
+        };
 
         // Main React Component
         function FloodBoyApp() {
@@ -104,65 +390,29 @@
                 setError(null);
                 
                 try {
-                    const client = createViemClient();
+                    // Fetch sensor data from event logs using Viem (now returns full historical data)
+                    const sensorData = await fetchSensorDataFromLogs(storeAddress);
                     
-                    // Simplified fetch for demo (would use actual Viem in real app)
-                    const [fieldsResponse, recordResponse] = await Promise.all([
-                        fetch('https://rpc2-l1.jbc.xpool.pw', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                jsonrpc: '2.0',
-                                method: 'eth_call',
-                                params: [{ to: storeAddress, data: '0x92208228' }, 'latest'],
-                                id: 1
-                            })
-                        }),
-                        fetch('https://rpc2-l1.jbc.xpool.pw', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                jsonrpc: '2.0',
-                                method: 'eth_call',
-                                params: [{ 
-                                    to: storeAddress, 
-                                    data: '0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd' 
-                                }, 'latest'],
-                                id: 2
-                            })
-                        })
-                    ]);
-                    
-                    const fieldsData = await fieldsResponse.json();
-                    const recordData = await recordResponse.json();
-                    
-                    if (fieldsData.error || recordData.error) {
-                        throw new Error('Failed to fetch blockchain data');
-                    }
-
-                    // Mock processed data for demo (would decode actual ABI response)
-                    const processedData = [
-                        { name: 'WATER DEPTH', value: '0.27', unit: 'm', raw: '2700', color: 'blue' },
-                        { name: 'BATTERY VOLTAGE', value: '12.91', unit: 'V', raw: '1291', color: 'green' },
-                        { name: 'INSTALLATION HEIGHT', value: '3.02', unit: 'm', raw: '30200', color: 'purple' }
-                    ];
-                    
-                    setData(processedData);
+                    // Set current readings for display cards
+                    setData(sensorData.currentReadings);
                     setLastUpdate(new Date());
                     
-                    // Create/update chart with a small delay to ensure DOM is ready
-                    setTimeout(() => updateChart(processedData), 100);
+                    // Create/update chart with historical data with a small delay to ensure DOM is ready
+                    setTimeout(() => updateChart(sensorData), 100);
                     
                 } catch (err) {
+                    console.error('Error in loadData:', err);
                     setError(err.message);
                 } finally {
                     setLoading(false);
                 }
             };
 
-            const updateChart = (chartData) => {
+            const updateChart = (sensorData) => {
+                // Always destroy previous chart instance
                 if (chartInstance.current) {
                     chartInstance.current.destroy();
+                    chartInstance.current = null;
                 }
 
                 // Check if canvas ref exists before trying to get context
@@ -177,41 +427,126 @@
                     return;
                 }
 
+                // Extract historical data for time series
+                const { historicalData, totalEvents, isContractFallback, timeRange } = sensorData;
+                
+                if (!historicalData || historicalData.length === 0) {
+                    console.error('No historical data available for chart');
+                    return;
+                }
+                
+                console.log(`Creating chart with ${historicalData.length} data points from ${totalEvents} total events`);
+                console.log('Time range:', timeRange);
+                
+                // Sort historical data by timestamp (should already be sorted, but ensure it)
+                const sortedData = [...historicalData].sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Format timestamps for labels
+                const labels = sortedData.map(record => {
+                    const date = record.timestamp;
+                    if (sortedData.length === 1) {
+                        // Single point - show full date/time
+                        return date.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                    } else {
+                        // Multiple points - show time only for readability
+                        return date.toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                    }
+                });
+                
+                // Create datasets for time series
+                const datasets = [
+                    {
+                        label: 'Water Depth (m)',
+                        data: sortedData.map(record => record.waterDepth),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: sortedData.length === 1 ? 8 : 4,
+                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Battery Voltage (V)',
+                        data: sortedData.map(record => record.batteryVoltage),
+                        borderColor: 'rgb(16, 185, 129)', 
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1',
+                        pointRadius: sortedData.length === 1 ? 8 : 4,
+                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Installation Height (m)',
+                        data: sortedData.map(record => record.installHeight),
+                        borderColor: 'rgb(139, 92, 246)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        pointRadius: sortedData.length === 1 ? 8 : 4,
+                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
+                        spanGaps: true
+                    }
+                ];
+                
+                // Chart title based on data source
+                const chartTitle = isContractFallback 
+                    ? 'FloodBoy Latest Reading (Contract Fallback)'
+                    : `FloodBoy Historical Data (${totalEvents} events, showing ${historicalData.length})`;
+
                 chartInstance.current = new Chart(ctx, {
                     type: 'line',
-                    data: {
-                        labels: ['10:30', '10:31', '10:32', '10:33', '10:34', '10:35'],
-                        datasets: [
-                            {
-                                label: 'Water Depth (m)',
-                                data: [0.25, 0.26, 0.27, 0.27, 0.28, 0.27],
-                                borderColor: 'rgb(59, 130, 246)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            },
-                            {
-                                label: 'Battery Voltage (V)',
-                                data: [12.95, 12.93, 12.91, 12.91, 12.89, 12.91],
-                                borderColor: 'rgb(16, 185, 129)',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                tension: 0.4,
-                                yAxisID: 'y1'
-                            },
-                            {
-                                label: 'Installation Height (m)',
-                                data: [3.02, 3.02, 3.02, 3.02, 3.02, 3.02],
-                                borderColor: 'rgb(139, 92, 246)',
-                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                                tension: 0.4
-                            }
-                        ]
-                    },
+                    data: { labels, datasets },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         interaction: {
                             mode: 'index',
                             intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: chartTitle
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const dataIndex = context[0].dataIndex;
+                                        const record = sortedData[dataIndex];
+                                        return record.timestamp.toLocaleString('en-US', {
+                                            weekday: 'short',
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false
+                                        });
+                                    },
+                                    afterLabel: function(context) {
+                                        const dataIndex = context.dataIndex;
+                                        const record = sortedData[dataIndex];
+                                        return record.blockNumber ? `Block: ${record.blockNumber}` : '';
+                                    }
+                                }
+                            }
                         },
                         scales: {
                             x: {
@@ -219,6 +554,10 @@
                                 title: {
                                     display: true,
                                     text: 'Time'
+                                },
+                                ticks: {
+                                    maxTicksLimit: sortedData.length > 10 ? 10 : sortedData.length,
+                                    maxRotation: 45
                                 }
                             },
                             y: {
@@ -228,7 +567,8 @@
                                 title: {
                                     display: true,
                                     text: 'Depth / Height (m)'
-                                }
+                                },
+                                beginAtZero: false
                             },
                             y1: {
                                 type: 'linear',
@@ -238,18 +578,10 @@
                                     display: true,
                                     text: 'Voltage (V)'
                                 },
+                                beginAtZero: false,
                                 grid: {
                                     drawOnChartArea: false,
                                 }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                position: 'top',
-                            },
-                            title: {
-                                display: true,
-                                text: 'FloodBoy Sensor Readings Over Time'
                             }
                         }
                     }
@@ -301,25 +633,44 @@
                             <div className="p-6">
                                 {/* Contract Input */}
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                                        <label className="text-gray-700 text-sm font-medium min-w-fit">
-                                            Store Contract:
-                                        </label>
-                                        <div className="flex-1 flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={storeAddress}
+                                    <div className="flex flex-col gap-4">
+                                        {/* FloodBoy Presets */}
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 mb-2 block">Quick Select FloodBoy Sensors:</label>
+                                            <select
                                                 onChange={(e) => setStoreAddress(e.target.value)}
-                                                placeholder="0x..."
-                                                className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            />
-                                            <button
-                                                onClick={loadData}
-                                                disabled={loading || !storeAddress}
-                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 text-sm"
+                                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+                                                defaultValue=""
                                             >
-                                                Connect
-                                            </button>
+                                                <option value="" disabled>Select a FloodBoy sensor...</option>
+                                                {FLOODBOY_PRESETS.map(preset => (
+                                                    <option key={preset.address} value={preset.address}>
+                                                        {formatSensorOption(preset)}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        
+                                        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                            <label className="text-gray-700 text-sm font-medium min-w-fit">
+                                                Store Contract:
+                                            </label>
+                                            <div className="flex-1 flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={storeAddress}
+                                                    onChange={(e) => setStoreAddress(e.target.value)}
+                                                    placeholder="0x..."
+                                                    className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                                <button
+                                                    onClick={loadData}
+                                                    disabled={loading || !storeAddress}
+                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 text-sm"
+                                                >
+                                                    Connect
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -353,13 +704,25 @@
                                     <div className="grid lg:grid-cols-2 gap-8">
                                         {/* Sensor Cards */}
                                         <div className="space-y-4">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Current Readings</h2>
+                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Latest Readings</h2>
                                             {data.map((item, index) => (
                                                 <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
                                                             <p className="text-sm text-gray-500">Raw: {item.raw}</p>
+                                                            {item.timestamp && (
+                                                                <p className="text-xs text-gray-400">
+                                                                    Latest: {item.timestamp.toLocaleString('en-US', {
+                                                                        year: 'numeric',
+                                                                        month: 'short', 
+                                                                        day: 'numeric',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit',
+                                                                        hour12: false
+                                                                    })}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                         <div className="text-right">
                                                             <span className={`text-3xl font-bold text-${item.color}-600`}>
@@ -372,11 +735,15 @@
                                             ))}
                                         </div>
 
-                                        {/* Chart */}
+                                        {/* Historical Chart */}
                                         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Data Visualization</h2>
+                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Historical Timeline</h2>
                                             <div className="relative h-80">
                                                 <canvas ref={chartRef}></canvas>
+                                            </div>
+                                            <div className="mt-4 text-sm text-gray-600">
+                                                <p>📊 <strong>Timeline Data:</strong> Real blockchain events with timestamps</p>
+                                                <p>🔗 <strong>Source:</strong> RecordStored events from JIBCHAIN L1</p>
                                             </div>
                                         </div>
                                     </div>
@@ -396,7 +763,9 @@
                                     </div>
                                     <div className="mt-4 pt-4 border-t border-gray-200 text-center">
                                         <p>✨ <strong>Powered by:</strong> React + Viem.js + Chart.js + Tailwind CSS</p>
-                                        <p>🔗 <strong>Data Source:</strong> Direct blockchain access via JIBCHAIN L1</p>
+                                        <p>🔗 <strong>Data Source:</strong> Historical event logs from JIBCHAIN L1 blockchain</p>
+                                        <p>📊 <strong>Method:</strong> RecordStored event timeline with multi-level fallback</p>
+                                        <p>⏱️ <strong>Block Range:</strong> From deployment block 5.9M to latest (~50 recent events)</p>
                                     </div>
                                 </div>
                             </div>
