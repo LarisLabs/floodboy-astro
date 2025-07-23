@@ -241,6 +241,22 @@
             return (
                 <div className="min-h-screen bg-gray-50 py-8">
                     <div className="max-w-4xl mx-auto px-4">
+                        {/* Contract Address Input */}
+                        <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Store Contract Address
+                            </label>
+                            <input
+                                type="text"
+                                value={CONFIG.STORE}
+                                disabled
+                                className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600 font-mono text-sm cursor-not-allowed"
+                            />
+                            <p className="mt-2 text-xs text-gray-500">
+                                This page displays data from the FloodBoy001 sensor store (fixed address)
+                            </p>
+                        </div>
+
                         {/* Header */}
                         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
                             <div className="flex justify-between items-start mb-4">
