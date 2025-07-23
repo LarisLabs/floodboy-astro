@@ -257,8 +257,13 @@ async function getLatestRecord() {
   }
 }`}</pre>
 
-					<h4 class="text-md font-medium mb-2">Complete Data Processing Example</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`// Complete example with data processing
+					<details class="mb-6">
+						<summary class="cursor-pointer text-md font-medium mb-2 px-4 py-3 bg-blue-50 rounded-lg border hover:bg-blue-100 transition-colors">
+							<span class="text-blue-800">📋 Complete Data Processing Example</span>
+							<span class="text-blue-600 text-sm ml-2">(Click to expand)</span>
+						</summary>
+						<div class="mt-4">
+							<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono border">{`// Complete example with data processing
 async function getProcessedFloodData() {
   try {
     // Get field definitions and latest data
@@ -323,201 +328,6 @@ async function getProcessedFloodData() {
 getProcessedFloodData().then(data => {
   console.log('Processed flood data:', data)
 })`}</pre>
-
-					<h4 class="text-md font-medium mb-2">Interactive HTML Example</h4>
-					<div class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-4">
-						<p class="text-amber-800 text-sm mb-2">🎮 <strong>Live Interactive Example</strong></p>
-						<p class="text-amber-700 text-xs">Copy this complete HTML file to test FloodBoy data access directly in your browser. No build tools required!</p>
-					</div>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FloodBoy Data Viewer</title>
-    
-    <!-- Viem.js from CDN -->
-    <script type="module">
-        import { createPublicClient, http } from 'https://esm.sh/viem@2.21.53'
-        
-        // JIBCHAIN L1 Configuration
-        const jibchain = {
-            id: 8899,
-            name: 'JIBCHAIN L1',
-            nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-            rpcUrls: {
-                default: { http: ['https://rpc2-l1.jbc.xpool.pw'] } // Using fastest RPC
-            }
-        }
-        
-        const client = createPublicClient({
-            chain: jibchain,
-            transport: http()
-        })
-        
-        // Contract constants
-        const STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb'
-        const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd'
-        
-        // ABIs
-        const getAllFieldsABI = [{
-            name: 'getAllFields',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{
-                type: 'tuple[]',
-                components: [
-                    { name: 'name', type: 'string' },
-                    { name: 'unit', type: 'string' },
-                    { name: 'dtype', type: 'string' }
-                ]
-            }]
-        }]
-        
-        const getLatestRecordABI = [{
-            name: 'getLatestRecord',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'sensor', type: 'address' }],
-            outputs: [
-                { name: '', type: 'uint256' },
-                { name: '', type: 'int256[]' }
-            ]
-        }]
-        
-        // Main function
-        async function loadFloodData() {
-            const loadingEl = document.getElementById('loading')
-            const dataEl = document.getElementById('data')
-            const errorEl = document.getElementById('error')
-            
-            try {
-                loadingEl.style.display = 'block'
-                errorEl.style.display = 'none'
-                dataEl.innerHTML = ''
-                
-                // Get fields and latest record
-                const [fields, [timestamp, values]] = await Promise.all([
-                    client.readContract({
-                        address: STORE_ADDRESS,
-                        abi: getAllFieldsABI,
-                        functionName: 'getAllFields'
-                    }),
-                    client.readContract({
-                        address: STORE_ADDRESS,
-                        abi: getLatestRecordABI,
-                        functionName: 'getLatestRecord',
-                        args: [UNIVERSAL_SIGNER]
-                    })
-                ])
-                
-                // Process data
-                const processedData = fields.map((field, index) => {
-                    const rawValue = values[index]
-                    let processedValue, unit
-                    
-                    if (field.unit.includes('x100')) {
-                        processedValue = Number(rawValue) / 100
-                        unit = field.unit.replace(' x100', '')
-                    } else if (field.unit.includes('x10000')) {
-                        processedValue = Number(rawValue) / 10000
-                        unit = field.unit.replace(' x10000', '')
-                    } else {
-                        processedValue = Number(rawValue)
-                        unit = field.unit
-                    }
-                    
-                    return {
-                        name: field.name.replace(/_/g, ' ').toUpperCase(),
-                        value: processedValue.toFixed(2),
-                        unit: unit,
-                        raw: rawValue.toString()
-                    }
-                })
-                
-                const recordDate = new Date(Number(timestamp) * 1000)
-                
-                // Display data
-                dataEl.innerHTML = \`
-                    <div class="bg-blue-50 p-4 rounded-lg mb-4">
-                        <h3 class="text-lg font-bold text-blue-800 mb-2">📊 FloodBoy Sensor Data</h3>
-                        <p class="text-blue-600 text-sm">Last Updated: \${recordDate.toLocaleString()}</p>
-                    </div>
-                    
-                    <div class="grid gap-4">
-                        \${processedData.map(item => \`
-                            <div class="bg-white p-4 rounded-lg border-l-4 border-blue-400 shadow-sm">
-                                <div class="flex justify-between items-center">
-                                    <h4 class="font-semibold text-gray-800">\${item.name}</h4>
-                                    <span class="text-2xl font-bold text-blue-600">\${item.value} \${item.unit}</span>
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">Raw value: \${item.raw}</p>
-                            </div>
-                        \`).join('')}
-                    </div>
-                    
-                    <div class="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-600">
-                        <p><strong>Store:</strong> \${STORE_ADDRESS}</p>
-                        <p><strong>Sensor:</strong> \${UNIVERSAL_SIGNER}</p>
-                        <p><strong>RPC:</strong> \${jibchain.rpcUrls.default.http[0]}</p>
-                    </div>
-                \`
-                
-                loadingEl.style.display = 'none'
-                
-            } catch (error) {
-                console.error('Error:', error)
-                loadingEl.style.display = 'none'
-                errorEl.style.display = 'block'
-                errorEl.innerHTML = \`
-                    <div class="bg-red-50 p-4 rounded-lg border border-red-200">
-                        <h3 class="text-red-800 font-bold mb-2">❌ Error Loading Data</h3>
-                        <p class="text-red-600 text-sm">\${error.message}</p>
-                        <button onclick="loadFloodData()" class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm">
-                            Try Again
-                        </button>
-                    </div>
-                \`
-            }
-        }
-        
-        // Make function global
-        window.loadFloodData = loadFloodData
-        
-        // Auto-load on page ready
-        document.addEventListener('DOMContentLoaded', loadFloodData)
-    </script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen py-8">
-    <div class="container mx-auto px-4 max-w-4xl">
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold text-gray-800">🌊 FloodBoy Live Data</h1>
-                <button onclick="loadFloodData()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
-                    🔄 Refresh Data
-                </button>
-            </div>
-            
-            <div id="loading" class="text-center py-8">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p class="mt-2 text-gray-600">Loading flood data from blockchain...</p>
-            </div>
-            
-            <div id="error" style="display: none;"></div>
-            <div id="data"></div>
-            
-            <div class="mt-6 pt-4 border-t text-xs text-gray-500">
-                <p>✨ <strong>Powered by:</strong> Viem.js + JIBCHAIN L1 + FloodBoy IoT Sensors</p>
-                <p>🔗 <strong>Source:</strong> Direct blockchain access - No APIs, No servers!</p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`}</pre>
 
 					<h4 class="text-md font-medium mb-2">React + Viem Example</h4>
 					<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
@@ -998,7 +808,7 @@ foundryup</pre>
 						</div>
 					</div>
 				</div>
-			</section>
+			</details>
 		</div>
 	</div>
 </BaseLayout>
