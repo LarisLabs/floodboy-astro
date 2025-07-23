@@ -38,6 +38,21 @@
         };
 
         // Contract ABIs
+        const DEPLOYER_ABI = [
+            {
+                "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+                "name": "getStoreMetadata",
+                "outputs": [
+                    {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+                    {"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+                    {"internalType": "string", "name": "description", "type": "string"},
+                    {"internalType": "string", "name": "pointer", "type": "string"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        
         const STORE_ABI = [
             {
                 "inputs": [],
@@ -280,6 +295,21 @@
                         abi: STORE_ABI,
                         functionName: 'owner'
                     });
+                    
+                    // Get metadata from factory
+                    let metadata = null;
+                    try {
+                        const factoryAddress = '0x904f1CCDb682f0E7b82387190C0EbF9015152BE7'; // Factory address
+                        metadata = await viemClient.readContract({
+                            address: factoryAddress,
+                            abi: DEPLOYER_ABI,
+                            functionName: 'getStoreMetadata',
+                            args: [storeAddress]
+                        });
+                        console.log('Store metadata:', metadata);
+                    } catch (e) {
+                        console.log('Failed to get metadata:', e);
+                    }
 
                     // Get latest record (assuming first authorized sensor)
                     const sensorAddress = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
@@ -306,7 +336,12 @@
                         },
                         currentBlock,
                         totalRecords: 0, // Will be updated when loading historical data
-                        lastEventBlock: null // Will be updated when loading historical data
+                        lastEventBlock: null, // Will be updated when loading historical data
+                        // Metadata fields
+                        description: metadata?.description || 'Sensor Store',
+                        pointer: metadata?.pointer,
+                        deployedBlock: metadata?.deployedBlock,
+                        lastUpdatedBlock: metadata?.lastUpdatedBlock
                     };
                     
                     setStoreData(fieldData);
@@ -515,7 +550,7 @@
                                     <div className="bg-gray-50 px-6 py-4 border-b">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <h1 className="text-2xl font-bold">FloodBoy001</h1>
+                                                <h1 className="text-2xl font-bold">{storeData.description || 'Sensor Store'}</h1>
                                                 <div className="flex gap-2">
                                                     <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
                                                         Live
@@ -556,8 +591,18 @@
                                             <div>
                                                 <p className="text-sm text-gray-500 mb-1">Store Information</p>
                                                 <div className="space-y-1">
-                                                    <p className="text-sm"><span className="text-gray-600">Nickname:</span> <span className="font-medium">FloodBoy001</span></p>
-                                                    <p className="text-sm"><span className="text-gray-600">Description:</span> <span className="font-medium">FloodBoy001</span></p>
+                                                        <p className="text-sm"><span className="text-gray-600">Description:</span> <span className="font-medium">{storeData.description}</span></p>
+                                                    {storeData.deployedBlock && (
+                                                        <p className="text-sm"><span className="text-gray-600">Deployed:</span> <span className="font-medium">Block {Number(storeData.deployedBlock).toLocaleString()}</span></p>
+                                                    )}
+                                                    {storeData.pointer && (
+                                                        <p className="text-sm">
+                                                            <span className="text-gray-600">Reference:</span> 
+                                                            <a href={storeData.pointer} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-700 ml-1">
+                                                                External Link ↗
+                                                            </a>
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div>
