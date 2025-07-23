@@ -126,6 +126,45 @@ import { SITE_TITLE } from '../consts';
 						</div>
 					</div>
 
+					<!-- Cast Commands Section -->
+					<h3 class="text-lg font-semibold mb-3">Cast Commands (Foundry)</h3>
+					<div class="bg-white p-3 rounded mb-4">
+						<div class="mb-4">
+							<p class="mb-2"><strong>What is Cast?</strong></p>
+							<p class="text-sm text-gray-600 mb-3">Cast is Foundry's command-line tool for performing Ethereum RPC calls. It provides a user-friendly interface for interacting with smart contracts, automatically handling ABI encoding/decoding and formatting outputs in human-readable format.</p>
+							
+							<p class="mb-2"><strong>Installation:</strong></p>
+							<pre class="text-sm bg-gray-100 p-2 rounded font-mono mb-3">curl -L https://foundry.paradigm.xyz | bash
+foundryup</pre>
+							
+							<div class="grid md:grid-cols-2 gap-4 text-sm">
+								<div>
+									<p class="font-medium mb-1">✅ Advantages:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Human-readable output</li>
+										<li>Automatic ABI decoding</li>
+										<li>Built-in error handling</li>
+										<li>Type safety</li>
+									</ul>
+								</div>
+								<div>
+									<p class="font-medium mb-1">📋 Requirements:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Foundry installed locally</li>
+										<li>Terminal/command line access</li>
+										<li>Internet connection to RPC</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getAllFields()((string,string,string)[])" --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+
+					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getLatestRecord(address)(uint256,int256[])" 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+
 					<h3 class="text-lg font-semibold mb-3">Viem.js TypeScript Examples</h3>
 					<div class="bg-white p-3 rounded mb-4">
 						<div class="mb-4">
@@ -256,384 +295,6 @@ async function getLatestRecord() {
     throw error
   }
 }`}</pre>
-				</section>
-
-				<!-- React + Viem Example Section -->
-				<section class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-					<h3 class="text-lg font-semibold mb-3">React + Viem Example</h3>
-					<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
-						<p class="text-green-800 text-sm mb-2">⚛️ <strong>React Interactive Example</strong></p>
-						<p class="text-green-700 text-xs">Complete React app with hooks, state management, and modern UI patterns. Uses CDN for zero-config setup!</p>
-					</div>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FloodBoy React App</title>
-    
-    <!-- React and Babel for JSX -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        
-        // Viem client setup (using global fetch for browser compatibility)
-        const createViemClient = () => {
-            const jibchain = {
-                id: 8899,
-                name: 'JIBCHAIN L1',
-                rpcUrls: {
-                    default: { http: ['https://rpc2-l1.jbc.xpool.pw'] }
-                }
-            };
-            
-            return {
-                async readContract({ address, abi, functionName, args = [] }) {
-                    const iface = new ethers.utils.Interface(abi);
-                    const data = iface.encodeFunctionData(functionName, args);
-                    
-                    const response = await fetch(jibchain.rpcUrls.default.http[0], {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            jsonrpc: '2.0',
-                            method: 'eth_call',
-                            params: [{ to: address, data }, 'latest'],
-                            id: 1
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.error) throw new Error(result.error.message);
-                    
-                    return iface.decodeFunctionResult(functionName, result.result);
-                }
-            };
-        };
-
-        // Contract constants
-        const STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
-        const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
-        
-        // ABIs
-        const getAllFieldsABI = [{
-            name: 'getAllFields',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [],
-            outputs: [{
-                type: 'tuple[]',
-                components: [
-                    { name: 'name', type: 'string' },
-                    { name: 'unit', type: 'string' },
-                    { name: 'dtype', type: 'string' }
-                ]
-            }]
-        }];
-        
-        const getLatestRecordABI = [{
-            name: 'getLatestRecord',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'sensor', type: 'address' }],
-            outputs: [
-                { name: '', type: 'uint256' },
-                { name: '', type: 'int256[]' }
-            ]
-        }];
-
-        // Main React Component
-        function FloodBoyApp() {
-            const [data, setData] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [lastUpdate, setLastUpdate] = useState(null);
-            const chartRef = useRef(null);
-            const chartInstance = useRef(null);
-
-            const loadData = async () => {
-                setLoading(true);
-                setError(null);
-                
-                try {
-                    const client = createViemClient();
-                    
-                    // Simplified fetch for demo (would use actual Viem in real app)
-                    const [fieldsResponse, recordResponse] = await Promise.all([
-                        fetch('https://rpc2-l1.jbc.xpool.pw', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                jsonrpc: '2.0',
-                                method: 'eth_call',
-                                params: [{ to: STORE_ADDRESS, data: '0x92208228' }, 'latest'],
-                                id: 1
-                            })
-                        }),
-                        fetch('https://rpc2-l1.jbc.xpool.pw', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                jsonrpc: '2.0',
-                                method: 'eth_call',
-                                params: [{ 
-                                    to: STORE_ADDRESS, 
-                                    data: '0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd' 
-                                }, 'latest'],
-                                id: 2
-                            })
-                        })
-                    ]);
-                    
-                    const fieldsData = await fieldsResponse.json();
-                    const recordData = await recordResponse.json();
-                    
-                    if (fieldsData.error || recordData.error) {
-                        throw new Error('Failed to fetch blockchain data');
-                    }
-
-                    // Mock processed data for demo (would decode actual ABI response)
-                    const processedData = [
-                        { name: 'WATER DEPTH', value: '0.27', unit: 'm', raw: '2700', color: 'blue' },
-                        { name: 'BATTERY VOLTAGE', value: '12.91', unit: 'V', raw: '1291', color: 'green' },
-                        { name: 'INSTALLATION HEIGHT', value: '3.02', unit: 'm', raw: '30200', color: 'purple' }
-                    ];
-                    
-                    setData(processedData);
-                    setLastUpdate(new Date());
-                    
-                    // Create/update chart
-                    updateChart(processedData);
-                    
-                } catch (err) {
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const updateChart = (chartData) => {
-                if (chartInstance.current) {
-                    chartInstance.current.destroy();
-                }
-
-                const ctx = chartRef.current.getContext('2d');
-                chartInstance.current = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: chartData.map(item => item.name),
-                        datasets: [{
-                            data: chartData.map(item => parseFloat(item.value)),
-                            backgroundColor: [
-                                'rgba(59, 130, 246, 0.8)',
-                                'rgba(16, 185, 129, 0.8)', 
-                                'rgba(139, 92, 246, 0.8)'
-                            ],
-                            borderColor: [
-                                'rgb(59, 130, 246)',
-                                'rgb(16, 185, 129)',
-                                'rgb(139, 92, 246)'
-                            ],
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                            },
-                            title: {
-                                display: true,
-                                text: 'FloodBoy Sensor Readings'
-                            }
-                        }
-                    }
-                });
-            };
-
-            useEffect(() => {
-                loadData();
-                
-                // Auto-refresh every 30 seconds
-                const interval = setInterval(loadData, 30000);
-                
-                return () => {
-                    clearInterval(interval);
-                    if (chartInstance.current) {
-                        chartInstance.current.destroy();
-                    }
-                };
-            }, []);
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-                    <div className="container mx-auto px-4 max-w-6xl">
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h1 className="text-3xl font-bold mb-2">🌊 FloodBoy Dashboard</h1>
-                                        <p className="text-blue-100">Real-time IoT flood monitoring on blockchain</p>
-                                    </div>
-                                    <button
-                                        onClick={loadData}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded-lg transition-all duration-200 flex items-center gap-2"
-                                    >
-                                        <span className={loading ? 'animate-spin' : ''}>🔄</span>
-                                        {loading ? 'Loading...' : 'Refresh'}
-                                    </button>
-                                </div>
-                                {lastUpdate && (
-                                    <p className="text-blue-200 text-sm mt-2">
-                                        Last updated: {lastUpdate.toLocaleTimeString()}
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="p-6">
-                                {/* Loading State */}
-                                {loading && (
-                                    <div className="text-center py-12">
-                                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                                        <p className="text-gray-600">Fetching data from blockchain...</p>
-                                    </div>
-                                )}
-
-                                {/* Error State */}
-                                {error && (
-                                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-                                        <div className="flex items-center mb-2">
-                                            <span className="text-red-500 text-xl mr-2">❌</span>
-                                            <h3 className="text-red-800 font-bold">Error Loading Data</h3>
-                                        </div>
-                                        <p className="text-red-600 mb-4">{error}</p>
-                                        <button
-                                            onClick={loadData}
-                                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                        >
-                                            Try Again
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* Data Display */}
-                                {data && !loading && (
-                                    <div className="grid lg:grid-cols-2 gap-8">
-                                        {/* Sensor Cards */}
-                                        <div className="space-y-4">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Current Readings</h2>
-                                            {data.map((item, index) => (
-                                                <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                                                    <div className="flex justify-between items-center">
-                                                        <div>
-                                                            <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-                                                            <p className="text-sm text-gray-500">Raw: {item.raw}</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className={\`text-3xl font-bold text-\${item.color}-600\`}>
-                                                                {item.value}
-                                                            </span>
-                                                            <span className="text-lg text-gray-600 ml-1">{item.unit}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Chart */}
-                                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Data Visualization</h2>
-                                            <div className="relative h-80">
-                                                <canvas ref={chartRef}></canvas>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Footer Info */}
-                                <div className="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <p><strong>Store Contract:</strong> {STORE_ADDRESS}</p>
-                                            <p><strong>Sensor Address:</strong> {UNIVERSAL_SIGNER}</p>
-                                        </div>
-                                        <div>
-                                            <p><strong>Network:</strong> JIBCHAIN L1 (8899)</p>
-                                            <p><strong>RPC:</strong> rpc2-l1.jbc.xpool.pw</p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-                                        <p>✨ <strong>Powered by:</strong> React + Viem.js + Chart.js + Tailwind CSS</p>
-                                        <p>🔗 <strong>Data Source:</strong> Direct blockchain access via JIBCHAIN L1</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        // Render the app
-        ReactDOM.render(<FloodBoyApp />, document.getElementById('root'));
-    </script>
-</body>
-</html>`}</pre>
-
-					<h3 class="text-lg font-semibold mb-3 mt-6">Cast Commands (Foundry)</h3>
-					<div class="bg-white p-3 rounded mb-4">
-						<div class="mb-4">
-							<p class="mb-2"><strong>What is Cast?</strong></p>
-							<p class="text-sm text-gray-600 mb-3">Cast is Foundry's command-line tool for performing Ethereum RPC calls. It provides a user-friendly interface for interacting with smart contracts, automatically handling ABI encoding/decoding and formatting outputs in human-readable format.</p>
-							
-							<p class="mb-2"><strong>Installation:</strong></p>
-							<pre class="text-sm bg-gray-100 p-2 rounded font-mono mb-3">curl -L https://foundry.paradigm.xyz | bash
-foundryup</pre>
-							
-							<div class="grid md:grid-cols-2 gap-4 text-sm">
-								<div>
-									<p class="font-medium mb-1">✅ Advantages:</p>
-									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
-										<li>Human-readable output</li>
-										<li>Automatic ABI decoding</li>
-										<li>Built-in error handling</li>
-										<li>Type safety</li>
-									</ul>
-								</div>
-								<div>
-									<p class="font-medium mb-1">📋 Requirements:</p>
-									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
-										<li>Foundry installed locally</li>
-										<li>Terminal/command line access</li>
-										<li>Internet connection to RPC</li>
-									</ul>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getAllFields()((string,string,string)[])" --rpc-url https://rpc-l1.jibchain.net/`}</pre>
-
-					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getLatestRecord(address)(uint256,int256[])" 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd --rpc-url https://rpc-l1.jibchain.net/`}</pre>
 
 					<h3 class="text-lg font-semibold mb-3">Curl Commands (JSON-RPC)</h3>
 					<div class="bg-white p-3 rounded mb-4">
@@ -739,7 +400,7 @@ foundryup</pre>
 						</div>
 					</div>
 				</div>
-			</details>
+			</section>
 		</div>
 	</div>
 </BaseLayout>
