@@ -306,6 +306,7 @@
                     // Get metadata and nickname from factory
                     let metadata = null;
                     let nickname = null;
+                    let description = null;
                     try {
                         const factoryAddress = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb'; // Factory address from config
                         
@@ -330,8 +331,18 @@
                             args: [storeAddress]
                         });
                         console.log('Store metadata:', metadata);
-                        console.log('Description:', metadata?.description);
-                        console.log('Deployed block:', metadata?.deployedBlock?.toString());
+                        
+                        // Handle description - it might be returned as part of an array/tuple
+                        if (metadata) {
+                            // If metadata is an array/tuple, extract description (index 2)
+                            if (Array.isArray(metadata) && metadata.length > 2) {
+                                description = metadata[2];
+                            } else if (metadata.description) {
+                                description = metadata.description;
+                            }
+                        }
+                        console.log('Description:', description);
+                        console.log('Deployed block:', metadata?.deployedBlock?.toString() || metadata?.[0]?.toString());
                     } catch (e) {
                         console.log('Failed to get metadata:', e);
                     }
@@ -364,10 +375,10 @@
                         lastEventBlock: null, // Will be updated when loading historical data
                         // Metadata fields
                         nickname: nickname || null,
-                        description: metadata?.description || null,
-                        pointer: metadata?.pointer,
-                        deployedBlock: metadata?.deployedBlock,
-                        lastUpdatedBlock: metadata?.lastUpdatedBlock
+                        description: description || (Array.isArray(metadata) && metadata[2]) || metadata?.description || null,
+                        pointer: (Array.isArray(metadata) && metadata[3]) || metadata?.pointer || null,
+                        deployedBlock: (Array.isArray(metadata) && metadata[0]) || metadata?.deployedBlock || null,
+                        lastUpdatedBlock: (Array.isArray(metadata) && metadata[1]) || metadata?.lastUpdatedBlock || null
                     };
                     
                     setStoreData(fieldData);
@@ -613,15 +624,58 @@
                                             </div>
                                         </div>
                                         
+                                        {/* Description Section - Full Width */}
+                                        {storeData.description && (() => {
+                                            // Parse description for location and GPS
+                                            const desc = storeData.description;
+                                            const locMatch = desc.match(/^(.+?)\s+loc:\s*([\d.-]+),\s*([\d.-]+)$/);
+                                            
+                                            if (locMatch) {
+                                                const [, location, lat, lng] = locMatch;
+                                                const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                                                
+                                                return (
+                                                    <div className="mt-4 border-t pt-4">
+                                                        <div className="mb-3">
+                                                            <p className="text-sm text-gray-500 mb-1">Description</p>
+                                                            <p className="text-lg text-gray-900">{location}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-gray-500 mb-1">GPS</p>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-sm font-mono text-gray-600">{lat}, {lng}</span>
+                                                                <a
+                                                                    href={googleMapsUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                                                >
+                                                                    View on Google Maps
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                    </svg>
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // Fallback if no GPS coordinates found
+                                                return (
+                                                    <div className="mt-4 border-t pt-4">
+                                                        <p className="text-sm text-gray-500 mb-1">Description</p>
+                                                        <p className="text-lg text-gray-900">{desc}</p>
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
+
                                         <div className="grid md:grid-cols-2 gap-6 mt-4">
                                             <div>
                                                 <p className="text-sm text-gray-500 mb-1">Store Information</p>
                                                 <div className="space-y-1">
-                                                            {storeData.nickname && (
+                                                    {storeData.nickname && (
                                                         <p className="text-sm"><span className="text-gray-600">Nickname:</span> <span className="font-medium">{storeData.nickname}</span></p>
-                                                    )}
-                                                    {storeData.description && (
-                                                        <p className="text-sm"><span className="text-gray-600">Description:</span> <span className="font-medium">{storeData.description}</span></p>
                                                     )}
                                                     {storeData.deployedBlock && (
                                                         <p className="text-sm"><span className="text-gray-600">Deployed:</span> <span className="font-medium">Block {Number(storeData.deployedBlock).toLocaleString()}</span></p>
