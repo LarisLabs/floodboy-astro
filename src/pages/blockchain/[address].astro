@@ -1692,9 +1692,35 @@ const pageTitle = aliasInfo
 						)
 					),
 
-					// Store Data Section (simplified - no header)
+					// Store Data Section with header inside
 					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
 						React.createElement('div', { className: 'space-y-4' },
+							// Header section inside the box
+							React.createElement('div', { className: 'flex items-center justify-between pb-4 border-b' },
+								React.createElement('div', {},
+									React.createElement('h1', { className: 'text-2xl font-bold text-gray-900 mb-1' }, 
+										storeData?.nickname || pageData.aliasInfo?.displayName || 'Public Sensor Store View'
+									),
+									React.createElement('p', { className: 'text-gray-600 text-sm' }, 
+										pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
+									),
+									pageData.aliasInfo && React.createElement('p', { className: 'text-xs text-gray-500 mt-1' }, 
+										`Alias: /${pageData.aliasInfo.alias}`
+									),
+									React.createElement('p', { className: 'text-gray-600 font-mono text-xs mt-1' }, storeAddress)
+								),
+								React.createElement('div', { className: 'flex flex-wrap gap-2' },
+									React.createElement('button', { 
+										className: 'btn btn-primary text-sm px-3 py-1',
+										onClick: () => window.location.reload()
+									}, '🔄 Refresh'),
+									React.createElement('a', { 
+										href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
+										target: '_blank',
+										className: 'btn btn-secondary text-sm px-3 py-1'
+									}, '🔗 Explorer')
+								)
+							),
 							// Stats grid - 4 columns like production
 							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
 								// Total Records
