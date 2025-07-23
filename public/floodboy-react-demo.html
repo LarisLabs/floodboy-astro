@@ -1,60 +1,4 @@
----
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { SITE_TITLE } from '../consts';
----
-
-<BaseLayout title={`Open Code - ${SITE_TITLE}`} description="Interactive React + Viem examples for FloodBoy blockchain integration">
-	<div class="container mx-auto px-4 py-8 max-w-6xl">
-		<!-- FloodBoy Open Code Section -->
-		<section class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-8">
-			<div class="flex items-center mb-4">
-				<img src="/floodboy-logo.png" alt="FloodBoy" class="h-8 w-8 mr-3 flex-shrink-0" />
-				<div>
-					<h1 class="text-3xl font-bold">FloodBoy Open Code</h1>
-					<p class="text-lg text-gray-600">Interactive code examples for integrating with FloodBoy's blockchain infrastructure.</p>
-				</div>
-			</div>
-
-			<div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-				<p class="font-semibold text-blue-800">🔗 Open Source Project</p>
-				<p class="mt-2">
-					<strong>GitHub Repository</strong>: <a href="https://github.com/LarisLabs/floodboy-astro" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">https://github.com/LarisLabs/floodboy-astro</a>
-				</p>
-				<p class="text-sm text-gray-600 mt-1">Open source • Powered by Cat Lab • Sponsored by LarisLabs</p>
-			</div>
-
-		</section>
-
-		<div class="space-y-8">
-			<!-- React + Viem Example Section -->
-			<section class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
-				<h2 class="text-2xl font-semibold mb-4">React + Viem Integration</h2>
-				<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
-					<p class="text-green-800 text-sm mb-2">⚛️ <strong>React Interactive Example</strong></p>
-					<p class="text-green-700 text-xs">Complete React app with hooks, state management, and modern UI patterns. Uses CDN for zero-config setup!</p>
-				</div>
-
-				<div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-					<h3 class="text-lg font-semibold text-yellow-800 mb-2">🚀 How to Use</h3>
-					<div class="flex flex-col sm:flex-row gap-4">
-						<div class="flex-1">
-							<ol class="list-decimal list-inside text-sm text-yellow-700 space-y-1">
-								<li>Copy the complete HTML code below</li>
-								<li>Save it as <code class="bg-yellow-100 px-1 rounded">floodboy-react-app.html</code></li>
-								<li>Open the file in your web browser</li>
-								<li>Watch the live blockchain data load and update!</li>
-							</ol>
-						</div>
-						<div class="flex-shrink-0">
-							<a href="/floodboy-react-demo.html" target="_blank" rel="noopener noreferrer" 
-							   class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
-								🔗 View Live Demo
-							</a>
-						</div>
-					</div>
-				</div>
-
-				<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -114,8 +58,8 @@ import { SITE_TITLE } from '../consts';
             };
         };
 
-        // Contract constants
-        const STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
+        // Default contract constants
+        const DEFAULT_STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
         const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
         
         // ABIs
@@ -151,6 +95,7 @@ import { SITE_TITLE } from '../consts';
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
             const [lastUpdate, setLastUpdate] = useState(null);
+            const [storeAddress, setStoreAddress] = useState(DEFAULT_STORE_ADDRESS);
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
@@ -169,7 +114,7 @@ import { SITE_TITLE } from '../consts';
                             body: JSON.stringify({
                                 jsonrpc: '2.0',
                                 method: 'eth_call',
-                                params: [{ to: STORE_ADDRESS, data: '0x92208228' }, 'latest'],
+                                params: [{ to: storeAddress, data: '0x92208228' }, 'latest'],
                                 id: 1
                             })
                         }),
@@ -180,7 +125,7 @@ import { SITE_TITLE } from '../consts';
                                 jsonrpc: '2.0',
                                 method: 'eth_call',
                                 params: [{ 
-                                    to: STORE_ADDRESS, 
+                                    to: storeAddress, 
                                     data: '0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd' 
                                 }, 'latest'],
                                 id: 2
@@ -205,8 +150,8 @@ import { SITE_TITLE } from '../consts';
                     setData(processedData);
                     setLastUpdate(new Date());
                     
-                    // Create/update chart
-                    updateChart(processedData);
+                    // Create/update chart with a small delay to ensure DOM is ready
+                    setTimeout(() => updateChart(processedData), 100);
                     
                 } catch (err) {
                     setError(err.message);
@@ -220,35 +165,91 @@ import { SITE_TITLE } from '../consts';
                     chartInstance.current.destroy();
                 }
 
+                // Check if canvas ref exists before trying to get context
+                if (!chartRef.current) {
+                    console.error('Canvas ref is null');
+                    return;
+                }
+
                 const ctx = chartRef.current.getContext('2d');
+                if (!ctx) {
+                    console.error('Could not get 2d context from canvas');
+                    return;
+                }
+
                 chartInstance.current = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: chartData.map(item => item.name),
-                        datasets: [{
-                            data: chartData.map(item => parseFloat(item.value)),
-                            backgroundColor: [
-                                'rgba(59, 130, 246, 0.8)',
-                                'rgba(16, 185, 129, 0.8)', 
-                                'rgba(139, 92, 246, 0.8)'
-                            ],
-                            borderColor: [
-                                'rgb(59, 130, 246)',
-                                'rgb(16, 185, 129)',
-                                'rgb(139, 92, 246)'
-                            ],
-                            borderWidth: 2
-                        }]
+                        labels: ['10:30', '10:31', '10:32', '10:33', '10:34', '10:35'],
+                        datasets: [
+                            {
+                                label: 'Water Depth (m)',
+                                data: [0.25, 0.26, 0.27, 0.27, 0.28, 0.27],
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: 'Battery Voltage (V)',
+                                data: [12.95, 12.93, 12.91, 12.91, 12.89, 12.91],
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                tension: 0.4,
+                                yAxisID: 'y1'
+                            },
+                            {
+                                label: 'Installation Height (m)',
+                                data: [3.02, 3.02, 3.02, 3.02, 3.02, 3.02],
+                                borderColor: 'rgb(139, 92, 246)',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Depth / Height (m)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Voltage (V)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            }
+                        },
                         plugins: {
                             legend: {
-                                position: 'bottom',
+                                position: 'top',
                             },
                             title: {
                                 display: true,
-                                text: 'FloodBoy Sensor Readings'
+                                text: 'FloodBoy Sensor Readings Over Time'
                             }
                         }
                     }
@@ -289,6 +290,7 @@ import { SITE_TITLE } from '../consts';
                                         {loading ? 'Loading...' : 'Refresh'}
                                     </button>
                                 </div>
+                                
                                 {lastUpdate && (
                                     <p className="text-blue-200 text-sm mt-2">
                                         Last updated: {lastUpdate.toLocaleTimeString()}
@@ -297,6 +299,30 @@ import { SITE_TITLE } from '../consts';
                             </div>
 
                             <div className="p-6">
+                                {/* Contract Input */}
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                                        <label className="text-gray-700 text-sm font-medium min-w-fit">
+                                            Store Contract:
+                                        </label>
+                                        <div className="flex-1 flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={storeAddress}
+                                                onChange={(e) => setStoreAddress(e.target.value)}
+                                                placeholder="0x..."
+                                                className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                            <button
+                                                onClick={loadData}
+                                                disabled={loading || !storeAddress}
+                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 text-sm"
+                                            >
+                                                Connect
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                                 {/* Loading State */}
                                 {loading && (
                                     <div className="text-center py-12">
@@ -336,7 +362,7 @@ import { SITE_TITLE } from '../consts';
                                                             <p className="text-sm text-gray-500">Raw: {item.raw}</p>
                                                         </div>
                                                         <div className="text-right">
-                                                            <span className={\`text-3xl font-bold text-\${item.color}-600\`}>
+                                                            <span className={`text-3xl font-bold text-${item.color}-600`}>
                                                                 {item.value}
                                                             </span>
                                                             <span className="text-lg text-gray-600 ml-1">{item.unit}</span>
@@ -360,8 +386,8 @@ import { SITE_TITLE } from '../consts';
                                 <div className="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
                                     <div className="grid md:grid-cols-2 gap-4">
                                         <div>
-                                            <p><strong>Store Contract:</strong> {STORE_ADDRESS}</p>
-                                            <p><strong>Sensor Address:</strong> {UNIVERSAL_SIGNER}</p>
+                                            <p><strong>Store Contract:</strong> <code className="text-xs bg-gray-100 px-1 rounded">{storeAddress}</code></p>
+                                            <p><strong>Sensor Address:</strong> <code className="text-xs bg-gray-100 px-1 rounded">{UNIVERSAL_SIGNER}</code></p>
                                         </div>
                                         <div>
                                             <p><strong>Network:</strong> JIBCHAIN L1 (8899)</p>
@@ -384,21 +410,4 @@ import { SITE_TITLE } from '../consts';
         ReactDOM.render(<FloodBoyApp />, document.getElementById('root'));
     </script>
 </body>
-</html>`}</pre>
-
-
-				<div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-					<h3 class="text-lg font-semibold text-blue-800 mb-2">💡 Key Features</h3>
-					<ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
-						<li><strong>Zero Setup:</strong> Uses CDN links - no build process required</li>
-						<li><strong>Real-time Data:</strong> Fetches live sensor data from JIBCHAIN L1</li>
-						<li><strong>Interactive Charts:</strong> Beautiful data visualization with Chart.js</li>
-						<li><strong>Modern React:</strong> Uses hooks, state management, and functional components</li>
-						<li><strong>Responsive Design:</strong> Mobile-friendly with Tailwind CSS</li>
-						<li><strong>Auto-refresh:</strong> Updates every 30 seconds automatically</li>
-					</ul>
-				</div>
-			</section>
-		</div>
-	</div>
-</BaseLayout>
+</html>
