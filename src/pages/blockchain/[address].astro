@@ -1248,50 +1248,68 @@ const pageTitle = aliasInfo
 								data: results[2].returnData
 							}) : 0;
 							
-							// Make direct factory calls (avoiding multicall for factory data)
+							// Make direct factory calls (only for JIBCHAIN L1 where we know the factory works)
 							let nickname = null;
 							let description = null;
 							let deployedBlockInfo = null;
 							let metadata = null;
-							if (factoryAddress) {
+							
+							// Only try factory calls on JIBCHAIN L1 with known factory
+							if (factoryAddress && currentChain === 8899 && factoryAddress === '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb') {
+								console.log('Attempting factory calls for store:', storeAddress);
+								console.log('Using factory:', factoryAddress);
+								
+								// Try storeToNickname first (simplest call)
 								try {
-									// Direct call to getStoreInfo
-									const storeInfo = await publicClient.readContract({
+									nickname = await publicClient.readContract({
 										address: factoryAddress,
 										abi: DEPLOYER_ABI,
-										functionName: 'getStoreInfo',
+										functionName: 'storeToNickname',
 										args: [storeAddress]
 									});
-									console.log('Direct getStoreInfo result:', storeInfo);
-									// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
-									nickname = storeInfo[0];
-									deployedBlockInfo = storeInfo[3];
-									description = storeInfo[4];
-									
-									// Direct call to getStoreMetadata
+									console.log('✅ Nickname loaded:', nickname);
+								} catch (nicknameErr) {
+									console.log('❌ storeToNickname failed:', nicknameErr.message);
+								}
+								
+								// Try getStoreMetadata (your Solidity script shows this works)
+								try {
 									metadata = await publicClient.readContract({
 										address: factoryAddress,
 										abi: DEPLOYER_ABI,
 										functionName: 'getStoreMetadata',
 										args: [storeAddress]
 									});
-									console.log('Direct getStoreMetadata result:', metadata);
-								} catch (e) {
-									console.log('Direct factory calls failed:', e);
-									// Try fallback approach - check if store is registered
-									try {
-										const nickname_only = await publicClient.readContract({
-											address: factoryAddress,
-											abi: DEPLOYER_ABI,
-											functionName: 'storeToNickname',
-											args: [storeAddress]
-										});
-										console.log('Store nickname from storeToNickname:', nickname_only);
-										nickname = nickname_only;
-									} catch (nicknameErr) {
-										console.log('Even storeToNickname failed:', nicknameErr);
+									console.log('✅ Metadata loaded:', metadata);
+									if (metadata && metadata.length >= 3) {
+										// getStoreMetadata returns: [deployedBlock, lastUpdatedBlock, description, pointer]
+										deployedBlockInfo = metadata[0];
+										description = metadata[2]; // description is at index 2
 									}
+								} catch (metadataErr) {
+									console.log('❌ getStoreMetadata failed:', metadataErr.message);
 								}
+								
+								// Try getStoreInfo as fallback
+								try {
+									const storeInfo = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreInfo',
+										args: [storeAddress]
+									});
+									console.log('✅ Store info loaded:', storeInfo);
+									if (storeInfo && storeInfo.length >= 5) {
+										// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
+										if (!nickname) nickname = storeInfo[0];
+										if (!deployedBlockInfo) deployedBlockInfo = storeInfo[3];
+										if (!description) description = storeInfo[4]; // description is at index 4
+									}
+								} catch (storeInfoErr) {
+									console.log('❌ getStoreInfo failed:', storeInfoErr.message);
+								}
+							} else {
+								console.log('Skipping factory calls - not JIBCHAIN L1 or invalid factory address');
 							}
 
 							console.log('Store info loaded:', { 
