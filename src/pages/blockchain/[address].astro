@@ -1218,17 +1218,28 @@ const pageTitle = aliasInfo
 								}
 							];
 							
-							// Add factory metadata call if factory address exists
+							// Add factory metadata calls if factory address exists
 							if (factoryAddress) {
-								calls.push({
-									target: factoryAddress,
-									allowFailure: true,
-									callData: encodeFunctionData({
-										abi: DEPLOYER_ABI,
-										functionName: 'getStoreMetadata',
-										args: [storeAddress]
-									})
-								});
+								calls.push(
+									{
+										target: factoryAddress,
+										allowFailure: true,
+										callData: encodeFunctionData({
+											abi: DEPLOYER_ABI,
+											functionName: 'storeToNickname',
+											args: [storeAddress]
+										})
+									},
+									{
+										target: factoryAddress,
+										allowFailure: true,
+										callData: encodeFunctionData({
+											abi: DEPLOYER_ABI,
+											functionName: 'getStoreMetadata',
+											args: [storeAddress]
+										})
+									}
+								);
 							}
 							
 							// Execute multicall
@@ -1258,18 +1269,36 @@ const pageTitle = aliasInfo
 								data: results[2].returnData
 							}) : 0;
 							
-							// Decode metadata if factory call was made
+							// Decode factory data if calls were made
+							let nickname = null;
 							let metadata = null;
-							if (factoryAddress && results[3]?.success) {
-								try {
-									metadata = decodeFunctionResult({
-										abi: DEPLOYER_ABI,
-										functionName: 'getStoreMetadata',
-										data: results[3].returnData
-									});
-									console.log('Store metadata loaded:', metadata);
-								} catch (e) {
-									console.log('Failed to decode metadata:', e);
+							if (factoryAddress) {
+								// Decode nickname
+								if (results[3]?.success) {
+									try {
+										nickname = decodeFunctionResult({
+											abi: DEPLOYER_ABI,
+											functionName: 'storeToNickname',
+											data: results[3].returnData
+										});
+										console.log('Store nickname loaded:', nickname);
+									} catch (e) {
+										console.log('Failed to decode nickname:', e);
+									}
+								}
+								
+								// Decode metadata
+								if (results[4]?.success) {
+									try {
+										metadata = decodeFunctionResult({
+											abi: DEPLOYER_ABI,
+											functionName: 'getStoreMetadata',
+											data: results[4].returnData
+										});
+										console.log('Store metadata loaded:', metadata);
+									} catch (e) {
+										console.log('Failed to decode metadata:', e);
+									}
 								}
 							}
 
@@ -1370,7 +1399,8 @@ const pageTitle = aliasInfo
 							// Update state with enhanced data
 							setStoreData({
 								address: storeAddress,
-								name: metadata?.description || "Sensor Store", // Use metadata description
+								name: nickname || metadata?.description || "Sensor Store", // Use nickname first, then description
+								nickname: nickname,
 								description: metadata?.description,
 								pointer: metadata?.pointer,
 								deployedBlock: metadata?.deployedBlock,
@@ -1440,6 +1470,7 @@ const pageTitle = aliasInfo
 							setStoreData({
 								address: storeAddress,
 								name: "Sensor Store (Offline)",
+								nickname: null,
 								description: null,
 								pointer: null,
 								deployedBlock: null,

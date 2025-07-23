@@ -40,6 +40,13 @@
         // Contract ABIs
         const DEPLOYER_ABI = [
             {
+                "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "name": "storeToNickname",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
                 "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
                 "name": "getStoreMetadata",
                 "outputs": [
@@ -296,10 +303,26 @@
                         functionName: 'owner'
                     });
                     
-                    // Get metadata from factory
+                    // Get metadata and nickname from factory
                     let metadata = null;
+                    let nickname = null;
                     try {
                         const factoryAddress = '0x904f1CCDb682f0E7b82387190C0EbF9015152BE7'; // Factory address
+                        
+                        // Get nickname
+                        try {
+                            nickname = await viemClient.readContract({
+                                address: factoryAddress,
+                                abi: DEPLOYER_ABI,
+                                functionName: 'storeToNickname',
+                                args: [storeAddress]
+                            });
+                            console.log('Store nickname:', nickname);
+                        } catch (e) {
+                            console.log('Failed to get nickname:', e);
+                        }
+                        
+                        // Get metadata
                         metadata = await viemClient.readContract({
                             address: factoryAddress,
                             abi: DEPLOYER_ABI,
@@ -307,6 +330,8 @@
                             args: [storeAddress]
                         });
                         console.log('Store metadata:', metadata);
+                        console.log('Description:', metadata?.description);
+                        console.log('Deployed block:', metadata?.deployedBlock?.toString());
                     } catch (e) {
                         console.log('Failed to get metadata:', e);
                     }
@@ -338,7 +363,8 @@
                         totalRecords: 0, // Will be updated when loading historical data
                         lastEventBlock: null, // Will be updated when loading historical data
                         // Metadata fields
-                        description: metadata?.description || 'Sensor Store',
+                        nickname: nickname || null,
+                        description: metadata?.description || null,
                         pointer: metadata?.pointer,
                         deployedBlock: metadata?.deployedBlock,
                         lastUpdatedBlock: metadata?.lastUpdatedBlock
@@ -550,7 +576,7 @@
                                     <div className="bg-gray-50 px-6 py-4 border-b">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <h1 className="text-2xl font-bold">{storeData.description || 'Sensor Store'}</h1>
+                                                <h1 className="text-2xl font-bold">{storeData.nickname || `Store ${storeAddress.slice(0, 6)}...${storeAddress.slice(-4)}`}</h1>
                                                 <div className="flex gap-2">
                                                     <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
                                                         Live
@@ -591,7 +617,12 @@
                                             <div>
                                                 <p className="text-sm text-gray-500 mb-1">Store Information</p>
                                                 <div className="space-y-1">
+                                                            {storeData.nickname && (
+                                                        <p className="text-sm"><span className="text-gray-600">Nickname:</span> <span className="font-medium">{storeData.nickname}</span></p>
+                                                    )}
+                                                    {storeData.description && (
                                                         <p className="text-sm"><span className="text-gray-600">Description:</span> <span className="font-medium">{storeData.description}</span></p>
+                                                    )}
                                                     {storeData.deployedBlock && (
                                                         <p className="text-sm"><span className="text-gray-600">Deployed:</span> <span className="font-medium">Block {Number(storeData.deployedBlock).toLocaleString()}</span></p>
                                                     )}
