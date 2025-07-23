@@ -1372,8 +1372,7 @@
             const [loading, setLoading] = useState(false);
             const [initialLoad, setInitialLoad] = useState(true); // Track if this is the first load
             const [error, setError] = useState(null);
-            const [viewMode, setViewMode] = useState('public'); // 'public' or 'wallet'
-            const [publicAddress, setPublicAddress] = useState(''); // For public view
+            const [viewMode, setViewMode] = useState('direct'); // 'direct' or 'wallet'
             const [selectedChain, setSelectedChain] = useState(8899); // For chain selection
             const [directStoreAddress, setDirectStoreAddress] = useState('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8'); // Default store with metadata
             const [currentBlock, setCurrentBlock] = useState(null); // Current blockchain block number
@@ -1630,23 +1629,6 @@
                     await loadUserStores(accounts[0], pClient, currentChainId);
                 } catch (err) {
                     console.error('Connection error:', err);
-                    setError(err.message);
-                }
-            };
-            
-            // Load stores for public view
-            const loadPublicStores = async () => {
-                if (!publicAddress || !publicClient) return;
-                
-                try {
-                    // Validate address
-                    if (!publicAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-                        throw new Error("Invalid address format");
-                    }
-                    
-                    await loadUserStores(publicAddress, publicClient, chainId);
-                } catch (err) {
-                    console.error('Error loading public stores:', err);
                     setError(err.message);
                 }
             };
@@ -1990,16 +1972,6 @@
                         {/* Mode Selection Tabs */}
                         <div className="flex space-x-4 mb-8 flex-wrap">
                             <button
-                                onClick={() => setViewMode('public')}
-                                className={`px-4 py-2 rounded-lg transition-colors ${
-                                    viewMode === 'public' 
-                                        ? 'bg-purple-600 text-white' 
-                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
-                                }`}
-                            >
-                                User Stores
-                            </button>
-                            <button
                                 onClick={() => setViewMode('direct')}
                                 className={`px-4 py-2 rounded-lg transition-colors ${
                                     viewMode === 'direct' 
@@ -2142,77 +2114,6 @@
                                         </div>
                                     </div>
                                 </div>
-                            ) : viewMode === 'public' ? (
-                                <div>
-                                    <h2 className="text-2xl font-semibold mb-4">User Stores View</h2>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-400 mb-2">
-                                                Select Chain
-                                            </label>
-                                            <select 
-                                                value={selectedChain}
-                                                onChange={(e) => setSelectedChain(parseInt(e.target.value))}
-                                                className={`w-full md:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                                                    theme === 'dark'
-                                                        ? 'bg-gray-700 border-gray-600 text-white'
-                                                        : 'bg-gray-50 border-gray-300 text-gray-900'
-                                                } border`}
-                                            >
-                                                <option value={8899}>JIBCHAIN L1</option>
-                                                <option value={700011}>SiChang</option>
-                                                <option value={31337}>Anvil (Local)</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-400 mb-2">
-                                                Enter Address to View Stores
-                                            </label>
-                                            <div className="flex space-x-2">
-                                                <input
-                                                    type="text"
-                                                    value={publicAddress}
-                                                    onChange={(e) => setPublicAddress(e.target.value)}
-                                                    placeholder="0x..."
-                                                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-400"
-                                                />
-                                                <button
-                                                    onClick={loadPublicStores}
-                                                    disabled={loading || !publicAddress}
-                                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    {loading ? 'Loading...' : 'View Stores'}
-                                                </button>
-                                            </div>
-                                            
-                                            {/* Example addresses */}
-                                            <div className="mt-3">
-                                                <p className="text-xs text-gray-400 mb-1">Try these example addresses:</p>
-                                                <button
-                                                    onClick={() => setPublicAddress('0xDE06Fd88f43F616c65a2274DC67ff53FDdE67c84')}
-                                                    className="text-xs text-purple-400 hover:text-purple-300 font-mono mr-3"
-                                                >
-                                                    0xDE06...67c84
-                                                </button>
-                                                <button
-                                                    onClick={() => setPublicAddress('0x76Bf2C3D38DfE6ECc7d17886bBed1193970b346e')}
-                                                    className="text-xs text-purple-400 hover:text-purple-300 font-mono"
-                                                >
-                                                    0x76Bf...b346e
-                                                </button>
-                                            </div>
-                                        </div>
-                                        
-                                        {CONTRACTS[chainId] && (
-                                            <p className="text-gray-400 text-sm">
-                                                Factory Contract: <span className="text-white font-mono">
-                                                    {formatAddress(CONTRACTS[chainId].DEPLOYER_ADDRESS)}
-                                                </span>
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
                             ) : (
                                 <div>
                                     <h2 className="text-2xl font-semibold mb-4">Wallet Connection</h2>
@@ -2248,7 +2149,7 @@
                                 </div>
                             )}
                             
-                            {error && <ErrorDisplay error={error} onRetry={viewMode === 'wallet' && !account ? connectWallet : loadPublicStores} />}
+                            {error && <ErrorDisplay error={error} onRetry={viewMode === 'wallet' && !account ? connectWallet : () => setError(null)} />}
                         </div>
                         
                         {/* Visualization - Show Floodboy sensor when store data is available */}
@@ -2303,7 +2204,7 @@
                         )}
                         
                         {/* Stores List or Direct Store View */}
-                        {((viewMode === 'wallet' && account) || (viewMode === 'public' && publicAddress) || (viewMode === 'direct' && selectedStore)) && (
+                        {((viewMode === 'wallet' && account) || (viewMode === 'direct' && selectedStore)) && (
                             <div className={`grid grid-cols-1 ${viewMode === 'direct' ? '' : 'lg:grid-cols-2'} gap-8`}>
                                 {/* Only show stores list if not in direct mode */}
                                 {viewMode !== 'direct' && (
