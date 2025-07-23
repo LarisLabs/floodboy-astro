@@ -2050,6 +2050,38 @@
                                             </select>
                                         </div>
                                         
+                                        {/* Factory Address Info */}
+                                        <div className={`p-3 rounded-lg border ${
+                                            theme === 'dark' 
+                                                ? 'bg-gray-700 border-gray-600' 
+                                                : 'bg-blue-50 border-blue-200'
+                                        }`}>
+                                            <div className="text-sm">
+                                                <span className="font-medium text-gray-400">Factory Contract:</span>
+                                                <div className="mt-1">
+                                                    <code className={`text-xs px-2 py-1 rounded ${
+                                                        theme === 'dark' 
+                                                            ? 'bg-gray-800 text-blue-300' 
+                                                            : 'bg-white text-blue-600'
+                                                    }`}>
+                                                        {selectedChain === 8899 ? '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb' :
+                                                         selectedChain === 31337 ? '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' :
+                                                         'Not deployed'}
+                                                    </code>
+                                                    {selectedChain === 8899 && (
+                                                        <a 
+                                                            href="https://exp.jibchain.net/address/0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="ml-2 text-xs text-blue-400 hover:text-blue-300"
+                                                        >
+                                                            View on Explorer ↗
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <div>
                                             <label className="block text-sm font-medium text-gray-400 mb-2">
                                                 Enter Store Contract Address
