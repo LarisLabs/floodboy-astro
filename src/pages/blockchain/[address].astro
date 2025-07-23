@@ -1302,7 +1302,15 @@ const pageTitle = aliasInfo
 								}
 							}
 
-							console.log('Store info loaded:', { owner, fields, authorizedSignerCount, metadata });
+							console.log('Store info loaded:', { 
+								owner, 
+								fields, 
+								authorizedSignerCount, 
+								nickname,
+								metadata,
+								description: metadata?.description,
+								pointer: metadata?.pointer
+							});
 
 							// Load ALL events from blockchain
 							const currentBlock = await publicClient.getBlockNumber();
@@ -1722,10 +1730,16 @@ const pageTitle = aliasInfo
 									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
 								)
 							),
-							// Description if available
-							storeData?.description && React.createElement('div', { className: 'border-t pt-4' },
-								React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-2' }, 'Description'),
-								React.createElement('p', { className: 'text-gray-600' }, storeData.description)
+							// Nickname and Description
+							(storeData?.nickname || storeData?.description) && React.createElement('div', { className: 'border-t pt-4 space-y-3' },
+								storeData?.nickname && React.createElement('div', {},
+									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Store Name'),
+									React.createElement('p', { className: 'text-gray-900 font-medium' }, storeData.nickname)
+								),
+								storeData?.description && React.createElement('div', {},
+									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Description'),
+									React.createElement('p', { className: 'text-gray-600' }, storeData.description)
+								)
 							),
 							// Deployment info
 							storeData?.deployedBlock && React.createElement('div', { className: 'border-t pt-4' },
