@@ -1219,29 +1219,7 @@ const pageTitle = aliasInfo
 								}
 							];
 							
-							// Add factory metadata calls if factory address exists
-							if (factoryAddress) {
-								calls.push(
-									{
-										target: factoryAddress,
-										allowFailure: true,
-										callData: encodeFunctionData({
-											abi: DEPLOYER_ABI,
-											functionName: 'storeToNickname',
-											args: [storeAddress]
-										})
-									},
-									{
-										target: factoryAddress,
-										allowFailure: true,
-										callData: encodeFunctionData({
-											abi: DEPLOYER_ABI,
-											functionName: 'getStoreMetadata',
-											args: [storeAddress]
-										})
-									}
-								);
-							}
+							// Factory calls are now made directly after multicall
 							
 							// Execute multicall
 							const results = await publicClient.readContract({
@@ -1270,35 +1248,48 @@ const pageTitle = aliasInfo
 								data: results[2].returnData
 							}) : 0;
 							
-							// Decode factory data if calls were made
+							// Make direct factory calls (avoiding multicall for factory data)
 							let nickname = null;
+							let description = null;
+							let deployedBlockInfo = null;
 							let metadata = null;
 							if (factoryAddress) {
-								// Decode nickname
-								if (results[3]?.success) {
+								try {
+									// Direct call to getStoreInfo
+									const storeInfo = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreInfo',
+										args: [storeAddress]
+									});
+									console.log('Direct getStoreInfo result:', storeInfo);
+									// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
+									nickname = storeInfo[0];
+									deployedBlockInfo = storeInfo[3];
+									description = storeInfo[4];
+									
+									// Direct call to getStoreMetadata
+									metadata = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreMetadata',
+										args: [storeAddress]
+									});
+									console.log('Direct getStoreMetadata result:', metadata);
+								} catch (e) {
+									console.log('Direct factory calls failed:', e);
+									// Try fallback approach - check if store is registered
 									try {
-										nickname = decodeFunctionResult({
+										const nickname_only = await publicClient.readContract({
+											address: factoryAddress,
 											abi: DEPLOYER_ABI,
 											functionName: 'storeToNickname',
-											data: results[3].returnData
+											args: [storeAddress]
 										});
-										console.log('Store nickname loaded:', nickname);
-									} catch (e) {
-										console.log('Failed to decode nickname:', e);
-									}
-								}
-								
-								// Decode metadata
-								if (results[4]?.success) {
-									try {
-										metadata = decodeFunctionResult({
-											abi: DEPLOYER_ABI,
-											functionName: 'getStoreMetadata',
-											data: results[4].returnData
-										});
-										console.log('Store metadata loaded:', metadata);
-									} catch (e) {
-										console.log('Failed to decode metadata:', e);
+										console.log('Store nickname from storeToNickname:', nickname_only);
+										nickname = nickname_only;
+									} catch (nicknameErr) {
+										console.log('Even storeToNickname failed:', nicknameErr);
 									}
 								}
 							}
@@ -1308,36 +1299,13 @@ const pageTitle = aliasInfo
 								fields, 
 								authorizedSignerCount, 
 								nickname,
+								description,
+								deployedBlockInfo,
 								metadata,
-								description: metadata?.description,
-								pointer: metadata?.pointer,
 								factoryAddress,
 								currentChain
 							});
 							
-							// Debug: Try direct factory call as well
-							if (factoryAddress && currentChain === 8899) {
-								console.log('Debug: Testing direct factory call to:', factoryAddress);
-								try {
-									const directNickname = await publicClient.readContract({
-										address: factoryAddress,
-										abi: DEPLOYER_ABI,
-										functionName: 'storeToNickname',
-										args: [storeAddress]
-									});
-									console.log('Direct nickname result:', directNickname);
-									
-									const directMetadata = await publicClient.readContract({
-										address: factoryAddress,
-										abi: DEPLOYER_ABI,
-										functionName: 'getStoreMetadata',
-										args: [storeAddress]
-									});
-									console.log('Direct metadata result:', directMetadata);
-								} catch (e) {
-									console.error('Direct factory call failed:', e);
-								}
-							}
 
 							// Load ALL events from blockchain
 							const currentBlock = await publicClient.getBlockNumber();
@@ -1434,11 +1402,11 @@ const pageTitle = aliasInfo
 							// Update state with enhanced data
 							setStoreData({
 								address: storeAddress,
-								name: nickname || metadata?.description || "Sensor Store", // Use nickname first, then description
+								name: nickname || description || "Sensor Store", // Use nickname first, then description
 								nickname: nickname,
-								description: metadata?.description,
+								description: description || metadata?.description, // Use description from getStoreInfo first
 								pointer: metadata?.pointer,
-								deployedBlock: metadata?.deployedBlock,
+								deployedBlock: deployedBlockInfo || metadata?.deployedBlock,
 								lastUpdatedBlock: metadata?.lastUpdatedBlock,
 								owner: owner,
 								fields: fields,
