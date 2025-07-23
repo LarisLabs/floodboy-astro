@@ -1322,7 +1322,7 @@ const pageTitle = aliasInfo
 							// Get total records from factory contract
 							let totalRecords = 0;
 							try {
-								const factoryAddress = '0x904f1CCDb682f0E7b82387190C0EbF9015152BE7';
+								// Remove this hardcoded address - use the one from multicall above
 								totalRecords = await publicClient.readContract({
 									address: factoryAddress,
 									abi: [
