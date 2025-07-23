@@ -1248,8 +1248,30 @@ const pageTitle = aliasInfo
 							const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
 							const fromBlock = deploymentBlock; // Get ALL records since deployment
 
-							// Simple fix: Just use owner as the authorized signer for now
-							const authorizedSensorAddresses = [owner];
+							// Get total records from factory contract
+							let totalRecords = 0;
+							try {
+								const factoryAddress = '0x904f1CCDb682f0E7b82387190C0EbF9015152BE7';
+								totalRecords = await publicClient.readContract({
+									address: factoryAddress,
+									abi: [
+										{
+											"inputs": [{"name": "_store", "type": "address"}],
+											"name": "getTotalRecords",
+											"outputs": [{"name": "", "type": "uint256"}],
+											"stateMutability": "view", 
+											"type": "function"
+										}
+									],
+									functionName: 'getTotalRecords',
+									args: [storeAddress]
+								});
+								totalRecords = Number(totalRecords);
+								console.log('Total records from factory:', totalRecords);
+							} catch (error) {
+								console.log('Factory contract not available, using event count fallback:', error.message);
+								// Will use processedRecords.length as fallback below
+							}
 
 							const eventLogs = await publicClient.getLogs({
 								address: storeAddress,
@@ -1318,10 +1340,9 @@ const pageTitle = aliasInfo
 								owner: owner,
 								fields: fields,
 								lastTimestamp: latestRecord?.timestamp || 0,
-								totalRecords: processedRecords.length
+								totalRecords: totalRecords || processedRecords.length
 							});
 
-							setAuthorizedSensors(authorizedSensorAddresses);
 							
 							// Only update sensor records if they actually changed
 							setSensorRecords(prevRecords => {
@@ -1614,14 +1635,10 @@ const pageTitle = aliasInfo
 								className: 'text-blue-600 hover:text-blue-700 text-sm'
 							}, 'View on explorer ↗')
 						),
-						React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6' },
+						React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' },
 							React.createElement('div', { className: 'text-center' },
 								React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
 								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
-							),
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, authorizedSensors.length),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
 							),
 							React.createElement('div', { className: 'text-center' },
 								React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
@@ -2377,43 +2394,6 @@ const pageTitle = aliasInfo
 							)
 						),
 
-						// Authorized Sensors Section (Cat Lab style)
-						authorizedSensors.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Authorized Sensors'),
-							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Sensors that can submit data to this store'),
-							React.createElement('div', { className: 'overflow-x-auto' },
-								React.createElement('table', { className: 'w-full text-sm' },
-									React.createElement('thead', {},
-										React.createElement('tr', { className: 'border-b text-left' },
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor Address'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Status'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Submissions'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Last Submission')
-										)
-									),
-									React.createElement('tbody', {},
-										authorizedSensors.map((sensor, index) => {
-											const sensorRecordCount = sensorRecords.filter(r => r.sensor.toLowerCase() === sensor.toLowerCase()).length;
-											const lastRecord = sensorRecords.find(r => r.sensor.toLowerCase() === sensor.toLowerCase());
-											return React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
-												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-													`${sensor.slice(0, 6)}...${sensor.slice(-4)}`
-												),
-												React.createElement('td', { className: 'py-3' },
-													React.createElement('span', { 
-														className: 'inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800' 
-													}, '● Active')
-												),
-												React.createElement('td', { className: 'py-3 font-medium' }, sensorRecordCount),
-												React.createElement('td', { className: 'py-3 text-gray-600' }, 
-													lastRecord ? new Date(lastRecord.timestamp * 1000).toLocaleString() : '-'
-												)
-											);
-										})
-									)
-								)
-							)
-						)
 					)
 				);
 			}
