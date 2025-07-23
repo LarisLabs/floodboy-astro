@@ -1695,7 +1695,7 @@ const pageTitle = aliasInfo
 						React.createElement('div', { className: 'flex items-center justify-between' },
 							React.createElement('div', {},
 								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 
-									pageData.aliasInfo ? pageData.aliasInfo.displayName : 'Public Sensor Store View'
+									storeData?.nickname || pageData.aliasInfo?.displayName || 'Public Sensor Store View'
 								),
 								React.createElement('p', { className: 'text-gray-600' }, 
 									pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
@@ -1719,23 +1719,9 @@ const pageTitle = aliasInfo
 						)
 					),
 
-					// Store Information Section (moved to top)
+					// Store Data Section (simplified - no header)
 					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
-						React.createElement('div', { className: 'flex items-center justify-between mb-4' },
-							React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
-							React.createElement('a', { 
-								href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
-								target: '_blank',
-								className: 'text-blue-600 hover:text-blue-700 text-sm'
-							}, 'View on explorer ↗')
-						),
 						React.createElement('div', { className: 'space-y-4' },
-							// Store Name section - same line layout
-							storeData?.nickname && React.createElement('div', { className: 'pb-4 border-b flex items-center gap-3' },
-								React.createElement('span', { className: 'text-sm font-medium text-gray-700' }, 'Store Name:'),
-								React.createElement('span', { className: 'text-lg font-semibold text-gray-900' }, storeData.nickname)
-							),
-							
 							// Stats grid - 4 columns like production
 							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
 								// Total Records
