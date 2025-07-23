@@ -2262,7 +2262,8 @@ const pageTitle = aliasInfo
 												React.createElement('th', { className: 'text-left py-3 px-4 text-sm font-semibold text-gray-700' }, 'Metric'),
 												React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Current'),
 												React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Min'),
-												React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Max')
+												React.createElement('th', { className: 'text-right py-3 px-4 text-sm font-semibold text-gray-700' }, 'Max'),
+												React.createElement('th', { className: 'text-center py-3 px-4 text-sm font-semibold text-gray-700' }, 'Unit & Scale')
 											)
 										),
 										React.createElement('tbody', {},
@@ -2340,6 +2341,19 @@ const pageTitle = aliasInfo
 															formatValue(max.value),
 															max.value !== null && ` ${unit}`
 														] : '—'
+													),
+													React.createElement('td', { 
+														className: 'py-3 px-4 text-center text-sm'
+													},
+														React.createElement('div', { className: 'flex items-center justify-center gap-2' },
+															React.createElement('span', { 
+																className: 'px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono'
+															}, unit),
+															// Extract and show multiplier if exists
+															main.field.unit.match(/x\s*(\d+)/i) && React.createElement('span', { 
+																className: 'px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-mono'
+															}, `×${main.field.unit.match(/x\s*(\d+)/i)[1]}`)
+														)
 													)
 												);
 											})
