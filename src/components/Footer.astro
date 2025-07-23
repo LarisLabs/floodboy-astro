@@ -9,6 +9,11 @@ const today = new Date();
 		<span class="separator">|</span>
 		<span class="tagline">Real-time flood monitoring for smart cities</span>
 	</div>
+	<div class="footer-info">
+		<span class="git-info">Git: <code>21205b5</code> (2025-07-23)</span>
+		<span class="separator">•</span>
+		<span class="contract-info">Factory (JIBCHAIN): <a href="https://exp.jibchain.net/address/0x904f1CCDb682f0E7b82387190C0EbF9015152BE7" target="_blank" rel="noopener noreferrer"><code>0x904f...5BE7</code></a></span>
+	</div>
 </footer>
 <style>
 	footer {
@@ -42,11 +47,45 @@ const today = new Date();
 		font-size: 0.875rem;
 	}
 	
+	.footer-info {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		margin-top: 0.5rem;
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+	
+	.footer-info code {
+		background-color: #e5e7eb;
+		padding: 0.125rem 0.25rem;
+		border-radius: 0.25rem;
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		font-size: 0.7rem;
+	}
+	
+	.footer-info a {
+		color: #3b82f6;
+		text-decoration: none;
+	}
+	
+	.footer-info a:hover {
+		text-decoration: underline;
+	}
+
 	@media (max-width: 640px) {
 		.tagline {
 			display: none;
 		}
 		.separator {
+			display: none;
+		}
+		.footer-info {
+			flex-direction: column;
+			gap: 0.25rem;
+		}
+		.footer-info .separator {
 			display: none;
 		}
 	}
