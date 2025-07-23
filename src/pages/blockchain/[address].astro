@@ -1730,12 +1730,28 @@ const pageTitle = aliasInfo
 							}, 'View on explorer ↗')
 						),
 						React.createElement('div', { className: 'space-y-4' },
-							// Basic info grid
-							React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4' },
+							// Stats grid - 4 columns like production
+							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
+								// Total Records
 								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
-									React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
+									React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, 
+										storeData?.totalRecords || sensorRecords?.length || '0'
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
+								),
+								// Authorized Sensors
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, '1'),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
+								),
+								// Field Count
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, 
+										storeData?.fields?.length || '0'
+									),
 									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
 								),
+								// Owner
 								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
 									React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
 										storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
