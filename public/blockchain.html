@@ -2083,7 +2083,7 @@
                                             {/* FloodBoy Example Stores */}
                                             <div className="mt-3">
                                                 <p className="text-xs text-gray-400 mb-2">FloodBoy Sensors (001-020) on JIBCHAIN L1:</p>
-                                                <div className="grid grid-cols-3 gap-1">
+                                                <div className="grid grid-cols-2 gap-1">
                                                     {[
                                                         { id: 'FloodBoy001', addr: '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb' },
                                                         { id: 'FloodBoy002', addr: '0x81ECfbd31D86bc8f3A581bD2f7c0f54B7498AC94' },
@@ -2109,10 +2109,11 @@
                                                         <button
                                                             key={sensor.id}
                                                             onClick={() => setDirectStoreAddress(sensor.addr)}
-                                                            className="text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 px-2 py-1 rounded transition-colors whitespace-nowrap"
-                                                            title={sensor.addr}
+                                                            className="text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 px-2 py-1 rounded transition-colors text-left flex flex-col"
+                                                            title={`Click to load ${sensor.id}`}
                                                         >
-                                                            {sensor.id}
+                                                            <span className="font-semibold">{sensor.id}</span>
+                                                            <span className="font-mono text-xs opacity-75">{sensor.addr}</span>
                                                         </button>
                                                     ))}
                                                 </div>
