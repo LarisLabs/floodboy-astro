@@ -1187,8 +1187,9 @@ const pageTitle = aliasInfo
 							const { encodeFunctionData, decodeFunctionResult } = window.viem;
 							
 							// Get factory address for current chain
-							const factoryAddress = CONTRACTS[currentChain]?.deployerAddress;
+							const factoryAddress = currentChain === 8899 ? '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb' : CONTRACTS[currentChain]?.deployerAddress;
 							const DEPLOYER_ABI = pageData.deployerABI;
+							console.log('Using factory address:', factoryAddress, 'for chain:', currentChain);
 							
 							// Prepare multicall
 							const calls = [
@@ -1309,8 +1310,34 @@ const pageTitle = aliasInfo
 								nickname,
 								metadata,
 								description: metadata?.description,
-								pointer: metadata?.pointer
+								pointer: metadata?.pointer,
+								factoryAddress,
+								currentChain
 							});
+							
+							// Debug: Try direct factory call as well
+							if (factoryAddress && currentChain === 8899) {
+								console.log('Debug: Testing direct factory call to:', factoryAddress);
+								try {
+									const directNickname = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'storeToNickname',
+										args: [storeAddress]
+									});
+									console.log('Direct nickname result:', directNickname);
+									
+									const directMetadata = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreMetadata',
+										args: [storeAddress]
+									});
+									console.log('Direct metadata result:', directMetadata);
+								} catch (e) {
+									console.error('Direct factory call failed:', e);
+								}
+							}
 
 							// Load ALL events from blockchain
 							const currentBlock = await publicClient.getBlockNumber();
