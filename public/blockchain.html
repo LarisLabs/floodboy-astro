@@ -231,6 +231,10 @@
         const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
         
         const formatValue = (value, unit) => {
+            // Handle invalid values safely
+            if (value === null || value === undefined || value === '' || isNaN(value)) {
+                return '0';
+            }
             const num = BigInt(value);
             // Check if unit contains scaling factor - handle both spaced and non-spaced formats
             // e.g., "m x10000", "m x 10000", "V x100", "V x 100" 
@@ -655,7 +659,7 @@
         };
         
         // Sensor Data Views Component (Table + Chart)
-        const SensorDataViews = ({ storeAddress, fields, publicClient, theme, currentBlock }) => {
+        const SensorDataViews = ({ storeAddress, fields, publicClient, theme, currentBlock, latestRecord }) => {
             const [viewMode, setViewMode] = useState('chart'); // 'table' or 'chart'
             const [historicalData, setHistoricalData] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -997,6 +1001,7 @@
                             publicClient={publicClient}
                             theme={theme}
                             historicalData={historicalData}
+                            latestRecord={latestRecord}
                         />
                     )}
                 </div>
@@ -1004,7 +1009,7 @@
         };
         
         // Sensor Data Chart Component
-        const SensorDataChart = React.memo(({ storeAddress, fields, publicClient, theme, historicalData: propHistoricalData }) => {
+        const SensorDataChart = React.memo(({ storeAddress, fields, publicClient, theme, historicalData: propHistoricalData, latestRecord }) => {
             const [historicalData, setHistoricalData] = useState(propHistoricalData || []);
             const [loading, setLoading] = useState(!propHistoricalData);
             
@@ -1215,12 +1220,18 @@
                 const min = Math.min(...values);
                 const max = Math.max(...values);
                 const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                const latest = values[values.length - 1];
+                
+                // Use latest reading from smart contract if available, otherwise fall back to historical data
+                let latest = values[values.length - 1];
+                if (latestRecord && latestRecord.values && latestRecord.values[selectedField] !== undefined) {
+                    latest = parseFloat(formatValue(latestRecord.values[selectedField], fields[selectedField].unit));
+                }
+                
                 const previous = values[values.length - 2] || latest;
                 const trend = ((latest - previous) / previous * 100).toFixed(1);
                 
                 return { min, max, avg, trend, latest };
-            }, [historicalData, selectedField, fields]);
+            }, [historicalData, selectedField, fields, latestRecord]);
             
             return (
                 <div className={`rounded-lg p-6 border ${
@@ -2532,6 +2543,7 @@
                                                     publicClient={publicClient}
                                                     theme={theme}
                                                     currentBlock={currentBlock}
+                                                    latestRecord={storeData.sensorRecords.find(r => r.latestRecord.timestamp !== '0')?.latestRecord}
                                                 />
                                             )}
                                         </div>
