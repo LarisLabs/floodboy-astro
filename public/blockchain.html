@@ -1715,7 +1715,9 @@
                     const results = await Promise.all(promises);
                     const fields = results[0];
                     const owner = results[1];
-                    const nickname = results[2] || '';
+                    const nickname = factoryAddress && results[2] ? results[2] : '';
+                    
+                    console.log('Contract results:', { fields: fields?.length, owner, nickname, factoryAddress });
                     // Parse metadata array: [deployedBlock, lastUpdatedBlock, description, pointer]
                     const metadataArray = results[3] || [];
                     const metadata = {
@@ -1794,9 +1796,16 @@
                         };
                     });
                     
+                    // Generate fallback name from address if no nickname
+                    const displayName = nickname && nickname.trim() 
+                        ? nickname 
+                        : `Store ${storeAddress.slice(0, 6)}...${storeAddress.slice(-4)}`;
+                    
+                    console.log('Setting store data with nickname:', nickname, 'displayName:', displayName);
+                    
                     setStoreData({
                         address: storeAddress,
-                        nickname: nickname || 'Unnamed Store',
+                        nickname: displayName,
                         description: metadata.description || '',
                         pointer: metadata.pointer || '',
                         deployedBlock: metadata.deployedBlock || 0,
