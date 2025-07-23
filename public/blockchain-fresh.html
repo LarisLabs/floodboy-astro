@@ -630,34 +630,49 @@
 
                                         {/* Statistics */}
                                         {stats && (
-                                            <div className="grid grid-cols-4 gap-4 mb-6">
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-bold text-green-600">
-                                                        {stats.latest.toFixed(2)}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">Current</div>
+                                            <>
+                                                {/* Unit Info */}
+                                                <div className="mb-4 flex items-center justify-center gap-2">
+                                                    <span className="text-sm text-gray-600">Unit:</span>
+                                                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-mono">
+                                                        {storeData.fields[selectedField].unit.replace(/\s*x\s*\d+/gi, '').trim()}
+                                                    </span>
+                                                    {storeData.fields[selectedField].unit.match(/x\s*(\d+)/i) && (
+                                                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-mono">
+                                                            ×{storeData.fields[selectedField].unit.match(/x\s*(\d+)/i)[1]}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-bold text-blue-600">
-                                                        {stats.min.toFixed(2)}
+                                                
+                                                <div className="grid grid-cols-4 gap-4 mb-6">
+                                                    <div className="text-center">
+                                                        <div className="text-2xl font-bold text-green-600">
+                                                            {stats.latest.toFixed(2)}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Current</div>
                                                     </div>
-                                                    <div className="text-sm text-gray-600">Min</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-bold text-red-600">
-                                                        {stats.max.toFixed(2)}
+                                                    <div className="text-center">
+                                                        <div className="text-2xl font-bold text-blue-600">
+                                                            {stats.min.toFixed(2)}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Min</div>
                                                     </div>
-                                                    <div className="text-sm text-gray-600">Max</div>
-                                                </div>
-                                                <div className="text-center">
-                                                    <div className={`text-2xl font-bold ${
-                                                        parseFloat(stats.trend) > 0 ? 'text-red-600' : 'text-green-600'
-                                                    }`}>
-                                                        {stats.trend > 0 ? '+' : ''}{stats.trend}%
+                                                    <div className="text-center">
+                                                        <div className="text-2xl font-bold text-red-600">
+                                                            {stats.max.toFixed(2)}
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Max</div>
                                                     </div>
-                                                    <div className="text-sm text-gray-600">Trend</div>
+                                                    <div className="text-center">
+                                                        <div className={`text-2xl font-bold ${
+                                                            parseFloat(stats.trend) > 0 ? 'text-red-600' : 'text-green-600'
+                                                        }`}>
+                                                            {stats.trend > 0 ? '+' : ''}{stats.trend}%
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">Trend</div>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
 
                                         {/* Chart */}
