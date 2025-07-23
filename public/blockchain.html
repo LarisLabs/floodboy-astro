@@ -1015,7 +1015,6 @@
             };
             
             const [selectedField, setSelectedField] = useState(getDefaultFieldIndex());
-            const [timeRange, setTimeRange] = useState('24h');
             
             // Update selectedField when fields change (ensures water_depth is selected when available)
             useEffect(() => {
@@ -1027,13 +1026,6 @@
             const chartRef = useRef(null);
             const chartInstanceRef = useRef(null);
             
-            // Time range options
-            const timeRanges = {
-                '1h': { label: '1 Hour', seconds: 3600 },
-                '6h': { label: '6 Hours', seconds: 21600 },
-                '24h': { label: '24 Hours', seconds: 86400 },
-                '7d': { label: '7 Days', seconds: 604800 }
-            };
             
             // Fetch historical data from blockchain events
             const fetchHistoricalData = async () => {
@@ -1041,10 +1033,10 @@
                 
                 setLoading(true);
                 try {
-                    // Calculate the from block based on time range
+                    // Calculate the from block based on 24 hours
                     const currentBlock = await publicClient.getBlockNumber();
                     const blocksPerHour = 720; // Approximate for 5-second blocks
-                    const hoursBack = timeRanges[timeRange].seconds / 3600;
+                    const hoursBack = 24; // Fixed 24 hour range
                     const fromBlock = currentBlock - BigInt(Math.floor(blocksPerHour * hoursBack));
                     
                     // Define the event ABI
@@ -1209,7 +1201,7 @@
                 } else {
                     fetchHistoricalData();
                 }
-            }, [timeRange, storeAddress, propHistoricalData]);
+            }, [storeAddress, propHistoricalData]);
             
             // Calculate statistics
             const stats = useMemo(() => {
@@ -1246,24 +1238,6 @@
                             }`}>Sensor Data Chart</h3>
                         </div>
                         
-                        {/* Time Range Selector */}
-                        <div className="flex items-center space-x-2">
-                            {Object.entries(timeRanges).map(([key, value]) => (
-                                <button
-                                    key={key}
-                                    onClick={() => setTimeRange(key)}
-                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                                        timeRange === key
-                                            ? 'bg-purple-600 text-white'
-                                            : theme === 'dark'
-                                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {value.label}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                     
                     {/* Field Selector */}
