@@ -232,22 +232,36 @@
         
         const formatValue = (value, unit) => {
             const num = BigInt(value);
-            // Check if unit contains scaling factor (e.g., "m x 1000", "V x 1000")
-            if (unit.includes('x 1000')) {
-                return (Number(num) / 1000).toFixed(2);
+            // Check if unit contains scaling factor - handle both spaced and non-spaced formats
+            // e.g., "m x10000", "m x 10000", "V x100", "V x 100" 
+            const scalingMatch = unit.match(/x\s*(\d+)/i);
+            if (scalingMatch) {
+                const scaleFactor = parseInt(scalingMatch[1]);
+                const scaledValue = Number(num) / scaleFactor;
+                
+                // Determine decimal places based on scale factor
+                if (scaleFactor >= 10000) {
+                    return scaledValue.toFixed(4); // For x10000: 4 decimal places
+                } else if (scaleFactor >= 1000) {
+                    return scaledValue.toFixed(3); // For x1000: 3 decimal places  
+                } else if (scaleFactor >= 100) {
+                    return scaledValue.toFixed(2); // For x100: 2 decimal places
+                } else {
+                    return scaledValue.toFixed(1); // For x10: 1 decimal place
+                }
             }
-            if (unit.includes('x 100')) {
-                return (Number(num) / 100).toFixed(2);
-            }
-            if (unit.includes('x 10')) {
-                return (Number(num) / 10).toFixed(1);
-            }
+            
+            // Legacy fallbacks for special cases
             if (unit.includes('°C') || unit.includes('pH')) {
                 return (Number(num) / 100).toFixed(2);
             }
             if (unit.includes('%')) {
                 return (Number(num) / 10).toFixed(1);
             }
+            if (unit.toLowerCase().includes('count')) {
+                return Math.round(Number(num)).toString(); // Count fields should be integers
+            }
+            
             return num.toString();
         };
         
@@ -322,15 +336,21 @@
                                 const airIdx = storeData.fields.findIndex(f => f.name === 'air_height');
                                 const installIdx = storeData.fields.findIndex(f => f.name === 'installation_height');
                                 
-                                // Get values and scale them properly
+                                // Get values and scale them properly based on field units
                                 if (waterIdx >= 0 && latestRecord.values[waterIdx]) {
-                                    waterLevel = parseInt(latestRecord.values[waterIdx]) / 1000; // Convert from mm to m
+                                    const waterField = storeData.fields[waterIdx];
+                                    waterLevel = formatValue(latestRecord.values[waterIdx], waterField.unit);
+                                    waterLevel = parseFloat(waterLevel); // Convert to number for calculations
                                 }
                                 if (airIdx >= 0 && latestRecord.values[airIdx]) {
-                                    airLevel = parseInt(latestRecord.values[airIdx]) / 1000; // Convert from mm to m
+                                    const airField = storeData.fields[airIdx];
+                                    airLevel = formatValue(latestRecord.values[airIdx], airField.unit);
+                                    airLevel = parseFloat(airLevel);
                                 }
                                 if (installIdx >= 0 && latestRecord.values[installIdx]) {
-                                    installationHeight = parseInt(latestRecord.values[installIdx]) / 1000; // Convert from mm to m
+                                    const installField = storeData.fields[installIdx];
+                                    installationHeight = formatValue(latestRecord.values[installIdx], installField.unit);
+                                    installationHeight = parseFloat(installationHeight);
                                 }
                                 
                                 // Check if sensor is online (data within last hour)
@@ -728,7 +748,7 @@
                                 const parsedValues = {};
                                 event.args.values.forEach((value, idx) => {
                                     if (fields[idx]) {
-                                        parsedValues[fields[idx].name] = Number(value) / 1000;
+                                        parsedValues[fields[idx].name] = parseFloat(formatValue(value, fields[idx].unit));
                                     }
                                 });
                                 
@@ -987,8 +1007,23 @@
         const SensorDataChart = React.memo(({ storeAddress, fields, publicClient, theme, historicalData: propHistoricalData }) => {
             const [historicalData, setHistoricalData] = useState(propHistoricalData || []);
             const [loading, setLoading] = useState(!propHistoricalData);
-            const [selectedField, setSelectedField] = useState(0);
+            
+            // Default to water_depth field if available, otherwise first field
+            const getDefaultFieldIndex = () => {
+                const waterDepthIndex = fields.findIndex(f => f.name === 'water_depth');
+                return waterDepthIndex >= 0 ? waterDepthIndex : 0;
+            };
+            
+            const [selectedField, setSelectedField] = useState(getDefaultFieldIndex());
             const [timeRange, setTimeRange] = useState('24h');
+            
+            // Update selectedField when fields change (ensures water_depth is selected when available)
+            useEffect(() => {
+                const waterDepthIndex = fields.findIndex(f => f.name === 'water_depth');
+                if (waterDepthIndex >= 0 && selectedField !== waterDepthIndex) {
+                    setSelectedField(waterDepthIndex);
+                }
+            }, [fields]);
             const chartRef = useRef(null);
             const chartInstanceRef = useRef(null);
             
