@@ -1691,33 +1691,6 @@ const pageTitle = aliasInfo
 							'Back to all stores'
 						)
 					),
-					React.createElement('div', { className: 'mb-8' },
-						React.createElement('div', { className: 'flex items-center justify-between' },
-							React.createElement('div', {},
-								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 
-									storeData?.nickname || pageData.aliasInfo?.displayName || 'Public Sensor Store View'
-								),
-								React.createElement('p', { className: 'text-gray-600' }, 
-									pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
-								),
-								pageData.aliasInfo && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' }, 
-									`Alias: /${pageData.aliasInfo.alias}`
-								),
-								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress)
-							),
-							React.createElement('div', { className: 'flex flex-wrap gap-2' },
-								React.createElement('button', { 
-									className: 'btn btn-primary',
-									onClick: () => window.location.reload()
-								}, '🔄 Refresh'),
-								React.createElement('a', { 
-									href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
-									target: '_blank',
-									className: 'btn btn-secondary'
-								}, '🔗 Explorer')
-							)
-						)
-					),
 
 					// Store Data Section (simplified - no header)
 					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
