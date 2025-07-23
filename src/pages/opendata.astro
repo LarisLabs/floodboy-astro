@@ -256,88 +256,11 @@ async function getLatestRecord() {
     throw error
   }
 }`}</pre>
+				</section>
 
-					<details class="mb-6">
-						<summary class="cursor-pointer text-md font-medium mb-2 px-4 py-3 bg-blue-50 rounded-lg border hover:bg-blue-100 transition-colors">
-							<span class="text-blue-800">📋 Complete Data Processing Example</span>
-							<span class="text-blue-600 text-sm ml-2">(Click to expand)</span>
-						</summary>
-						<div class="mt-4">
-							<details class="mb-4">
-								<summary class="cursor-pointer text-sm font-medium mb-2 px-3 py-2 bg-gray-50 rounded border hover:bg-gray-100 transition-colors">
-									<span class="text-gray-700">📝 Complete Data Processing Function</span>
-									<span class="text-gray-500 text-xs ml-2">(Click to expand code)</span>
-								</summary>
-								<div class="mt-3">
-									<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono border">{`// Complete example with data processing
-async function getProcessedFloodData() {
-  try {
-    // Get field definitions and latest data
-    const [fields, { timestamp, values }] = await Promise.all([
-      getAllFields(),
-      getLatestRecord()
-    ])
-    
-    // Process each field with its corresponding value
-    const processedData = fields.map((field, index) => {
-      const rawValue = values[index]
-      let processedValue: number
-      let unit: string
-      
-      // Extract scaling factor and base unit
-      if (field.unit.includes('x100')) {
-        processedValue = Number(rawValue) / 100
-        unit = field.unit.replace(' x100', '')
-      } else if (field.unit.includes('x10000')) {
-        processedValue = Number(rawValue) / 10000
-        unit = field.unit.replace(' x10000', '')
-      } else {
-        processedValue = Number(rawValue)
-        unit = field.unit
-      }
-      
-      return {
-        name: field.name,
-        rawValue: rawValue.toString(),
-        value: processedValue,
-        unit: unit,
-        formattedValue: \`\${processedValue.toFixed(2)} \${unit}\`
-      }
-    })
-    
-    // Convert timestamp to Date
-    const recordDate = new Date(Number(timestamp) * 1000)
-    
-    return {
-      timestamp: Number(timestamp),
-      recordDate: recordDate.toISOString(),
-      data: processedData
-    }
-    
-    // Example output:
-    // {
-    //   timestamp: 1748044727,
-    //   recordDate: "2025-01-23T12:25:27.000Z",
-    //   data: [
-    //     { name: "water_depth", value: 0.27, unit: "m", formattedValue: "0.27 m" },
-    //     { name: "battery_voltage", value: 12.91, unit: "V", formattedValue: "12.91 V" }
-    //   ]
-    // }
-    
-  } catch (error) {
-    console.error('Error processing flood data:', error)
-    throw error
-  }
-}
-
-// Usage in React component or Node.js
-getProcessedFloodData().then(data => {
-  console.log('Processed flood data:', data)
-})`}</pre>
-								</div>
-							</details>
-
-					<h4 class="text-md font-medium mb-2">React + Viem Example</h4>
+				<!-- React + Viem Example Section -->
+				<section class="bg-white border border-gray-200 rounded-lg shadow-sm p-6 mb-6">
+					<h3 class="text-lg font-semibold mb-3">React + Viem Example</h3>
 					<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
 						<p class="text-green-800 text-sm mb-2">⚛️ <strong>React Interactive Example</strong></p>
 						<p class="text-green-700 text-xs">Complete React app with hooks, state management, and modern UI patterns. Uses CDN for zero-config setup!</p>
