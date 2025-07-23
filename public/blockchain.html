@@ -1,0 +1,2766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Factory - Smart Contract Dashboard</title>
+    
+    <!-- React and Babel for JSX -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- p5.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark {
+            background-color: #0f0f0f;
+            color: #ffffff;
+        }
+        body.light {
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        #p5-container {
+            border: 2px solid #1f2937;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(17, 24, 39, 0.5);
+        }
+        body.light #p5-container {
+            border: 2px solid #e5e7eb;
+            background: rgba(255, 255, 255, 0.8);
+        }
+        .loading-skeleton {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .theme-switcher {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        // Import viem modules
+        import { createPublicClient, http, parseAbi, formatEther, createWalletClient, custom, decodeEventLog } from 'https://esm.sh/viem@2.21.19';
+        import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
+        
+        // Custom chain configurations
+        const jibchainL1 = {
+            id: 8899,
+            name: 'JIBCHAIN L1',
+            network: 'jibchain',
+            nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+            rpcUrls: {
+                default: { http: ['https://rpc-l1.jbc.xpool.pw'] },
+                public: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+            },
+            blockExplorers: {
+                default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+            }
+        };
+        
+        const sichang = {
+            id: 700011,
+            name: 'SiChang',
+            network: 'sichang',
+            nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
+            rpcUrls: {
+                default: { http: ['https://sichang-rpc.thaichain.org'] },
+                public: { http: ['https://sichang-rpc.thaichain.org'] }
+            },
+            blockExplorers: {
+                default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
+            }
+        };
+        
+        // Make viem and chains available globally
+        window.viem = { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog };
+        window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo } = React;
+        const { createPublicClient, createWalletClient, custom, http, parseAbi, formatEther, decodeEventLog } = window.viem;
+        const { anvil, jibchainL1, sichang } = window.chains;
+        
+        // Contract configuration
+        const CONTRACTS = {
+            31337: { // Anvil
+                DEPLOYER_ADDRESS: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+                EXPLORER_URL: "http://localhost:8545",
+            },
+            700011: { // SiChang
+                DEPLOYER_ADDRESS: "0x0000000000000000000000000000000000000000", // To be deployed
+                EXPLORER_URL: "https://sichang.thaichain.org",
+            },
+            8899: { // JIBCHAIN L1
+                DEPLOYER_ADDRESS: "0x5cEe5489DdB5006e5c1c1f2029bc7451E4A25837",
+                EXPLORER_URL: "https://exp.jibchain.net",
+            },
+        };
+        
+        // Contract ABIs (simplified for demo)
+        const DEPLOYER_ABI = [
+            {
+                "inputs": [{"internalType": "address", "name": "user", "type": "address"}],
+                "name": "getUserStores",
+                "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "name": "storeToNickname",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+                "name": "getStoreMetadata",
+                "outputs": [
+                    {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+                    {"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+                    {"internalType": "string", "name": "description", "type": "string"},
+                    {"internalType": "string", "name": "pointer", "type": "string"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "creator", "type": "address"},
+                    {"indexed": false, "internalType": "address", "name": "store", "type": "address"},
+                    {"indexed": false, "internalType": "string", "name": "nickname", "type": "string"}
+                ],
+                "name": "SensorStoreDeployed",
+                "type": "event"
+            }
+        ];
+        
+        const STORE_ABI = [
+            {
+                "inputs": [],
+                "name": "getAllFields",
+                "outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+                "name": "getLatestRecord",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+                "name": "isSensorAuthorized",
+                "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "authorizedSensorCount",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"},
+                    {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                    {"indexed": false, "internalType": "int256[]", "name": "values", "type": "int256[]"}
+                ],
+                "name": "RecordStored",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"}
+                ],
+                "name": "SensorAuthorized",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"}
+                ],
+                "name": "SensorRevoked",
+                "type": "event"
+            }
+        ];
+        
+        // Helper functions
+        const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+        
+        const formatValue = (value, unit) => {
+            const num = BigInt(value);
+            // Check if unit contains scaling factor (e.g., "m x 1000", "V x 1000")
+            if (unit.includes('x 1000')) {
+                return (Number(num) / 1000).toFixed(2);
+            }
+            if (unit.includes('x 100')) {
+                return (Number(num) / 100).toFixed(2);
+            }
+            if (unit.includes('x 10')) {
+                return (Number(num) / 10).toFixed(1);
+            }
+            if (unit.includes('°C') || unit.includes('pH')) {
+                return (Number(num) / 100).toFixed(2);
+            }
+            if (unit.includes('%')) {
+                return (Number(num) / 10).toFixed(1);
+            }
+            return num.toString();
+        };
+        
+        const getTimeAgo = (timestamp) => {
+            const date = new Date(parseInt(timestamp) * 1000);
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return `${seconds} seconds ago`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} minutes ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} hours ago`;
+            return `${Math.floor(hours / 24)} days ago`;
+        };
+        
+        // Loading skeleton component
+        const LoadingSkeleton = ({ lines = 3 }) => (
+            <div className="space-y-2">
+                {Array.from({ length: lines }).map((_, i) => (
+                    <div key={i} className="loading-skeleton h-4 bg-gray-700 rounded w-3/4"></div>
+                ))}
+            </div>
+        );
+        
+        // Error display component
+        const ErrorDisplay = ({ error, onRetry }) => (
+            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                <p className="text-red-400 mb-2">{error}</p>
+                {onRetry && (
+                    <button onClick={onRetry} className="px-3 py-1 bg-red-700 rounded text-sm hover:bg-red-600">
+                        Retry
+                    </button>
+                )}
+            </div>
+        );
+        
+        // Floodboy Sensor Visualization with p5.js
+        const FloodboyVisualization = ({ storeData, currentBlock }) => {
+            const sketchRef = useRef();
+            const p5InstanceRef = useRef();
+            const propsRef = useRef({ storeData, currentBlock });
+            
+            useEffect(() => {
+                propsRef.current = { storeData, currentBlock };
+            }, [storeData, currentBlock]);
+
+            useEffect(() => {
+                const sketch = (p) => {
+                    p.setup = () => {
+                        const canvas = p.createCanvas(350, 420);
+                        canvas.parent(sketchRef.current);
+                        p.frameRate(30);
+                    };
+
+                    p.draw = () => {
+                        p.clear();
+                        p.background(255, 255, 255, 0);
+                        
+                        const { storeData } = propsRef.current;
+                        
+                        // Get sensor values from blockchain data
+                        let waterLevel = 0;
+                        let airLevel = 0;
+                        let installationHeight = 3.0; // Default 3m
+                        let isOnline = false;
+                        let isDead = false;
+                        
+                        if (storeData && storeData.sensorRecords.length > 0) {
+                            const latestRecord = storeData.sensorRecords[0].latestRecord;
+                            if (latestRecord && latestRecord.timestamp !== '0') {
+                                // Find field indices
+                                const waterIdx = storeData.fields.findIndex(f => f.name === 'water_depth');
+                                const airIdx = storeData.fields.findIndex(f => f.name === 'air_height');
+                                const installIdx = storeData.fields.findIndex(f => f.name === 'installation_height');
+                                
+                                // Get values and scale them properly
+                                if (waterIdx >= 0 && latestRecord.values[waterIdx]) {
+                                    waterLevel = parseInt(latestRecord.values[waterIdx]) / 1000; // Convert from mm to m
+                                }
+                                if (airIdx >= 0 && latestRecord.values[airIdx]) {
+                                    airLevel = parseInt(latestRecord.values[airIdx]) / 1000; // Convert from mm to m
+                                }
+                                if (installIdx >= 0 && latestRecord.values[installIdx]) {
+                                    installationHeight = parseInt(latestRecord.values[installIdx]) / 1000; // Convert from mm to m
+                                }
+                                
+                                // Check if sensor is online (data within last hour)
+                                const timestamp = parseInt(latestRecord.timestamp);
+                                const now = Math.floor(Date.now() / 1000);
+                                isOnline = (now - timestamp) < 3600; // Online if data within last hour
+                                isDead = (now - timestamp) > 86400; // Dead if no data for 24 hours
+                            }
+                        }
+                        
+                        // Determine sensor mode based on which value is non-zero
+                        const sensorMode = waterLevel > 0 ? 'water' : 'air';
+                        
+                        const centerX = 150;
+                        const baseY = 380;
+                        const yOffset = -10;
+                        
+                        // Define sensor position variables
+                        const armY = yOffset + 136;
+                        const armStartX = centerX + 5;
+                        const armLength = 120;
+                        const sensorX = armStartX + armLength + 10;
+                        const sensorY = armY + 4;
+                        
+                        // Base/Foundation
+                        p.fill(75, 85, 99);
+                        p.rect(centerX - 30, baseY - 20, 60, 20, 2);
+                        p.fill(55, 65, 81);
+                        p.rect(centerX - 40, baseY - 5, 80, 8);
+                        
+                        // Vertical Pole
+                        p.fill(107, 114, 128);
+                        p.rect(centerX - 5, yOffset + 70, 10, 30);
+                        p.fill(156, 163, 175, 127);
+                        p.rect(centerX - 3, yOffset + 70, 6, 300);
+                        
+                        // Solar Panel Support
+                        p.fill(55, 65, 81);
+                        p.rect(centerX - 10, yOffset + 90, 20, 4);
+                        
+                        // Solar Panel
+                        p.push();
+                        p.fill(31, 41, 55);
+                        p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+                        
+                        // Solar cell grid
+                        p.stroke(55, 65, 81);
+                        p.strokeWeight(1);
+                        for (let i = 1; i < 4; i++) {
+                            p.line(centerX - 40 + i * 20, yOffset + 50, centerX - 40 + i * 20, yOffset + 90);
+                        }
+                        for (let i = 1; i < 3; i++) {
+                            p.line(centerX - 40, yOffset + 50 + i * 15, centerX + 40, yOffset + 50 + i * 15);
+                        }
+                        p.noStroke();
+                        
+                        // Solar shine effect
+                        p.fill(59, 130, 246, 77);
+                        p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
+                        p.pop();
+                        
+                        // Horizontal Arm (telescopic)
+                        p.fill(107, 114, 128);
+                        p.rect(armStartX, armY, armLength, 8);
+                        p.fill(156, 163, 175, 127);
+                        p.rect(armStartX, armY + 2, armLength, 4);
+                        
+                        // Telescopic segments
+                        p.fill(124, 124, 124);
+                        p.rect(armStartX + 20, armY + 1, 100, 6);
+                        p.fill(140, 140, 140);
+                        p.rect(armStartX + 40, armY + 2, 80, 4);
+                        
+                        // Segment joints
+                        p.fill(90, 90, 90);
+                        for (let i = 1; i <= 3; i++) {
+                            p.rect(armStartX + i * 20, armY, 2, 8);
+                        }
+                        
+                        // Control Box
+                        p.fill(31, 41, 55);
+                        p.rect(centerX - 25, yOffset + 110, 50, 60, 3);
+                        p.fill(17, 24, 39);
+                        p.rect(centerX - 20, yOffset + 115, 40, 50, 2);
+                        
+                        // FLOODBOY text on control box
+                        p.push();
+                        p.fill(255, 255, 255, 200);
+                        p.textAlign(p.CENTER, p.CENTER);
+                        p.textSize(9);
+                        p.textStyle(p.BOLD);
+                        p.text('FLOOD', centerX, yOffset + 145-5);
+                        p.text('BOY', centerX, yOffset + 157-5);
+                        p.textStyle(p.NORMAL);
+                        p.pop();
+                        
+                        // LED indicators
+                        const time = p.millis() / 1000;
+                        p.noStroke();
+                        
+                        // Status LEDs
+                        if (isDead) {
+                            p.fill(239, 68, 68, 204 + Math.sin(time * Math.PI * 2) * 51);
+                            p.circle(centerX, yOffset + 125, 8);
+                        } else if (isOnline) {
+                            p.fill(16, 185, 129, 204 + Math.sin(time * Math.PI) * 51);
+                            p.circle(centerX - 10, yOffset + 125, 4);
+                            p.fill(59, 130, 246, 204 + Math.sin(time * Math.PI * 0.8) * 51);
+                            p.circle(centerX, yOffset + 125, 4);
+                        } else {
+                            p.fill(245, 158, 11, 204 + Math.sin(time * Math.PI * 1.5) * 51);
+                            p.circle(centerX, yOffset + 125, 6);
+                        }
+                        
+                        // Sensor Cylinder
+                        p.fill(55, 65, 81);
+                        p.ellipse(sensorX, sensorY, 30, 50);
+                        p.fill(31, 41, 55);
+                        p.ellipse(sensorX, sensorY, 24, 44);
+                        
+                        // Sensor lens
+                        p.fill(17, 24, 39);
+                        p.circle(sensorX, sensorY + 11, 16);
+                        p.fill(0, 0, 0, 204);
+                        p.circle(sensorX, sensorY + 11, 12);
+                        
+                        // Water visualization
+                        const waterArea = centerX + 50;
+                        const sensorBottomY = sensorY + 25;
+                        const groundY = baseY - 5;
+                        const totalDistance = groundY - sensorBottomY;
+                        const scaleFactor = totalDistance / installationHeight;
+                        const waterY = groundY - (waterLevel * scaleFactor);
+                        
+                        if (sensorMode === 'water' && waterLevel > 0) {
+                            // Water surface
+                            p.noStroke();
+                            if (isDead) {
+                                p.fill(239, 68, 68, 102); // Red water when dead
+                            } else if (isOnline) {
+                                p.fill(59, 130, 246, 102); // Blue water when online
+                            } else {
+                                p.fill(245, 158, 11, 102); // Orange water when offline
+                            }
+                            p.rect(waterArea, waterY, 150, groundY - waterY);
+                            
+                            // Water surface line with wave animation
+                            if (isDead) {
+                                p.stroke(239, 68, 68);
+                            } else if (isOnline) {
+                                p.stroke(59, 130, 246);
+                            } else {
+                                p.stroke(245, 158, 11);
+                            }
+                            p.strokeWeight(2);
+                            p.noFill();
+                            p.beginShape();
+                            for (let x = 0; x <= 150; x += 5) {
+                                const waveY = waterY + Math.sin((x + time * 50) * 0.05) * 2;
+                                p.vertex(waterArea + x, waveY);
+                            }
+                            p.endShape();
+                            
+                            // Animated ripples at measurement point
+                            for (let i = 0; i < 3; i++) {
+                                const rippleTime = (time * 1.5 + i * 0.8) % 3;
+                                const rippleRadius = 5 + rippleTime * 20;
+                                const rippleAlpha = Math.max(0, 1 - rippleTime / 3) * 77;
+                                
+                                if (rippleAlpha > 0) {
+                                    p.noFill();
+                                    if (isDead) {
+                                        p.stroke(239, 68, 68, rippleAlpha); // Red ripples when dead
+                                    } else if (isOnline) {
+                                        p.stroke(59, 130, 246, rippleAlpha); // Blue ripples when online
+                                    } else {
+                                        p.stroke(245, 158, 11, rippleAlpha); // Orange ripples when offline
+                                    }
+                                    p.strokeWeight(1.5 - rippleTime * 0.5);
+                                    p.ellipse(sensorX, waterY, rippleRadius * 2, rippleRadius * 0.5);
+                                }
+                            }
+                        } else if (sensorMode === 'water') {
+                            // Dry floor
+                            p.noStroke();
+                            p.fill(139, 115, 85, 204);
+                            p.rect(waterArea, baseY - 5, 150, 5);
+                            
+                            // Floor texture
+                            p.fill(160, 130, 109, 127);
+                            for (let x = 0; x < 150; x += 20) {
+                                p.rect(waterArea + x, baseY - 5, 10, 5);
+                            }
+                            
+                            // Impact waves on dry floor
+                            for (let i = 0; i < 3; i++) {
+                                const waveTime = (time * 2 + i * 0.7) % 3;
+                                const waveRadius = 5 + waveTime * 15;
+                                const waveAlpha = Math.max(0, 1 - waveTime / 3) * 102;
+                                
+                                if (waveAlpha > 0) {
+                                    p.noFill();
+                                    p.stroke(59, 130, 246, waveAlpha);
+                                    p.strokeWeight(2 - waveTime * 0.5);
+                                    p.circle(sensorX, baseY - 5, waveRadius * 2);
+                                }
+                            }
+                        }
+                        
+                        // Measurement line
+                        if (sensorMode === 'water') {
+                            p.stroke(59, 130, 246, 153);
+                            p.strokeWeight(1);
+                            p.drawingContext.setLineDash([4, 4]);
+                            p.line(sensorX, sensorY + 20, sensorX, waterLevel > 0 ? waterY : baseY - 5);
+                            p.drawingContext.setLineDash([]);
+                            
+                            // Distance label
+                            p.noStroke();
+                            if (isDead) {
+                                p.fill(239, 68, 68);
+                            } else if (isOnline) {
+                                p.fill(59, 130, 246);
+                            } else {
+                                p.fill(245, 158, 11);
+                            }
+                            p.textAlign(p.LEFT, p.CENTER);
+                            const labelY = waterLevel > 0 ? waterY + 20 : baseY - 30;
+                            p.textSize(16);
+                            p.text(waterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
+                        }
+                        
+                        // Display installation height indicators
+                        if (installationHeight > 0) {
+                            // Draw a subtle line showing installation height
+                            p.stroke(156, 163, 175, 100);
+                            p.strokeWeight(1);
+                            p.drawingContext.setLineDash([2, 2]);
+                            p.line(sensorX, sensorY + 25, sensorX, baseY - 5);
+                            p.drawingContext.setLineDash([]);
+                            
+                            // Small markers at top and bottom
+                            p.line(sensorX - 5, sensorY + 25, sensorX + 5, sensorY + 25);
+                            p.line(sensorX - 5, baseY - 5, sensorX + 5, baseY - 5);
+                            
+                            // MAX indicator when water is at installation height
+                            if (sensorMode === 'water' && Math.abs(waterLevel - installationHeight) < 0.01) {
+                                p.stroke(239, 68, 68, 80);
+                                p.strokeWeight(2);
+                                p.drawingContext.setLineDash([5, 5]);
+                                p.line(waterArea - 10, waterY, waterArea + 160, waterY);
+                                p.drawingContext.setLineDash([]);
+                                
+                                p.noStroke();
+                                p.fill(239, 68, 68, 150);
+                                p.textAlign(p.CENTER, p.CENTER);
+                                p.textSize(10);
+                                const boxX = sensorX + 20;
+                                const textWidth = 40;
+                                p.text('(MAX)', boxX + textWidth/2, sensorY + 15);
+                            }
+                            
+                            // Installation height text
+                            p.noStroke();
+                            const textWidth = 40;
+                            const boxX = sensorX + 20;
+                            p.fill(255, 255, 255, 230);
+                            p.rect(boxX, sensorY - 10, textWidth, 20, 3);
+                            p.fill(75, 65, 81);
+                            p.textAlign(p.CENTER, p.CENTER);
+                            p.textSize(12);
+                            p.text(`${installationHeight.toFixed(1)}m`, boxX + textWidth/2, sensorY);
+                        }
+                        
+                        // Display current block number
+                        if (propsRef.current.currentBlock) {
+                            p.push();
+                            p.fill(255, 255, 255, 200);
+                            p.textAlign(p.LEFT, p.TOP);
+                            p.textSize(10);
+                            p.text(`Block: ${propsRef.current.currentBlock}`, 10, 10);
+                            p.pop();
+                        }
+                    };
+                };
+
+                // Create p5 instance
+                if (sketchRef.current && !p5InstanceRef.current) {
+                    p5InstanceRef.current = new p5(sketch, sketchRef.current);
+                }
+
+                // Cleanup
+                return () => {
+                    if (p5InstanceRef.current) {
+                        p5InstanceRef.current.remove();
+                        p5InstanceRef.current = null;
+                    }
+                };
+            }, []);
+
+            return <div ref={sketchRef} id="p5-container" className="w-full flex justify-center"></div>;
+        };
+        
+        // Sensor Data Views Component (Table + Chart)
+        const SensorDataViews = ({ storeAddress, fields, publicClient, theme, currentBlock }) => {
+            const [viewMode, setViewMode] = useState('chart'); // 'table' or 'chart'
+            const [historicalData, setHistoricalData] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [page, setPage] = useState(0);
+            const recordsPerPage = 20;
+            
+            // Fetch all historical data
+            const fetchHistoricalData = async () => {
+                if (!publicClient || !storeAddress) return;
+                
+                setLoading(true);
+                try {
+                    // Fetch more events for table view
+                    const currentBlockBigInt = await publicClient.getBlockNumber();
+                    const fromBlock = currentBlockBigInt > 10000n ? currentBlockBigInt - 10000n : 0n;
+                    
+                    // Define the event ABI
+                    const eventAbi = parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0];
+                    
+                    const events = await publicClient.getLogs({
+                        address: storeAddress,
+                        event: eventAbi,
+                        fromBlock: fromBlock,
+                        toBlock: currentBlockBigInt
+                    });
+                    
+                    // Process events with proper decoding
+                    const processedData = events.map(event => {
+                        try {
+                            // Decode the event data
+                            const decoded = decodeEventLog({
+                                abi: [eventAbi],
+                                data: event.data,
+                                topics: event.topics
+                            });
+                            
+                            return {
+                                timestamp: parseInt(decoded.args.timestamp) * 1000,
+                                sensor: decoded.args.sensor,
+                                values: decoded.args.values.map(v => Number(v)),
+                                block: event.blockNumber.toString(),
+                                txHash: event.transactionHash
+                            };
+                        } catch (err) {
+                            console.error('Error decoding event:', err);
+                            return null;
+                        }
+                    }).filter(Boolean).sort((a, b) => b.timestamp - a.timestamp); // Sort newest first
+                    
+                    setHistoricalData(processedData);
+                } catch (err) {
+                    console.error('Error fetching historical data:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            // Fetch data on mount and only when store changes
+            useEffect(() => {
+                fetchHistoricalData();
+            }, [storeAddress]); // Remove currentBlock to prevent refetch on every block
+            
+            // Fetch only new data when block updates
+            useEffect(() => {
+                if (!currentBlock || !storeAddress || historicalData.length === 0) return;
+                
+                const fetchLatestData = async () => {
+                    try {
+                        // Get the latest block we have data for
+                        const latestBlock = historicalData.length > 0 
+                            ? Math.max(...historicalData.map(d => parseInt(d.blockNumber)))
+                            : 0;
+                        
+                        // Only fetch if current block is newer
+                        if (parseInt(currentBlock) <= latestBlock) return;
+                        
+                        // Create filter for new events only
+                        const filter = await publicClient.createEventFilter({
+                            address: storeAddress,
+                            event: parseAbi(['event DataStored(address indexed sensor, int256[] values, uint256 timestamp)'])[0],
+                            fromBlock: BigInt(latestBlock + 1),
+                            toBlock: 'latest'
+                        });
+                        
+                        const events = await publicClient.getFilterLogs({ filter });
+                        
+                        if (events.length > 0) {
+                            // Process new events
+                            const newData = events.map(event => {
+                                const parsedValues = {};
+                                event.args.values.forEach((value, idx) => {
+                                    if (fields[idx]) {
+                                        parsedValues[fields[idx].name] = Number(value) / 1000;
+                                    }
+                                });
+                                
+                                return {
+                                    blockNumber: event.blockNumber.toString(),
+                                    timestamp: Number(event.args.timestamp),
+                                    sensor: event.args.sensor,
+                                    values: parsedValues,
+                                    rawValues: event.args.values.map(v => Number(v))
+                                };
+                            });
+                            
+                            // Append new data without causing full re-render
+                            setHistoricalData(prev => [...prev, ...newData].slice(-100)); // Keep last 100 records
+                        }
+                    } catch (err) {
+                        console.error('Error fetching latest data:', err);
+                    }
+                };
+                
+                fetchLatestData();
+            }, [currentBlock]);
+            
+            // Calculate paginated data
+            const paginatedData = historicalData.slice(
+                page * recordsPerPage,
+                (page + 1) * recordsPerPage
+            );
+            const totalPages = Math.ceil(historicalData.length / recordsPerPage);
+            
+            // Export to CSV
+            const exportToCSV = () => {
+                const headers = ['Timestamp', 'Sensor', ...fields.map(f => `${f.name} (${f.unit})`), 'Block'];
+                const rows = historicalData.map(record => [
+                    new Date(record.timestamp).toLocaleString(),
+                    record.sensor,
+                    ...record.values.map((v, i) => formatValue(v, fields[i].unit)),
+                    record.block
+                ]);
+                
+                const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `sensor-data-${new Date().toISOString()}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            };
+            
+            return (
+                <div className={`rounded-lg p-6 border ${
+                    theme === 'dark' 
+                        ? 'bg-gray-800 border-gray-700' 
+                        : 'bg-white border-gray-200 shadow-sm'
+                }`}>
+                    {/* Header with view toggles */}
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                            <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <h3 className={`text-lg font-semibold ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                            }`}>Sensor Data</h3>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                            {/* View mode toggles */}
+                            <div className="flex rounded-lg overflow-hidden border ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}">
+                                <button
+                                    onClick={() => setViewMode('table')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                                        viewMode === 'table'
+                                            ? 'bg-purple-600 text-white'
+                                            : theme === 'dark'
+                                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Table View
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('chart')}
+                                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                                        viewMode === 'chart'
+                                            ? 'bg-purple-600 text-white'
+                                            : theme === 'dark'
+                                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Chart View
+                                </button>
+                            </div>
+                            
+                            {/* Actions */}
+                            <button
+                                onClick={exportToCSV}
+                                disabled={loading || historicalData.length === 0}
+                                className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                                    theme === 'dark'
+                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                CSV
+                            </button>
+                            <button
+                                onClick={fetchHistoricalData}
+                                disabled={loading}
+                                className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                                    theme === 'dark'
+                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {loading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className={`loading-skeleton h-full w-full ${
+                                theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                            } rounded`}></div>
+                        </div>
+                    ) : viewMode === 'table' ? (
+                        /* Table View */
+                        <div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={`border-b ${
+                                            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+                                        }`}>
+                                            <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                            }`}>Timestamp</th>
+                                            <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                            }`}>Sensor</th>
+                                            {fields.map((field, index) => (
+                                                <th key={index} className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                                }`}>
+                                                    {field.name}
+                                                    <span className="text-xs normal-case ml-1">({field.unit})</span>
+                                                </th>
+                                            ))}
+                                            <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider ${
+                                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                            }`}>Block</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${
+                                        theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'
+                                    }`}>
+                                        {paginatedData.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={fields.length + 3} className="px-4 py-8 text-center">
+                                                    <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                                                        No sensor data available
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            paginatedData.map((record, index) => (
+                                                <tr key={index} className={`${
+                                                    theme === 'dark' 
+                                                        ? 'hover:bg-gray-700/50' 
+                                                        : 'hover:bg-gray-50'
+                                                } transition-colors`}>
+                                                    <td className={`px-4 py-3 text-sm ${
+                                                        theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+                                                    }`}>
+                                                        {new Date(record.timestamp).toLocaleString()}
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-sm font-mono ${
+                                                        theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+                                                    }`}>
+                                                        {formatAddress(record.sensor)}
+                                                    </td>
+                                                    {fields.map((field, fieldIndex) => (
+                                                        <td key={fieldIndex} className={`px-4 py-3 text-sm font-mono ${
+                                                            theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+                                                        }`}>
+                                                            {formatValue(record.values[fieldIndex] || 0, field.unit)}
+                                                        </td>
+                                                    ))}
+                                                    <td className={`px-4 py-3 text-sm font-mono ${
+                                                        theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+                                                    }`}>
+                                                        {record.block}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-4">
+                                    <p className={`text-sm ${
+                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>
+                                        Showing {page * recordsPerPage + 1} to {Math.min((page + 1) * recordsPerPage, historicalData.length)} of {historicalData.length} records
+                                    </p>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(0, p - 1))}
+                                            disabled={page === 0}
+                                            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                                                theme === 'dark'
+                                                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            Previous
+                                        </button>
+                                        <button
+                                            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                                            disabled={page === totalPages - 1}
+                                            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                                                theme === 'dark'
+                                                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Chart View */
+                        <SensorDataChart
+                            storeAddress={storeAddress}
+                            fields={fields}
+                            publicClient={publicClient}
+                            theme={theme}
+                            historicalData={historicalData}
+                        />
+                    )}
+                </div>
+            );
+        };
+        
+        // Sensor Data Chart Component
+        const SensorDataChart = React.memo(({ storeAddress, fields, publicClient, theme, historicalData: propHistoricalData }) => {
+            const [historicalData, setHistoricalData] = useState(propHistoricalData || []);
+            const [loading, setLoading] = useState(!propHistoricalData);
+            const [selectedField, setSelectedField] = useState(0);
+            const [timeRange, setTimeRange] = useState('24h');
+            const chartRef = useRef(null);
+            const chartInstanceRef = useRef(null);
+            
+            // Time range options
+            const timeRanges = {
+                '1h': { label: '1 Hour', seconds: 3600 },
+                '6h': { label: '6 Hours', seconds: 21600 },
+                '24h': { label: '24 Hours', seconds: 86400 },
+                '7d': { label: '7 Days', seconds: 604800 }
+            };
+            
+            // Fetch historical data from blockchain events
+            const fetchHistoricalData = async () => {
+                if (!publicClient || !storeAddress) return;
+                
+                setLoading(true);
+                try {
+                    // Calculate the from block based on time range
+                    const currentBlock = await publicClient.getBlockNumber();
+                    const blocksPerHour = 720; // Approximate for 5-second blocks
+                    const hoursBack = timeRanges[timeRange].seconds / 3600;
+                    const fromBlock = currentBlock - BigInt(Math.floor(blocksPerHour * hoursBack));
+                    
+                    // Define the event ABI
+                    const eventAbi = parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0];
+                    
+                    // Fetch RecordStored events
+                    const events = await publicClient.getLogs({
+                        address: storeAddress,
+                        event: eventAbi,
+                        fromBlock: fromBlock > 0n ? fromBlock : 0n,
+                        toBlock: currentBlock
+                    });
+                    
+                    // Process events into chart data
+                    const processedData = events.map(event => {
+                        try {
+                            // Decode the event data
+                            const decoded = decodeEventLog({
+                                abi: [eventAbi],
+                                data: event.data,
+                                topics: event.topics
+                            });
+                            
+                            return {
+                                timestamp: parseInt(decoded.args.timestamp) * 1000, // Convert to milliseconds
+                                sensor: decoded.args.sensor,
+                                values: decoded.args.values.map(v => Number(v)),
+                                block: event.blockNumber.toString()
+                            };
+                        } catch (err) {
+                            console.error('Error decoding event:', err);
+                            return null;
+                        }
+                    }).filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Limit data points for performance
+                    const maxPoints = 200;
+                    if (processedData.length > maxPoints) {
+                        const step = Math.floor(processedData.length / maxPoints);
+                        const sampledData = [];
+                        for (let i = 0; i < processedData.length; i += step) {
+                            sampledData.push(processedData[i]);
+                        }
+                        setHistoricalData(sampledData);
+                    } else {
+                        setHistoricalData(processedData);
+                    }
+                } catch (err) {
+                    console.error('Error fetching historical data:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            // Update chart
+            useEffect(() => {
+                if (!chartRef.current || historicalData.length === 0) return;
+                
+                const ctx = chartRef.current.getContext('2d');
+                const field = fields[selectedField];
+                
+                // Destroy existing chart
+                if (chartInstanceRef.current) {
+                    chartInstanceRef.current.destroy();
+                }
+                
+                // Prepare chart data
+                const chartData = {
+                    labels: historicalData.map(d => d.timestamp),
+                    datasets: [{
+                        label: field.name,
+                        data: historicalData.map(d => {
+                            const value = d.values[selectedField] || 0;
+                            return formatValue(value, field.unit);
+                        }),
+                        borderColor: theme === 'dark' ? '#A78BFA' : '#7C3AED',
+                        backgroundColor: theme === 'dark' ? 'rgba(167, 139, 250, 0.1)' : 'rgba(124, 58, 237, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: historicalData.length <= 50 ? 3 : 0,
+                        pointHoverRadius: 5
+                    }]
+                };
+                
+                // Chart configuration
+                const config = {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: theme === 'dark' ? 'rgba(31, 41, 55, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                                titleColor: theme === 'dark' ? '#F3F4F6' : '#1F2937',
+                                bodyColor: theme === 'dark' ? '#D1D5DB' : '#4B5563',
+                                borderColor: theme === 'dark' ? '#4B5563' : '#E5E7EB',
+                                borderWidth: 1,
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    title: (tooltipItems) => {
+                                        const date = new Date(tooltipItems[0].parsed.x);
+                                        return date.toLocaleString();
+                                    },
+                                    label: (context) => {
+                                        return `${field.name}: ${context.parsed.y} ${field.unit}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    tooltipFormat: 'MMM dd, HH:mm',
+                                    displayFormats: {
+                                        hour: 'HH:mm',
+                                        day: 'MMM dd'
+                                    }
+                                },
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    color: theme === 'dark' ? '#9CA3AF' : '#6B7280',
+                                    maxRotation: 0,
+                                    autoSkipPadding: 20
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: theme === 'dark' ? 'rgba(75, 85, 99, 0.3)' : 'rgba(229, 231, 235, 0.5)'
+                                },
+                                ticks: {
+                                    color: theme === 'dark' ? '#9CA3AF' : '#6B7280',
+                                    callback: function(value) {
+                                        return value + ' ' + field.unit;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                
+                // Create new chart
+                chartInstanceRef.current = new Chart(ctx, config);
+            }, [historicalData, selectedField, theme, fields]);
+            
+            // Fetch data on mount and when time range changes
+            useEffect(() => {
+                if (propHistoricalData) {
+                    setHistoricalData(propHistoricalData);
+                    setLoading(false);
+                } else {
+                    fetchHistoricalData();
+                }
+            }, [timeRange, storeAddress, propHistoricalData]);
+            
+            // Calculate statistics
+            const stats = useMemo(() => {
+                if (historicalData.length === 0) return null;
+                
+                const values = historicalData.map(d => {
+                    const value = d.values[selectedField] || 0;
+                    return parseFloat(formatValue(value, fields[selectedField].unit));
+                });
+                
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const latest = values[values.length - 1];
+                const previous = values[values.length - 2] || latest;
+                const trend = ((latest - previous) / previous * 100).toFixed(1);
+                
+                return { min, max, avg, trend, latest };
+            }, [historicalData, selectedField, fields]);
+            
+            return (
+                <div className={`rounded-lg p-6 border ${
+                    theme === 'dark' 
+                        ? 'bg-gray-800 border-gray-700' 
+                        : 'bg-white border-gray-200 shadow-sm'
+                }`}>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                            <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <h3 className={`text-lg font-semibold ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                            }`}>Sensor Data Chart</h3>
+                        </div>
+                        
+                        {/* Time Range Selector */}
+                        <div className="flex items-center space-x-2">
+                            {Object.entries(timeRanges).map(([key, value]) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setTimeRange(key)}
+                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                        timeRange === key
+                                            ? 'bg-purple-600 text-white'
+                                            : theme === 'dark'
+                                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {value.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {/* Field Selector */}
+                    <div className="mb-4">
+                        <select
+                            value={selectedField}
+                            onChange={(e) => setSelectedField(parseInt(e.target.value))}
+                            className={`w-full px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                                theme === 'dark'
+                                    ? 'bg-gray-700 border-gray-600 text-white'
+                                    : 'bg-gray-50 border-gray-300 text-gray-900'
+                            } border`}
+                        >
+                            {fields.map((field, index) => (
+                                <option key={index} value={index}>{field.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    {/* Statistics */}
+                    {stats && (
+                        <div className="grid grid-cols-4 gap-4 mb-6">
+                            <div className={`p-3 rounded-lg ${
+                                theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
+                            }`}>
+                                <p className={`text-xs ${
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                }`}>Current</p>
+                                <p className={`text-lg font-semibold ${
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>{stats.latest.toFixed(2)}</p>
+                            </div>
+                            <div className={`p-3 rounded-lg ${
+                                theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
+                            }`}>
+                                <p className={`text-xs ${
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                }`}>Min</p>
+                                <p className={`text-lg font-semibold ${
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>{stats.min.toFixed(2)}</p>
+                            </div>
+                            <div className={`p-3 rounded-lg ${
+                                theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
+                            }`}>
+                                <p className={`text-xs ${
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                }`}>Max</p>
+                                <p className={`text-lg font-semibold ${
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>{stats.max.toFixed(2)}</p>
+                            </div>
+                            <div className={`p-3 rounded-lg ${
+                                theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
+                            }`}>
+                                <p className={`text-xs ${
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                }`}>Trend</p>
+                                <p className={`text-lg font-semibold ${
+                                    parseFloat(stats.trend) > 0 ? 'text-green-500' : parseFloat(stats.trend) < 0 ? 'text-red-500' : theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>{stats.trend > 0 ? '+' : ''}{stats.trend}%</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Chart Container */}
+                    <div className="relative" style={{ height: '300px' }}>
+                        {loading ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className={`loading-skeleton h-full w-full ${
+                                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                                } rounded`}></div>
+                            </div>
+                        ) : historicalData.length === 0 ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                                    No data available for the selected time range
+                                </p>
+                            </div>
+                        ) : (
+                            <canvas ref={chartRef}></canvas>
+                        )}
+                    </div>
+                    
+                    {/* Data Points Info */}
+                    {historicalData.length > 0 && (
+                        <p className={`text-xs mt-4 text-center ${
+                            theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
+                        }`}>
+                            Showing {historicalData.length} data points
+                        </p>
+                    )}
+                </div>
+            );
+        });
+        
+        // Main App Component
+        const App = () => {
+            const [walletClient, setWalletClient] = useState(null);
+            const [publicClient, setPublicClient] = useState(null);
+            const [account, setAccount] = useState(null);
+            const [chainId, setChainId] = useState(8899); // Default to JIBCHAIN L1
+            const [stores, setStores] = useState([]);
+            const [selectedStore, setSelectedStore] = useState(null);
+            const [storeData, setStoreData] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [initialLoad, setInitialLoad] = useState(true); // Track if this is the first load
+            const [error, setError] = useState(null);
+            const [viewMode, setViewMode] = useState('public'); // 'public' or 'wallet'
+            const [publicAddress, setPublicAddress] = useState(''); // For public view
+            const [selectedChain, setSelectedChain] = useState(8899); // For chain selection
+            const [directStoreAddress, setDirectStoreAddress] = useState('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8'); // Default store with metadata
+            const [currentBlock, setCurrentBlock] = useState(null); // Current blockchain block number
+            const [theme, setTheme] = useState('light'); // Theme state
+            const [blockNumber, setBlockNumber] = useState(null);
+            const [blockTimer, setBlockTimer] = useState(0);
+            const [showBlockIndicator, setShowBlockIndicator] = useState(true);
+            const blockTimerRef = useRef(null);
+            
+            // Apply theme to body
+            useEffect(() => {
+                document.body.className = theme;
+            }, [theme]);
+            
+            // Check URL parameters on mount
+            useEffect(() => {
+                // Check for store parameter in URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const storeParam = urlParams.get('store');
+                const chainParam = urlParams.get('chain');
+                const modeParam = urlParams.get('mode');
+                const addressParam = urlParams.get('address');
+                
+                // Also check hash for backwards compatibility
+                const hashMatch = window.location.hash.match(/^#store\/(.+)$/);
+                const storeFromHash = hashMatch ? hashMatch[1] : null;
+                
+                const storeAddress = storeParam || storeFromHash;
+                
+                // Set chain if specified
+                if (chainParam) {
+                    const chainId = parseInt(chainParam);
+                    if ([31337, 8899, 700011].includes(chainId)) {
+                        setSelectedChain(chainId);
+                        setChainId(chainId);
+                    }
+                }
+                
+                // Set view mode if specified
+                if (modeParam && ['public', 'wallet', 'direct'].includes(modeParam)) {
+                    setViewMode(modeParam);
+                }
+                
+                // Handle direct store view
+                if (storeAddress && storeAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                    // Valid address found in URL
+                    setViewMode('direct');
+                    setDirectStoreAddress(storeAddress);
+                    // Store will be loaded after publicClient is initialized
+                }
+                
+                // Handle public address view
+                if (addressParam && addressParam.match(/^0x[a-fA-F0-9]{40}$/) && modeParam === 'public') {
+                    setPublicAddress(addressParam);
+                }
+                
+                // If no URL parameters, auto-load default store
+                if (!storeAddress && !modeParam && !addressParam) {
+                    setViewMode('direct');
+                    // directStoreAddress is already set to default
+                }
+            }, []);
+            
+            // Initialize public client for selected chain
+            useEffect(() => {
+                const chain = selectedChain === 31337 ? anvil : 
+                             selectedChain === 8899 ? jibchainL1 : 
+                             selectedChain === 700011 ? sichang : null;
+                
+                if (chain) {
+                    const pClient = createPublicClient({
+                        chain,
+                        transport: http()
+                    });
+                    setPublicClient(pClient);
+                    setChainId(selectedChain);
+                }
+            }, [selectedChain]);
+            
+            // Auto-load store from URL when public client is ready
+            useEffect(() => {
+                if (publicClient && directStoreAddress && viewMode === 'direct') {
+                    // Auto-load the store
+                    setSelectedStore({ address: directStoreAddress, nickname: 'Direct View' });
+                    loadStoreData(directStoreAddress);
+                }
+            }, [publicClient, directStoreAddress]);
+            
+            // Fetch current block number and update periodically
+            useEffect(() => {
+                if (!publicClient) return;
+                
+                let fastIntervalId;
+                let slowIntervalId;
+                
+                const fetchBlockNumber = async () => {
+                    try {
+                        const block = await publicClient.getBlockNumber();
+                        const blockBigInt = block;
+                        
+                        // Update block number for display (JBC chain only)
+                        if (chainId === 8899 && blockBigInt !== blockNumber) {
+                            setBlockNumber(blockBigInt);
+                        }
+                        
+                        // Always update current block for data refresh
+                        setCurrentBlock(blockBigInt.toString());
+                    } catch (err) {
+                        console.error('Error fetching block number:', err);
+                    }
+                };
+                
+                // Fetch immediately
+                fetchBlockNumber();
+                
+                // For JBC chain, poll every 1 second for block display
+                if (chainId === 8899) {
+                    fastIntervalId = setInterval(fetchBlockNumber, 1000);
+                } else {
+                    // For other chains, just update every 5 seconds
+                    slowIntervalId = setInterval(fetchBlockNumber, 5000);
+                }
+                
+                return () => {
+                    if (fastIntervalId) clearInterval(fastIntervalId);
+                    if (slowIntervalId) clearInterval(slowIntervalId);
+                };
+            }, [publicClient, chainId, blockNumber]);
+            
+            // Update only sensor readings when new block is detected
+            const updateSensorReadings = async (storeAddress) => {
+                if (!publicClient || !storeData) return;
+                
+                try {
+                    // Get only the latest sensor readings
+                    const sensorRecords = [];
+                    for (const sensorRecord of storeData.sensorRecords) {
+                        const [timestamp, values] = await publicClient.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'getLatestRecord',
+                            args: [sensorRecord.sensor]
+                        });
+                        
+                        sensorRecords.push({
+                            sensor: sensorRecord.sensor,
+                            latestRecord: {
+                                timestamp: timestamp.toString(),
+                                values: values.map(v => v.toString())
+                            },
+                            totalRecords: sensorRecord.totalRecords || '0' // Use from existing data or default
+                        });
+                    }
+                    
+                    // Update only the sensor records without triggering full re-render
+                    setStoreData(prev => ({
+                        ...prev,
+                        sensorRecords,
+                        totalRecords: sensorRecords.reduce((acc, r) => acc + parseInt(r.totalRecords), 0)
+                    }));
+                } catch (err) {
+                    console.error('Error updating sensor readings:', err);
+                }
+            };
+            
+            // Update sensor readings when new block is detected
+            useEffect(() => {
+                if (currentBlock && selectedStore && storeData) {
+                    updateSensorReadings(selectedStore.address);
+                }
+            }, [currentBlock]);
+            
+            // Handle block timer and visibility for JBC chain
+            useEffect(() => {
+                if (blockNumber !== null && chainId === 8899) {
+                    // Reset timer and show indicator when block changes
+                    setBlockTimer(1);
+                    setShowBlockIndicator(true);
+                    
+                    // Clear existing timer
+                    if (blockTimerRef.current) {
+                        clearInterval(blockTimerRef.current);
+                    }
+                    
+                    // Start new timer
+                    blockTimerRef.current = setInterval(() => {
+                        setBlockTimer(prev => {
+                            const newTimer = prev + 1;
+                            // Hide indicator after 15 seconds
+                            if (newTimer >= 15) {
+                                setShowBlockIndicator(false);
+                                if (blockTimerRef.current) {
+                                    clearInterval(blockTimerRef.current);
+                                }
+                            }
+                            return newTimer;
+                        });
+                    }, 1000);
+                }
+                
+                return () => {
+                    if (blockTimerRef.current) {
+                        clearInterval(blockTimerRef.current);
+                    }
+                };
+            }, [blockNumber, chainId]);
+            
+            // Connect wallet
+            const connectWallet = async () => {
+                try {
+                    if (!window.ethereum) {
+                        throw new Error("Please install MetaMask or another Web3 wallet");
+                    }
+                    
+                    // Request accounts
+                    const accounts = await window.ethereum.request({ 
+                        method: 'eth_requestAccounts' 
+                    });
+                    
+                    // Get chain ID
+                    const chainIdHex = await window.ethereum.request({ 
+                        method: 'eth_chainId' 
+                    });
+                    const currentChainId = parseInt(chainIdHex, 16);
+                    
+                    // Setup clients
+                    const chain = currentChainId === 31337 ? anvil : 
+                                 currentChainId === 8899 ? jibchainL1 : 
+                                 currentChainId === 700011 ? sichang : null;
+                    
+                    if (!chain || !CONTRACTS[currentChainId]) {
+                        throw new Error(`Unsupported chain ID: ${currentChainId}. Please switch to Anvil, JIBCHAIN L1, or SiChang`);
+                    }
+                    
+                    const wClient = createWalletClient({
+                        chain,
+                        transport: custom(window.ethereum)
+                    });
+                    
+                    const pClient = createPublicClient({
+                        chain,
+                        transport: http()
+                    });
+                    
+                    setWalletClient(wClient);
+                    setPublicClient(pClient);
+                    setAccount(accounts[0]);
+                    setChainId(currentChainId);
+                    setSelectedChain(currentChainId);
+                    setViewMode('wallet');
+                    setError(null);
+                    
+                    // Load stores
+                    await loadUserStores(accounts[0], pClient, currentChainId);
+                } catch (err) {
+                    console.error('Connection error:', err);
+                    setError(err.message);
+                }
+            };
+            
+            // Load stores for public view
+            const loadPublicStores = async () => {
+                if (!publicAddress || !publicClient) return;
+                
+                try {
+                    // Validate address
+                    if (!publicAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                        throw new Error("Invalid address format");
+                    }
+                    
+                    await loadUserStores(publicAddress, publicClient, chainId);
+                } catch (err) {
+                    console.error('Error loading public stores:', err);
+                    setError(err.message);
+                }
+            };
+            
+            // Get transaction receipt to find block number
+            const getBlockNumber = async (storeAddress) => {
+                try {
+                    // This is a simplified approach - in production you'd query events
+                    const currentBlock = await publicClient.getBlockNumber();
+                    return currentBlock.toString();
+                } catch (err) {
+                    return 'N/A';
+                }
+            };
+            
+            // Load user stores
+            const loadUserStores = async (userAddress, client, chain) => {
+                setLoading(true);
+                try {
+                    const factoryAddress = CONTRACTS[chain].DEPLOYER_ADDRESS;
+                    
+                    // Get user stores
+                    const userStores = await client.readContract({
+                        address: factoryAddress,
+                        abi: DEPLOYER_ABI,
+                        functionName: 'getUserStores',
+                        args: [userAddress]
+                    });
+                    
+                    // Get store details from events
+                    const filter = await client.createEventFilter({
+                        address: factoryAddress,
+                        event: parseAbi(['event SensorStoreDeployed(address indexed creator, address store, string nickname)'])[0],
+                        args: { creator: userAddress },
+                        fromBlock: 'earliest'
+                    });
+                    
+                    const events = await client.getFilterLogs({ filter });
+                    
+                    const storeDetails = events.map(event => ({
+                        address: event.args.store,
+                        nickname: event.args.nickname,
+                        creator: event.args.creator
+                    }));
+                    
+                    setStores(storeDetails);
+                    setError(null);
+                } catch (err) {
+                    console.error('Error loading stores:', err);
+                    setError('Failed to load stores');
+                    setStores([]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            // Load store data
+            const loadStoreData = async (storeAddress, isRefresh = false) => {
+                if (!publicClient) return;
+                
+                // Only show loading if no data exists yet (initial load)
+                if (!storeData || !isRefresh) {
+                    setLoading(true);
+                }
+                try {
+                    // Get factory address for current chain
+                    const factoryAddress = CONTRACTS[chainId]?.DEPLOYER_ADDRESS;
+                    
+                    // Get basic store data and nickname
+                    const promises = [
+                        publicClient.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'getAllFields'
+                        }),
+                        publicClient.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'owner'
+                        })
+                    ];
+                    
+                    // Add nickname and metadata fetch if factory is available
+                    if (factoryAddress) {
+                        promises.push(
+                            publicClient.readContract({
+                                address: factoryAddress,
+                                abi: DEPLOYER_ABI,
+                                functionName: 'storeToNickname',
+                                args: [storeAddress]
+                            }),
+                            publicClient.readContract({
+                                address: factoryAddress,
+                                abi: DEPLOYER_ABI,
+                                functionName: 'getStoreMetadata',
+                                args: [storeAddress]
+                            })
+                        );
+                    }
+                    
+                    const results = await Promise.all(promises);
+                    const fields = results[0];
+                    const owner = results[1];
+                    const nickname = results[2] || '';
+                    // Parse metadata array: [deployedBlock, lastUpdatedBlock, description, pointer]
+                    const metadataArray = results[3] || [];
+                    const metadata = {
+                        deployedBlock: metadataArray[0] ? Number(metadataArray[0]) : 0,
+                        lastUpdatedBlock: metadataArray[1] ? Number(metadataArray[1]) : 0,
+                        description: metadataArray[2] || '',
+                        pointer: metadataArray[3] || ''
+                    };
+                    
+                    // Debug log to check metadata
+                    console.log('Store metadata:', metadata);
+                    console.log('Nickname:', nickname);
+                    
+                    // Get authorized sensors from events
+                    const authFilter = await publicClient.createEventFilter({
+                        address: storeAddress,
+                        event: parseAbi(['event SensorAuthorized(address indexed sensor)'])[0],
+                        fromBlock: 'earliest'
+                    });
+                    
+                    const revokeFilter = await publicClient.createEventFilter({
+                        address: storeAddress,
+                        event: parseAbi(['event SensorRevoked(address indexed sensor)'])[0],
+                        fromBlock: 'earliest'
+                    });
+                    
+                    const [authEvents, revokeEvents] = await Promise.all([
+                        publicClient.getFilterLogs({ filter: authFilter }),
+                        publicClient.getFilterLogs({ filter: revokeFilter })
+                    ]);
+                    
+                    // Calculate currently authorized sensors
+                    const authorizedSet = new Set();
+                    authEvents.forEach(event => authorizedSet.add(event.args.sensor));
+                    revokeEvents.forEach(event => authorizedSet.delete(event.args.sensor));
+                    const authorizedSensors = Array.from(authorizedSet);
+                    
+                    // Get records from events
+                    const recordFilter = await publicClient.createEventFilter({
+                        address: storeAddress,
+                        event: parseAbi(['event RecordStored(address indexed sensor, uint256 timestamp, int256[] values)'])[0],
+                        fromBlock: 'earliest'
+                    });
+                    
+                    const recordEvents = await publicClient.getFilterLogs({ filter: recordFilter });
+                    
+                    // Process sensor records
+                    const sensorDataMap = new Map();
+                    recordEvents.forEach(event => {
+                        const sensor = event.args.sensor;
+                        if (!sensorDataMap.has(sensor)) {
+                            sensorDataMap.set(sensor, {
+                                sensor,
+                                records: [],
+                                totalRecords: 0
+                            });
+                        }
+                        const data = sensorDataMap.get(sensor);
+                        data.records.push({
+                            timestamp: event.args.timestamp.toString(),
+                            values: event.args.values.map(v => v.toString())
+                        });
+                        data.totalRecords++;
+                    });
+                    
+                    // Get latest record for each sensor
+                    const sensorRecords = Array.from(sensorDataMap.values()).map(data => {
+                        const latestRecord = data.records.length > 0 
+                            ? data.records[data.records.length - 1]
+                            : { timestamp: '0', values: [] };
+                        
+                        return {
+                            sensor: data.sensor,
+                            totalRecords: data.totalRecords.toString(),
+                            latestRecord
+                        };
+                    });
+                    
+                    setStoreData({
+                        address: storeAddress,
+                        nickname: nickname || 'Unnamed Store',
+                        description: metadata.description || '',
+                        pointer: metadata.pointer || '',
+                        deployedBlock: metadata.deployedBlock || 0,
+                        lastUpdatedBlock: metadata.lastUpdatedBlock || 0,
+                        owner,
+                        fields: fields.map(f => ({
+                            name: f.name,
+                            unit: f.unit,
+                            dtype: f.dtype,
+                            dataType: f.dtype
+                        })),
+                        authorizedSensors,
+                        sensorRecords,
+                        totalRecords: sensorRecords.reduce((acc, r) => acc + parseInt(r.totalRecords), 0)
+                    });
+                    setError(null);
+                    setInitialLoad(false);
+                } catch (err) {
+                    console.error('Error loading store data:', err);
+                    setError('Failed to load store data');
+                    setStoreData(null);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            // Handle store selection
+            const selectStore = (store) => {
+                setSelectedStore(store);
+                loadStoreData(store.address);
+            };
+            
+            // Switch chain
+            const switchChain = async (targetChainId) => {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: `0x${targetChainId.toString(16)}` }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        // Chain not added - you would add chain config here
+                        setError('Please add this chain to your wallet');
+                    } else {
+                        setError('Failed to switch chain');
+                    }
+                }
+            };
+            
+            // Listen for account/chain changes
+            useEffect(() => {
+                if (!window.ethereum) return;
+                
+                const handleAccountsChanged = (accounts) => {
+                    if (accounts.length === 0) {
+                        setAccount(null);
+                        setWalletClient(null);
+                        setPublicClient(null);
+                    } else if (accounts[0] !== account) {
+                        window.location.reload();
+                    }
+                };
+                
+                const handleChainChanged = () => {
+                    window.location.reload();
+                };
+                
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', handleChainChanged);
+                
+                return () => {
+                    window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+                    window.ethereum.removeListener('chainChanged', handleChainChanged);
+                };
+            }, [account]);
+
+            return (
+                <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 md:p-8`}>
+                    {/* Modern Overlay: Block Display + Theme Selector */}
+                    <div className="fixed top-4 right-4 z-50 flex items-center space-x-2">
+                        {/* Combined Container */}
+                        <div className={`flex items-center rounded-full backdrop-blur-md transition-all duration-300 ${
+                            theme === 'dark' 
+                                ? 'bg-gray-900/80 border border-gray-700/30' 
+                                : 'bg-white/80 border border-gray-200/30 shadow-xl'
+                        }`}>
+                            {/* Block Display for JBC Chain */}
+                            {chainId === 8899 && blockNumber && (
+                                <div className="flex items-center space-x-2 px-4 py-2">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                        blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+                                    } animate-pulse`}></div>
+                                    <span className={`text-xs font-medium ${
+                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>Block</span>
+                                    <span className={`text-sm font-mono font-bold ${
+                                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                    }`}>
+                                        {blockNumber.toString()}
+                                    </span>
+                                    {showBlockIndicator && (
+                                        <span className={`text-xs ml-1 font-bold ${
+                                            blockTimer >= 10 
+                                                ? (theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600')
+                                                : (theme === 'dark' ? 'text-green-400' : 'text-green-600')
+                                        }`}>
+                                            ({blockTimer}s)
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* Divider */}
+                            {chainId === 8899 && blockNumber && (
+                                <div className={`w-px h-6 ${
+                                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-300'
+                                }`}></div>
+                            )}
+                            
+                            {/* Theme Switcher */}
+                            <button
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${
+                                    theme === 'dark' 
+                                        ? 'hover:bg-gray-800 text-yellow-400' 
+                                        : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                            >
+                                {theme === 'dark' ? (
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="max-w-7xl mx-auto">
+                        <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-purple-400 to-pink-600 text-transparent bg-clip-text">
+                            IoT Factory Dashboard
+                        </h1>
+                        
+                        {/* Mode Selection Tabs */}
+                        <div className="flex space-x-4 mb-8 flex-wrap">
+                            <button
+                                onClick={() => setViewMode('public')}
+                                className={`px-4 py-2 rounded-lg transition-colors ${
+                                    viewMode === 'public' 
+                                        ? 'bg-purple-600 text-white' 
+                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                            >
+                                User Stores
+                            </button>
+                            <button
+                                onClick={() => setViewMode('direct')}
+                                className={`px-4 py-2 rounded-lg transition-colors ${
+                                    viewMode === 'direct' 
+                                        ? 'bg-purple-600 text-white' 
+                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                            >
+                                Direct Store View
+                            </button>
+                            <button
+                                onClick={() => setViewMode('wallet')}
+                                className={`px-4 py-2 rounded-lg transition-colors ${
+                                    viewMode === 'wallet' 
+                                        ? 'bg-purple-600 text-white' 
+                                        : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                            >
+                                Connect Wallet
+                            </button>
+                        </div>
+                        
+                        {/* Connection/View Section */}
+                        <div className={`rounded-lg p-6 mb-8 border ${
+                            theme === 'dark' 
+                                ? 'bg-gray-800 border-gray-700' 
+                                : 'bg-white border-gray-200 shadow-sm'
+                        }`}>
+                            {viewMode === 'direct' ? (
+                                <div>
+                                    <h2 className="text-2xl font-semibold mb-4">Direct Store View</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                                                Select Chain
+                                            </label>
+                                            <select 
+                                                value={selectedChain}
+                                                onChange={(e) => setSelectedChain(parseInt(e.target.value))}
+                                                className={`w-full md:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                                                    theme === 'dark'
+                                                        ? 'bg-gray-700 border-gray-600 text-white'
+                                                        : 'bg-gray-50 border-gray-300 text-gray-900'
+                                                } border`}
+                                            >
+                                                <option value={8899}>JIBCHAIN L1</option>
+                                                <option value={700011}>SiChang</option>
+                                                <option value={31337}>Anvil (Local)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                                                Enter Store Contract Address
+                                            </label>
+                                            <div className="flex space-x-2">
+                                                <input
+                                                    type="text"
+                                                    value={directStoreAddress}
+                                                    onChange={(e) => setDirectStoreAddress(e.target.value)}
+                                                    placeholder="0x..."
+                                                    className={`flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm ${
+                                                        theme === 'dark'
+                                                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                                                            : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
+                                                    } border`}
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        if (directStoreAddress) {
+                                                            setSelectedStore({ address: directStoreAddress, nickname: 'Direct View' });
+                                                            loadStoreData(directStoreAddress);
+                                                        }
+                                                    }}
+                                                    disabled={loading || !directStoreAddress}
+                                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    {loading ? 'Loading...' : 'View Store'}
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Example stores */}
+                                            <div className="mt-3">
+                                                <p className="text-xs text-gray-400 mb-2">Example stores on JIBCHAIN L1:</p>
+                                                <div className="space-y-1">
+                                                    <button
+                                                        onClick={() => setDirectStoreAddress('0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8')}
+                                                        className="block text-xs text-purple-400 hover:text-purple-300 font-mono"
+                                                    >
+                                                        0xc887E6FEdF2879ca0731F9b5d3D077F43f53D6e8 (Latest with metadata)
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setDirectStoreAddress('0x3b83A7Ba23bf71946739E96200e947cc827918d9')}
+                                                        className="block text-xs text-purple-400 hover:text-purple-300 font-mono"
+                                                    >
+                                                        0x3b83A7Ba23bf71946739E96200e947cc827918d9
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : viewMode === 'public' ? (
+                                <div>
+                                    <h2 className="text-2xl font-semibold mb-4">User Stores View</h2>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                                                Select Chain
+                                            </label>
+                                            <select 
+                                                value={selectedChain}
+                                                onChange={(e) => setSelectedChain(parseInt(e.target.value))}
+                                                className={`w-full md:w-auto px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                                                    theme === 'dark'
+                                                        ? 'bg-gray-700 border-gray-600 text-white'
+                                                        : 'bg-gray-50 border-gray-300 text-gray-900'
+                                                } border`}
+                                            >
+                                                <option value={8899}>JIBCHAIN L1</option>
+                                                <option value={700011}>SiChang</option>
+                                                <option value={31337}>Anvil (Local)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-400 mb-2">
+                                                Enter Address to View Stores
+                                            </label>
+                                            <div className="flex space-x-2">
+                                                <input
+                                                    type="text"
+                                                    value={publicAddress}
+                                                    onChange={(e) => setPublicAddress(e.target.value)}
+                                                    placeholder="0x..."
+                                                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-white placeholder-gray-400"
+                                                />
+                                                <button
+                                                    onClick={loadPublicStores}
+                                                    disabled={loading || !publicAddress}
+                                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                                                >
+                                                    {loading ? 'Loading...' : 'View Stores'}
+                                                </button>
+                                            </div>
+                                            
+                                            {/* Example addresses */}
+                                            <div className="mt-3">
+                                                <p className="text-xs text-gray-400 mb-1">Try these example addresses:</p>
+                                                <button
+                                                    onClick={() => setPublicAddress('0xDE06Fd88f43F616c65a2274DC67ff53FDdE67c84')}
+                                                    className="text-xs text-purple-400 hover:text-purple-300 font-mono mr-3"
+                                                >
+                                                    0xDE06...67c84
+                                                </button>
+                                                <button
+                                                    onClick={() => setPublicAddress('0x76Bf2C3D38DfE6ECc7d17886bBed1193970b346e')}
+                                                    className="text-xs text-purple-400 hover:text-purple-300 font-mono"
+                                                >
+                                                    0x76Bf...b346e
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        {CONTRACTS[chainId] && (
+                                            <p className="text-gray-400 text-sm">
+                                                Factory Contract: <span className="text-white font-mono">
+                                                    {formatAddress(CONTRACTS[chainId].DEPLOYER_ADDRESS)}
+                                                </span>
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <h2 className="text-2xl font-semibold mb-4">Wallet Connection</h2>
+                                    
+                                    {!account ? (
+                                        <button
+                                            onClick={connectWallet}
+                                            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                        >
+                                            Connect Wallet
+                                        </button>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <p className="text-gray-400">
+                                                Connected: <span className="text-white font-mono">{formatAddress(account)}</span>
+                                            </p>
+                                            <p className="text-gray-400">
+                                                Chain: <span className="text-white">
+                                                    {chainId === 31337 ? 'Anvil (Local)' : 
+                                                     chainId === 8899 ? 'JIBCHAIN L1' : 
+                                                     chainId === 700011 ? 'SiChang' : 'Unknown'}
+                                                </span>
+                                            </p>
+                                            {CONTRACTS[chainId] && (
+                                                <p className="text-gray-400">
+                                                    Factory: <span className="text-white font-mono text-sm">
+                                                        {formatAddress(CONTRACTS[chainId].DEPLOYER_ADDRESS)}
+                                                    </span>
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {error && <ErrorDisplay error={error} onRetry={viewMode === 'wallet' && !account ? connectWallet : loadPublicStores} />}
+                        </div>
+                        
+                        {/* Visualization - Show Floodboy sensor when store data is available */}
+                        {storeData && (
+                            <div className={`rounded-lg p-6 mb-8 border ${
+                                theme === 'dark' 
+                                    ? 'bg-gray-800 border-gray-700' 
+                                    : 'bg-white border-gray-200 shadow-sm'
+                            }`}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center space-x-3">
+                                        <h2 className={`text-2xl font-semibold ${
+                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                        }`}>Sensor Live View</h2>
+                                        {storeData.nickname && (
+                                            <span className={`text-lg px-3 py-1 rounded-full ${
+                                                theme === 'dark' 
+                                                    ? 'bg-purple-900/30 text-purple-400 border border-purple-700/50' 
+                                                    : 'bg-purple-100 text-purple-700 border border-purple-300'
+                                            }`}>
+                                                {storeData.nickname}
+                                            </span>
+                                        )}
+                                    </div>
+                                    {chainId === 8899 && blockNumber && (
+                                        <div className="flex items-center">
+                                            <span className={`w-2 h-2 ${
+                                                blockTimer >= 10 ? 'bg-yellow-500' : 'bg-green-500'
+                                            } rounded-full mr-2 animate-pulse`}></span>
+                                            <span className={`text-sm ${
+                                                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                            }`}>
+                                                Current Block:
+                                            </span>
+                                            <span className="text-sm font-mono text-purple-400 ml-2">
+                                                {blockNumber.toString()}
+                                            </span>
+                                            {showBlockIndicator && (
+                                                <span className={`text-xs ml-2 font-semibold ${
+                                                    blockTimer >= 10 
+                                                        ? (theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600')
+                                                        : (theme === 'dark' ? 'text-green-400' : 'text-green-600')
+                                                }`}>
+                                                    ({blockTimer}s)
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                <FloodboyVisualization storeData={storeData} currentBlock={currentBlock} />
+                            </div>
+                        )}
+                        
+                        {/* Stores List or Direct Store View */}
+                        {((viewMode === 'wallet' && account) || (viewMode === 'public' && publicAddress) || (viewMode === 'direct' && selectedStore)) && (
+                            <div className={`grid grid-cols-1 ${viewMode === 'direct' ? '' : 'lg:grid-cols-2'} gap-8`}>
+                                {/* Only show stores list if not in direct mode */}
+                                {viewMode !== 'direct' && (
+                                    <div className={`rounded-lg p-6 border ${
+                                        theme === 'dark' 
+                                            ? 'bg-gray-800 border-gray-700' 
+                                            : 'bg-white border-gray-200 shadow-sm'
+                                    }`}>
+                                        <h2 className={`text-2xl font-semibold mb-4 ${
+                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                        }`}>
+                                            {viewMode === 'wallet' ? 'Your Sensor Stores' : 'Sensor Stores'}
+                                        </h2>
+                                        
+                                        {loading && !stores.length ? (
+                                            <LoadingSkeleton lines={3} />
+                                        ) : stores.length === 0 ? (
+                                            <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>No stores found. Deploy your first store from the main app.</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {stores.map((store) => (
+                                                    <div
+                                                        key={store.address}
+                                                        onClick={() => selectStore(store)}
+                                                        className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                                                            selectedStore?.address === store.address
+                                                                ? theme === 'dark' 
+                                                                    ? 'border-purple-500 bg-purple-900/20'
+                                                                    : 'border-purple-500 bg-purple-50'
+                                                                : theme === 'dark' 
+                                                                    ? 'border-gray-700 hover:border-purple-400'
+                                                                    : 'border-gray-200 hover:border-purple-400'
+                                                        }`}
+                                                    >
+                                                        <h3 className={`font-semibold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>{store.nickname}</h3>
+                                                        <p className={`text-sm font-mono ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>{formatAddress(store.address)}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                {/* Store Details */}
+                                <div className={`rounded-lg p-6 border ${viewMode === 'direct' ? 'lg:col-span-2' : ''} ${
+                                    theme === 'dark' 
+                                        ? 'bg-gray-800 border-gray-700' 
+                                        : 'bg-white border-gray-200 shadow-sm'
+                                }`}>
+                                    <div>
+                                        <h2 className={`text-xl font-semibold mb-2 ${
+                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-700'
+                                        }`}>Store Details</h2>
+                                        <p className={`text-sm mb-6 ${
+                                            theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
+                                        }`}>View store information, data, and manage access</p>
+                                    </div>
+                                    
+                                    {!selectedStore ? (
+                                        <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Select a store to view details</p>
+                                    ) : loading ? (
+                                        <LoadingSkeleton lines={5} />
+                                    ) : storeData ? (
+                                        <div className="space-y-6">
+                                            {/* Store Header */}
+                                            <div>
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div>
+                                                        <h3 className="text-3xl font-bold mb-2">
+                                                            {storeData.nickname || selectedStore?.nickname || 'Unnamed Store'}
+                                                        </h3>
+                                                        <div className="flex items-center space-x-2">
+                                                            <span className="font-mono text-gray-400 text-sm">{storeData.address}</span>
+                                                            <button 
+                                                                onClick={() => navigator.clipboard.writeText(storeData.address)}
+                                                                className="text-gray-400 hover:text-gray-300 transition-colors"
+                                                                title="Copy address"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="flex flex-col items-end space-y-2">
+                                                        {/* Status badges */}
+                                                        <div className="flex items-center space-x-2">
+                                                            {storeData.owner === account && (
+                                                                <span className="px-3 py-1 bg-purple-600/20 text-purple-400 border border-purple-500 rounded-full text-xs font-medium">Owner</span>
+                                                            )}
+                                                            <span className="px-3 py-1 bg-green-600/20 text-green-400 border border-green-500 rounded-full text-xs font-medium flex items-center">
+                                                                <span className="w-2 h-2 bg-green-400 rounded-full mr-1.5"></span> Live
+                                                            </span>
+                                                            <span className="px-3 py-1 bg-blue-600/20 text-blue-400 border border-blue-500 rounded-full text-xs font-medium">
+                                                                Public View
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <a 
+                                                            href={`${CONTRACTS[chainId]?.EXPLORER_URL}/address/${storeData.address}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-purple-400 hover:text-purple-300 text-sm flex items-center transition-colors"
+                                                        >
+                                                            View on explorer 
+                                                            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                            </svg>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Stats Grid */}
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className={`p-4 rounded-lg ${
+                                                        theme === 'dark' 
+                                                            ? 'bg-gray-700/50' 
+                                                            : 'bg-gray-100'
+                                                    }`}>
+                                                        <p className={`text-xs uppercase tracking-wider mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>Total Fields</p>
+                                                        <p className={`text-2xl font-bold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>{storeData.fields.length}</p>
+                                                    </div>
+                                                    <div className={`p-4 rounded-lg ${
+                                                        theme === 'dark' 
+                                                            ? 'bg-gray-700/50' 
+                                                            : 'bg-gray-100'
+                                                    }`}>
+                                                        <p className={`text-xs uppercase tracking-wider mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>Total Records</p>
+                                                        <p className={`text-2xl font-bold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>{storeData.totalRecords}</p>
+                                                    </div>
+                                                    <div className={`p-4 rounded-lg ${
+                                                        theme === 'dark' 
+                                                            ? 'bg-gray-700/50' 
+                                                            : 'bg-gray-100'
+                                                    }`}>
+                                                        <p className={`text-xs uppercase tracking-wider mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>Authorized Sensors</p>
+                                                        <p className={`text-2xl font-bold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>{storeData.authorizedSensors.length}</p>
+                                                    </div>
+                                                    <div className={`p-4 rounded-lg ${
+                                                        theme === 'dark' 
+                                                            ? 'bg-gray-700/50' 
+                                                            : 'bg-gray-100'
+                                                    }`}>
+                                                        <p className={`text-xs uppercase tracking-wider mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>Owner</p>
+                                                        <p className={`text-sm font-mono ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`} title={storeData.owner}>{formatAddress(storeData.owner)}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Store Metadata */}
+                                            {true && (
+                                                <div className={`rounded-lg p-6 border ${
+                                                    theme === 'dark' 
+                                                        ? 'bg-gray-800 border-gray-700' 
+                                                        : 'bg-white border-gray-200 shadow-sm'
+                                                }`}>
+                                                    <div className="flex items-center mb-4">
+                                                        <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <h3 className={`text-lg font-semibold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>Store Information</h3>
+                                                    </div>
+                                                    
+                                                    <div className="mb-4">
+                                                        <p className={`text-sm font-medium mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>Description</p>
+                                                        <p className={`text-sm ${
+                                                            theme === 'dark' ? 'text-gray-200' : 'text-gray-800'
+                                                        }`}>{storeData.description || 'No description provided'}</p>
+                                                    </div>
+                                                    
+                                                    <div className="mb-4">
+                                                        <p className={`text-sm font-medium mb-1 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>External Reference</p>
+                                                        {storeData.pointer ? (
+                                                            <a 
+                                                                href={storeData.pointer.startsWith('http') ? storeData.pointer : `https://${storeData.pointer}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-sm text-purple-400 hover:text-purple-300 underline"
+                                                            >
+                                                                {storeData.pointer}
+                                                            </a>
+                                                        ) : (
+                                                            <p className={`text-sm ${
+                                                                theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
+                                                            }`}>No external reference</p>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center space-x-4 text-xs">
+                                                        <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>
+                                                            Deployed at block #{storeData.deployedBlock || 'Unknown'}
+                                                        </span>
+                                                        {storeData.lastUpdatedBlock > 0 && (
+                                                            <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>
+                                                                • Updated at block #{storeData.lastUpdatedBlock}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {/* Fields Configuration */}
+                                            <div className={`rounded-lg p-6 border ${
+                                                theme === 'dark' 
+                                                    ? 'bg-gray-800 border-gray-700' 
+                                                    : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
+                                                <div className="flex items-center mb-4">
+                                                    <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                                    </svg>
+                                                    <h3 className={`text-lg font-semibold ${
+                                                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                    }`}>Fields Configuration</h3>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    {storeData.fields.map((field, index) => (
+                                                        <div key={index} className={`flex items-center justify-between p-3 rounded-lg border ${
+                                                            theme === 'dark' 
+                                                                ? 'bg-gray-700/50 border-gray-600' 
+                                                                : 'bg-gray-50 border-gray-200'
+                                                        }`}>
+                                                            <div className="flex items-center space-x-3">
+                                                                <span className={`text-sm font-medium ${
+                                                                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                                                                }`}>{index + 1}.</span>
+                                                                <div>
+                                                                    <p className={`text-sm font-medium ${
+                                                                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                                    }`}>{field.name}</p>
+                                                                    <p className={`text-xs ${
+                                                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                                    }`}>Type: {field.dataType}</p>
+                                                                </div>
+                                                            </div>
+                                                            <span className={`text-sm px-2 py-1 rounded ${
+                                                                theme === 'dark' 
+                                                                    ? 'text-gray-400 bg-gray-700' 
+                                                                    : 'text-gray-600 bg-gray-100'
+                                                            }`}>{field.unit}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Current Readings */}
+                                            {storeData.sensorRecords.some(r => r.latestRecord.timestamp !== '0') && (
+                                                <div className={`rounded-lg p-6 border ${
+                                                    theme === 'dark' 
+                                                        ? 'bg-gray-800 border-gray-700' 
+                                                        : 'bg-white border-gray-200 shadow-sm'
+                                                }`}>
+                                                    <div className="flex items-center justify-between mb-6">
+                                                        <div className="flex items-center">
+                                                            <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                            </svg>
+                                                            <h3 className={`text-lg font-semibold ${
+                                                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                            }`}>Current Readings</h3>
+                                                        </div>
+                                                        <div className={`flex items-center text-sm ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>
+                                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            {getTimeAgo(storeData.sensorRecords.find(r => r.latestRecord.timestamp !== '0').latestRecord.timestamp)}
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {storeData.sensorRecords.filter(r => r.latestRecord.timestamp !== '0').map((record, recordIndex) => (
+                                                        <div key={record.sensor} className={recordIndex > 0 ? `mt-6 pt-6 border-t ${
+                                                            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+                                                        }` : ''}>
+                                                            <div className="space-y-4">
+                                                                {storeData.fields.map((field, index) => (
+                                                                    <div key={index} className="flex justify-between items-center">
+                                                                        <span className={`text-sm ${
+                                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                                        }`}>{field.name}</span>
+                                                                        <div className="text-right">
+                                                                            <div className={`font-mono text-lg font-medium ${
+                                                                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                                            }`}>
+                                                                                {formatValue(record.latestRecord.values[index] || 0, field.unit)}
+                                                                            </div>
+                                                                            <div className={`text-xs ${
+                                                                                theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                                            }`}>{field.unit}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            
+                                                            <div className={`mt-4 pt-4 border-t ${
+                                                                theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+                                                            }`}>
+                                                                <div className="flex justify-between items-center text-xs">
+                                                                    <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Sensor</span>
+                                                                    <span className={`font-mono ${
+                                                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                                    }`}>{formatAddress(record.sensor)}</span>
+                                                                </div>
+                                                                {record.latestRecord.timestamp && (
+                                                                    <div className="flex justify-between items-center text-xs mt-1">
+                                                                        <span className={theme === 'dark' ? 'text-gray-500' : 'text-gray-600'}>Timestamp</span>
+                                                                        <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>
+                                                                            {new Date(parseInt(record.latestRecord.timestamp) * 1000).toLocaleString()}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            
+                                            {/* Sensor Data Views */}
+                                            {storeData.sensorRecords.some(r => r.latestRecord.timestamp !== '0') && (
+                                                <SensorDataViews 
+                                                    storeAddress={selectedStore.address} 
+                                                    fields={storeData.fields}
+                                                    publicClient={publicClient}
+                                                    theme={theme}
+                                                    currentBlock={currentBlock}
+                                                />
+                                            )}
+                                            
+                                            {/* Sensor Access Control */}
+                                            <div className={`rounded-lg p-6 border ${
+                                                theme === 'dark' 
+                                                    ? 'bg-gray-800 border-gray-700' 
+                                                    : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
+                                                <div className="mb-6">
+                                                    <div className="flex items-center mb-2">
+                                                        <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                        </svg>
+                                                        <h3 className={`text-lg font-semibold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>Sensor Access Control</h3>
+                                                    </div>
+                                                    <p className={`text-sm ${
+                                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                    }`}>Manage authorized sensors ({storeData.authorizedSensors.length} authorized)</p>
+                                                </div>
+                                                
+                                                {storeData.owner === account && (
+                                                    <div className="mb-6">
+                                                        <label className={`block text-sm font-medium mb-2 ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-700'
+                                                        }`}>
+                                                            Add Authorized Sensor
+                                                        </label>
+                                                        <div className="flex space-x-2">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="0x... or comma-separated addresses"
+                                                                className={`flex-1 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm ${
+                                                                    theme === 'dark'
+                                                                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500'
+                                                                        : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                                                                } border`}
+                                                                disabled
+                                                            />
+                                                            <button className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm font-medium" disabled>
+                                                                Add
+                                                            </button>
+                                                        </div>
+                                                        <p className={`text-xs mt-2 ${
+                                                            theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
+                                                        }`}>Enter a single address or multiple comma-separated addresses</p>
+                                                    </div>
+                                                )}
+                                                
+                                                {storeData.authorizedSensors.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        {storeData.sensorRecords.map((record) => (
+                                                            <div key={record.sensor} className={`flex justify-between items-center p-3 rounded-lg border ${
+                                                                theme === 'dark' 
+                                                                    ? 'bg-gray-700/50 border-gray-600' 
+                                                                    : 'bg-gray-50 border-gray-200'
+                                                            }`}>
+                                                                <span className={`font-mono text-sm ${
+                                                                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                                                                }`}>{formatAddress(record.sensor)}</span>
+                                                                <span className={`text-xs px-2 py-1 rounded ${
+                                                                    theme === 'dark' 
+                                                                        ? 'text-gray-400 bg-gray-700' 
+                                                                        : 'text-gray-600 bg-gray-100'
+                                                                }`}>{record.totalRecords} submissions</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-8">
+                                                        <svg className={`w-12 h-12 mx-auto mb-3 ${
+                                                            theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
+                                                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                        </svg>
+                                                        <p className={`text-sm ${
+                                                            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                        }`}>No authorized sensors</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Public View URL */}
+                                            <div className={`rounded-lg p-6 border ${
+                                                theme === 'dark' 
+                                                    ? 'bg-gray-800 border-gray-700' 
+                                                    : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
+                                                <div className="mb-4">
+                                                    <div className="flex items-center mb-2">
+                                                        <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                        </svg>
+                                                        <h3 className={`text-lg font-semibold ${
+                                                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                        }`}>Public View URL</h3>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className={`p-4 rounded-lg font-mono text-sm break-all ${
+                                                    theme === 'dark' 
+                                                        ? 'bg-gray-900 text-gray-300' 
+                                                        : 'bg-gray-100 text-gray-700'
+                                                }`}>
+                                                    {window.location.origin}/blockchain.html?store={selectedStore.address}
+                                                </div>
+                                                
+                                                <div className="mt-4 flex items-center justify-between">
+                                                    <p className={`text-sm ${
+                                                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                                                    }`}>Share this URL to allow anyone to view sensor data without authentication</p>
+                                                    <button
+                                                        onClick={() => {
+                                                            const url = `${window.location.origin}/blockchain.html?store=${selectedStore.address}`;
+                                                            navigator.clipboard.writeText(url);
+                                                            // You could add a toast notification here
+                                                        }}
+                                                        className={`p-2 rounded-md transition-colors ${
+                                                            theme === 'dark'
+                                                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                                                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                                                        }`}
+                                                        title="Copy URL"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Public View URL */}
+                                            <div className={`rounded-lg p-6 border ${
+                                                theme === 'dark' 
+                                                    ? 'bg-gray-800 border-gray-700' 
+                                                    : 'bg-white border-gray-200 shadow-sm'
+                                            }`}>
+                                                <div className="flex items-center mb-4">
+                                                    <svg className="w-5 h-5 text-purple-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                    </svg>
+                                                    <h3 className={`text-lg font-semibold ${
+                                                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                                    }`}>Public View URL</h3>
+                                                </div>
+                                                <div className={`rounded-lg p-3 flex items-center space-x-2 ${
+                                                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                                                }`}>
+                                                    <input
+                                                        type="text"
+                                                        value={`${window.location.origin}/blockchain.html?store=${storeData.address}`}
+                                                        readOnly
+                                                        className={`flex-1 bg-transparent text-sm font-mono outline-none ${
+                                                            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                                                        }`}
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(`${window.location.origin}/blockchain.html?store=${storeData.address}`);
+                                                            // You could add a toast notification here
+                                                        }}
+                                                        className="text-purple-400 hover:text-purple-300 transition-colors p-1"
+                                                        title="Copy to clipboard"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <p className={`text-xs mt-3 ${
+                                                    theme === 'dark' ? 'text-gray-500' : 'text-gray-600'
+                                                }`}>Share this URL to allow anyone to view sensor data without authentication</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <ErrorDisplay error="Failed to load store data" onRetry={() => loadStoreData(selectedStore.address, false)} />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
