@@ -1730,6 +1730,12 @@ const pageTitle = aliasInfo
 							}, 'View on explorer ↗')
 						),
 						React.createElement('div', { className: 'space-y-4' },
+							// Store Name section - moved up
+							storeData?.nickname && React.createElement('div', { className: 'pb-4 border-b' },
+								React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Store Name'),
+								React.createElement('p', { className: 'text-lg font-semibold text-gray-900' }, storeData.nickname)
+							),
+							
 							// Stats grid - 4 columns like production
 							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
 								// Total Records
@@ -1759,12 +1765,8 @@ const pageTitle = aliasInfo
 									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
 								)
 							),
-							// Nickname and Description
-							(storeData?.nickname || storeData?.description) && React.createElement('div', { className: 'border-t pt-4 space-y-3' },
-								storeData?.nickname && React.createElement('div', {},
-									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Store Name'),
-									React.createElement('p', { className: 'text-gray-900 font-medium' }, storeData.nickname)
-								),
+							// Description section only (Store Name moved to top)
+							storeData?.description && React.createElement('div', { className: 'border-t pt-4 space-y-3' },
 								storeData?.description && React.createElement('div', {},
 									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Description'),
 									(() => {
