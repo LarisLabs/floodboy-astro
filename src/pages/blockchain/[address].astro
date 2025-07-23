@@ -1731,23 +1731,8 @@ const pageTitle = aliasInfo
 											React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
 											React.createElement('span', { className: 'font-mono' }, 
 												blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
-											),
-											blockNumber && React.createElement('span', { className: 'text-gray-500 ml-1' }, '(9s)')
+											)
 										),
-										React.createElement('div', {},
-											React.createElement('span', { className: 'font-medium' }, 'Last Updated: '),
-											React.createElement('span', {}, (() => {
-												if (!blockNumber) return 'Loading...';
-												// Calculate blockchain last update time based on block time (9 seconds ago)
-												const blockTime = new Date(Date.now() - (9 * 1000));
-												return blockTime.toLocaleTimeString('en-US', {
-													hour: 'numeric',
-													minute: '2-digit',
-													second: '2-digit',
-													hour12: true
-												});
-											})())
-										)
 									)
 								)
 							),
