@@ -1301,16 +1301,6 @@
                                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                                 }`}>{stats.max.toFixed(2)}</p>
                             </div>
-                            <div className={`p-3 rounded-lg ${
-                                theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'
-                            }`}>
-                                <p className={`text-xs ${
-                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
-                                }`}>Trend</p>
-                                <p className={`text-lg font-semibold ${
-                                    parseFloat(stats.trend) > 0 ? 'text-green-500' : parseFloat(stats.trend) < 0 ? 'text-red-500' : theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                }`}>{stats.trend > 0 ? '+' : ''}{stats.trend}%</p>
-                            </div>
                         </div>
                     )}
                     
