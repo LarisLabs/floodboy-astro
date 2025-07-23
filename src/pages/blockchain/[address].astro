@@ -1635,11 +1635,7 @@ const pageTitle = aliasInfo
 								className: 'text-blue-600 hover:text-blue-700 text-sm'
 							}, 'View on explorer ↗')
 						),
-						React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6' },
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
-							),
+						React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6' },
 							React.createElement('div', { className: 'text-center' },
 								React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
 								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
