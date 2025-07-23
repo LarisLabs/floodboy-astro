@@ -26,7 +26,7 @@ export const BLOCKCHAIN_CONFIG: BlockchainConfig = {
   },
   8899: { // JIBCHAIN L1
     NAME: "JIBCHAIN L1",
-    DEPLOYER_ADDRESS: "0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb", // CatLabFactory (signer-based)
+    DEPLOYER_ADDRESS: "0x904f1CCDb682f0E7b82387190C0EbF9015152BE7", // Updated Factory Contract (2025-07-14)
     EXPLORER_URL: "https://exp.jibchain.net",
   },
 };
