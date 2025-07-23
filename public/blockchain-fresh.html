@@ -305,7 +305,7 @@
                             values: values.map(v => v.toString())
                         },
                         currentBlock,
-                        totalRecords: 1000, // Default value as shown in the example
+                        totalRecords: 0, // Will be updated when loading historical data
                         lastEventBlock: null // Will be updated when loading historical data
                     };
                     
@@ -414,10 +414,14 @@
                     const groupedData = groupDataBy30Minutes(last3DaysData);
                     setHistoricalData(groupedData);
                     
-                    // Update last event block in store data
+                    // Update last event block and total records in store data
                     if (events.length > 0 && storeData) {
                         const lastEventBlock = events[events.length - 1].blockNumber;
-                        setStoreData(prev => ({ ...prev, lastEventBlock: Number(lastEventBlock).toLocaleString() }));
+                        setStoreData(prev => ({ 
+                            ...prev, 
+                            lastEventBlock: Number(lastEventBlock).toLocaleString(),
+                            totalRecords: events.length
+                        }));
                     }
                 } catch (error) {
                     console.error('Error loading historical data:', error);
@@ -506,74 +510,92 @@
                         {storeData && (
                             <>
                                 {/* Store Details */}
-                                <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-                                    {/* Header */}
-                                    <div className="mb-6">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <h1 className="text-2xl font-bold mb-2">FloodBoy001</h1>
-                                                <code className="text-sm bg-gray-100 px-3 py-1 rounded">{storeAddress}</code>
+                                <div className="bg-white rounded-lg shadow-sm border overflow-hidden mb-8">
+                                    {/* Header Section */}
+                                    <div className="bg-gray-50 px-6 py-4 border-b">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <h1 className="text-2xl font-bold">FloodBoy001</h1>
+                                                <div className="flex gap-2">
+                                                    <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                                        Live
+                                                    </span>
+                                                    <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                                        Public View
+                                                    </span>
+                                                </div>
                                             </div>
                                             <a
                                                 href={`${CONFIG.EXPLORER_URL}/address/${storeAddress}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                                                className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1"
                                             >
-                                                View on explorer →
+                                                View on explorer
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
                                             </a>
                                         </div>
-                                        
-                                        <div className="flex items-center gap-4 mt-4">
-                                            <div className="flex gap-2">
-                                                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
-                                                    Live
-                                                </span>
-                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                                                    Public View
-                                                </span>
+                                    </div>
+                                    
+                                    {/* Contract Info */}
+                                    <div className="px-6 py-4">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Contract Address</p>
+                                                <code className="text-sm bg-gray-100 px-3 py-1.5 rounded block break-all">{storeAddress}</code>
                                             </div>
-                                            <div className="text-sm text-gray-600">
-                                                Block: {storeData.currentBlock ? Number(storeData.currentBlock).toLocaleString() : 'Loading...'}
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Current Block</p>
+                                                <p className="text-sm font-medium">{storeData.currentBlock ? Number(storeData.currentBlock).toLocaleString() : 'Loading...'}</p>
                                             </div>
                                         </div>
                                         
-                                        {/* Inline metadata */}
-                                        <div className="mt-4 text-sm text-gray-600">
-                                            <div>Nickname: <span className="font-medium text-gray-900">FloodBoy001</span></div>
-                                            <div>Description: <span className="font-medium text-gray-900">FloodBoy001</span></div>
-                                            <div className="flex items-center gap-2">
-                                                <span>Last Updated Block:</span>
-                                                <span className="font-mono text-gray-900">{storeData.lastEventBlock || '5940747'}</span>
-                                                <a
-                                                    href={`${CONFIG.EXPLORER_URL}/block/${storeData.lastEventBlock || '5940747'}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-purple-600 hover:text-purple-800"
-                                                >
-                                                    View block →
-                                                </a>
+                                        <div className="grid md:grid-cols-2 gap-6 mt-4">
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Store Information</p>
+                                                <div className="space-y-1">
+                                                    <p className="text-sm"><span className="text-gray-600">Nickname:</span> <span className="font-medium">FloodBoy001</span></p>
+                                                    <p className="text-sm"><span className="text-gray-600">Description:</span> <span className="font-medium">FloodBoy001</span></p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Last Activity</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-mono">{storeData.lastEventBlock || '5940747'}</span>
+                                                    <a
+                                                        href={`${CONFIG.EXPLORER_URL}/block/${storeData.lastEventBlock || '5940747'}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-purple-600 hover:text-purple-800"
+                                                    >
+                                                        View block →
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
+                                    
                                     {/* Stats Grid */}
-                                    <div className="grid md:grid-cols-4 gap-6">
-                                        <div>
-                                            <div className="text-sm text-gray-600 mb-1">Total Fields</div>
-                                            <div className="text-2xl font-bold">{storeData.fields.length}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-sm text-gray-600 mb-1">Total Records</div>
-                                            <div className="text-2xl font-bold">{storeData.totalRecords || '1000'}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-sm text-gray-600 mb-1">Authorized Sensors</div>
-                                            <div className="text-2xl font-bold">0</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-sm text-gray-600 mb-1">Owner</div>
-                                            <div className="text-lg font-mono">{formatAddress(storeData.owner)}</div>
+                                    <div className="bg-gray-50 px-6 py-4 border-t">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Total Fields</div>
+                                                <div className="text-xl font-bold">{storeData.fields.length}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Total Records</div>
+                                                <div className="text-xl font-bold">{storeData.totalRecords || '0'}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Authorized Sensors</div>
+                                                <div className="text-xl font-bold">0</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Owner</div>
+                                                <div className="text-sm font-mono">{formatAddress(storeData.owner)}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
