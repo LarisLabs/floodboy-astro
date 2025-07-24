@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FloodBoy React App</title>
+    <title>FloodBoy React Demo</title>
     
-    <!-- React and Babel for JSX -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- React for UI -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Viem for blockchain interactions -->
+    <!-- Viem for blockchain -->
     <script type="module">
         import * as viem from 'https://esm.sh/viem@2.21.32';
         window.viem = viem;
@@ -24,563 +24,279 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
         
-        // Wait for Viem to be available
-        const waitForViem = () => {
-            return new Promise((resolve) => {
-                const checkViem = () => {
-                    if (window.viem) {
-                        resolve(window.viem);
-                    } else {
-                        setTimeout(checkViem, 100);
-                    }
-                };
-                checkViem();
-            });
-        };
-        
-        // Initialize Viem client
-        let viemClient = null;
-        const initializeViem = async () => {
-            if (viemClient) return viemClient;
-            
-            const viem = await waitForViem();
-            const { createPublicClient, http } = viem;
-            
-            // JIBCHAIN L1 chain definition
-            const jibchainL1 = {
-                id: 8899,
-                name: 'JIBCHAIN L1',
-                network: 'jibchain',
-                nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-                rpcUrls: {
-                    default: { http: ['https://rpc2-l1.jbc.xpool.pw'] },
-                    public: { http: ['https://rpc2-l1.jbc.xpool.pw'] }
-                }
-            };
-            
-            viemClient = createPublicClient({
-                chain: jibchainL1,
-                transport: http()
-            });
-            
-            return viemClient;
+        // Configuration - EXACT same as blockchain-simple.html
+        const CONFIG = {
+            STORE: '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb', // FloodBoy001
+            FACTORY: '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb',
+            RPC_URL: 'https://rpc-l1.jbc.xpool.pw',
+            CHAIN_ID: 8899,
+            EXPLORER_URL: 'https://exp.jibchain.net',
+            SENSOR: '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd' // Default sensor
         };
 
-        // Default contract constants
-        const DEFAULT_STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
-        const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
+        // EXACT same ABIs as blockchain-simple.html
+        const STORE_ABI = [
+            {
+                "inputs": [],
+                "name": "getAllFields",
+                "outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+                "name": "getLatestRecord",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "lastDataTimestamp",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        const FACTORY_ABI = [
+            {
+                "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "name": "storeToNickname",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+                "name": "getStoreMetadata",
+                "outputs": [
+                    {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+                    {"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+                    {"internalType": "string", "name": "description", "type": "string"},
+                    {"internalType": "string", "name": "pointer", "type": "string"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        // EXACT same utility functions as blockchain-simple.html
+        const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
         
-        // FloodBoy sensor presets - real contract addresses from stores page (expanded selection)
+        const formatValue = (value, unit) => {
+            if (!value || isNaN(value)) return '0';
+            const numValue = Number(value);
+            
+            const scalingMatch = unit.match(/x\s*(\d+)/i);
+            if (scalingMatch) {
+                const scale = parseInt(scalingMatch[1]);
+                return (numValue / scale).toFixed(scale >= 100 ? 2 : 1);
+            }
+            return numValue.toFixed(0);
+        };
+
+        // Wait for Viem
+        const waitForViem = () => {
+            return new Promise((resolve) => {
+                const check = () => {
+                    if (window.viem) resolve(window.viem);
+                    else setTimeout(check, 100);
+                };
+                check();
+            });
+        };
+
+        // FloodBoy sensor presets for demo
         const FLOODBOY_PRESETS = [
-            // Batch 1 - Early deployment sensors
             { name: 'FloodBoy001', address: '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb', batch: 1 },
             { name: 'FloodBoy002', address: '0x81ECfbd31D86bc8f3A581bD2f7c0f54B7498AC94', batch: 1 },
             { name: 'FloodBoy003', address: '0x935B21D73bE382ba9D5Af56007502ea1d5E3348B', batch: 1 },
-            { name: 'FloodBoy011', address: '0xC7ca88151eC5869377e7478b8AB55f4d79558e2f', batch: 1 },
-            { name: 'FloodBoy013', address: '0x093800c0aB6958E702b0b0764eb044Bd2Ad35F19', batch: 1 },
-            { name: 'FloodBoy014', address: '0x5Be2ff7282EAD4B9280CA55F057442BFa2fdF438', batch: 1 },
             { name: 'FloodBoy015', address: '0x86A230780268E400F4f8B37eb9DCe565b8143A1D', batch: 1 },
-            { name: 'FloodBoy017', address: '0xE7a15b70Af3545813CFA5b693cC3bB6A4431d7D3', batch: 1 },
-            { name: 'FloodBoy019', address: '0xFec1d835318b7Cfe60f9D91Ec7214Eed813d2501', batch: 1 },
-            { name: 'FloodBoy020', address: '0x1701A62B62813160dE104461573A9e6069405655', batch: 1 },
-            
-            // Batch 2 - Mid deployment
-            { name: 'FloodBoy025', address: '0x8794901C3Fec5a99a870E3A996ecB419608613Dd', batch: 2 },
-            { name: 'FloodBoy030', address: '0xCDb87B98aFAE5dA56bc115ffBA8619819dcc7a4f', batch: 2 },
-            { name: 'FloodBoy035', address: '0xdE7C6d2Ce38E60cBC0e051A0aC59FAddb69eB7fF', batch: 2 },
-            { name: 'FloodBoy040', address: '0x68ccd0049Da498bf9e3314a3f70A327a205aa7b3', batch: 2 },
-            
-            // Batch 3 - Later deployment
-            { name: 'FloodBoy050', address: '0x171BF0F4Ccce0ce6Fa22D83A7691C51321167e9B', batch: 3 },
-            { name: 'FloodBoy060', address: '0x6A891076a01b8e3C6D91f047e8A9B9Bf88C06124', batch: 3 },
-            
-            // Batch 4 - Recent deployment
-            { name: 'FloodBoy070', address: '0xb20E14EEDD4e818930b6294FCA3FF9A2a34AaCFf', batch: 4 },
-            { name: 'FloodBoy080', address: '0x2A9046822cE79867b55c794eee14033C0e820D40', batch: 4 },
-            
-            // Batch 5 - Latest deployment
-            { name: 'FloodBoy090', address: '0xcCdED0B3262561d7f2702bF3720c874a1d099F7a', batch: 5 },
-            { name: 'FloodBoy100', address: '0x569b4fEC8f0DF90eBAd3f1b15fE729Dc124dca9C', batch: 5 }
+            { name: 'FloodBoy025', address: '0x8794901C3Fec5a99a870E3A996ecB419608613Dd', batch: 2 }
         ];
-        
-        // Simple ABI for event logs
-        const RECORD_STORED_EVENT = {
-            type: 'event',
-            name: 'RecordStored',
-            inputs: [
-                { name: 'sensor', type: 'address', indexed: true },
-                { name: 'timestamp', type: 'uint256', indexed: false },
-                { name: 'values', type: 'int256[]', indexed: false }
-            ]
-        };
 
-        // Function to fetch historical event logs using Viem with proper block range strategy
-        const fetchSensorDataFromLogs = async (storeAddress) => {
-            try {
-                console.log('Fetching historical event logs for store:', storeAddress);
-                
-                // Initialize Viem client
-                const client = await initializeViem();
-                
-                // Get current block number and use proper deployment block strategy
-                const currentBlock = await client.getBlockNumber();
-                // Use known JIBCHAIN L1 deployment block for efficiency (around block 5.9M)
-                const deploymentBlock = BigInt(5900000);
-                const fromBlock = deploymentBlock; // Get ALL records since deployment
-                
-                console.log(`Searching from deployment block ${fromBlock.toString()} (${currentBlock - fromBlock} blocks) to latest`);
-                
-                // Fetch RecordStored events using Viem with robust error handling
-                const eventLogs = await client.getLogs({
-                    address: storeAddress,
-                    event: RECORD_STORED_EVENT,
-                    fromBlock: fromBlock,
-                    toBlock: 'latest'
-                }).catch((err) => {
-                    console.log('Event loading failed, using fallback:', err.message);
-                    return []; // Return empty array as fallback
-                });
-                
-                console.log(`Found ${eventLogs.length} RecordStored events over ${currentBlock - fromBlock} blocks`);
-                
-                if (eventLogs.length === 0) {
-                    console.log('No events found, falling back to contract call...');
-                    throw new Error('No RecordStored events found for this contract');
-                }
-                
-                // Process all events with robust filtering and sorting
-                const processedRecords = processRecordLogs(eventLogs);
-                
-                if (processedRecords.length === 0) {
-                    throw new Error('No valid event records after processing');
-                }
-                
-                // Convert to historical data format
-                return convertToHistoricalData(processedRecords);
-                
-            } catch (err) {
-                console.error('Error fetching sensor data from logs:', err);
-                console.log('Falling back to direct contract calls...');
-                return await fetchSensorDataFromContract(storeAddress);
-            }
-        };
-        
-        // Function to process event logs with robust filtering and sorting
-        const processRecordLogs = (logs) => {
-            console.log(`Processing ${logs.length} raw event logs`);
-            
-            const validRecords = logs
-                .filter(log => {
-                    // Filter for valid logs with required fields
-                    return log.args && 
-                           log.args.sensor && 
-                           log.args.timestamp && 
-                           log.args.values &&
-                           log.args.values.length >= 3;
-                })
-                .map(log => ({
-                    sensor: log.args.sensor,
-                    timestamp: Number(log.args.timestamp),
-                    values: log.args.values.map(v => Number(v)),
-                    blockNumber: log.blockNumber,
-                    transactionHash: log.transactionHash
-                }))
-                .sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending (newest first)
-            
-            console.log(`Filtered to ${validRecords.length} valid records`);
-            return validRecords;
-        };
-        
-        // Function to convert processed records to historical data format
-        const convertToHistoricalData = (processedRecords) => {
-            try {
-                console.log(`Converting ${processedRecords.length} records to historical data`);
-                
-                if (processedRecords.length === 0) {
-                    throw new Error('No records to process');
-                }
-                
-                // Get latest record for current readings
-                const latestRecord = processedRecords[0];
-                const { timestamp, values } = latestRecord;
-                
-                console.log('Latest record:', { 
-                    timestamp: new Date(timestamp * 1000).toISOString(),
-                    values: values.map(v => v.toString())
-                });
-                
-                // Process current readings from latest record
-                const currentReadings = [
-                    {
-                        name: 'WATER DEPTH',
-                        value: (values[0] / 10000).toFixed(2),
-                        unit: 'm',
-                        raw: values[0].toString(),
-                        color: 'blue',
-                        timestamp: new Date(timestamp * 1000)
-                    },
-                    {
-                        name: 'BATTERY VOLTAGE',
-                        value: (values[1] / 100).toFixed(2),
-                        unit: 'V',
-                        raw: values[1].toString(),
-                        color: 'green',
-                        timestamp: new Date(timestamp * 1000)
-                    },
-                    {
-                        name: 'INSTALLATION HEIGHT',
-                        value: (values[2] / 10000).toFixed(2),
-                        unit: 'm',
-                        raw: values[2].toString(),
-                        color: 'purple',
-                        timestamp: new Date(timestamp * 1000)
-                    }
-                ];
-                
-                // Process ALL records for historical timeline (up to 50 for performance)
-                const maxRecords = Math.min(processedRecords.length, 50);
-                const historicalData = processedRecords
-                    .slice(0, maxRecords)
-                    .reverse() // Reverse to chronological order for chart
-                    .map(record => ({
-                        timestamp: new Date(record.timestamp * 1000),
-                        waterDepth: record.values[0] / 10000,
-                        batteryVoltage: record.values[1] / 100,
-                        installHeight: record.values[2] / 10000,
-                        blockNumber: record.blockNumber
-                    }));
-                
-                console.log(`Generated historical timeline with ${historicalData.length} data points`);
-                console.log('Time range:', {
-                    from: historicalData[0]?.timestamp.toISOString(),
-                    to: historicalData[historicalData.length - 1]?.timestamp.toISOString()
-                });
-                
-                return {
-                    currentReadings,
-                    historicalData,
-                    totalEvents: processedRecords.length,
-                    timeRange: {
-                        from: historicalData[0]?.timestamp,
-                        to: historicalData[historicalData.length - 1]?.timestamp
-                    }
-                };
-                
-            } catch (err) {
-                console.error('Error converting to historical data:', err);
-                throw err;
-            }
-        };
-        
-        // Utility function to format sensor preset display
-        const formatSensorOption = (preset) => {
-            return `${preset.name} (Batch ${preset.batch}) - ${preset.address.slice(0, 6)}...${preset.address.slice(-4)}`;
-        };
-        
-        // Enhanced fallback function using direct contract calls with Viem
-        const fetchSensorDataFromContract = async (storeAddress) => {
-            try {
-                console.log('Using enhanced contract call fallback');
-                
-                // Initialize Viem client
-                const client = await initializeViem();
-                
-                // getLatestRecord ABI
-                const getLatestRecordABI = {
-                    name: 'getLatestRecord',
-                    type: 'function',
-                    stateMutability: 'view',
-                    inputs: [{ name: 'sensor', type: 'address' }],
-                    outputs: [
-                        { name: '', type: 'uint256' },
-                        { name: '', type: 'int256[]' }
-                    ]
-                };
-                
-                // Call getLatestRecord using Viem
-                const [timestamp, values] = await client.readContract({
-                    address: storeAddress,
-                    abi: [getLatestRecordABI],
-                    functionName: 'getLatestRecord',
-                    args: [UNIVERSAL_SIGNER]
-                });
-                
-                console.log('Contract call result:', { 
-                    timestamp: timestamp.toString(), 
-                    values: values.map(v => v.toString()) 
-                });
-                
-                if (values.length < 3) {
-                    throw new Error('Insufficient sensor data from contract call');
-                }
-                
-                // Process current readings from contract call
-                const currentReadings = [
-                    {
-                        name: 'WATER DEPTH',
-                        value: (Number(values[0]) / 10000).toFixed(2),
-                        unit: 'm',
-                        raw: values[0].toString(),
-                        color: 'blue',
-                        timestamp: new Date(Number(timestamp) * 1000)
-                    },
-                    {
-                        name: 'BATTERY VOLTAGE',
-                        value: (Number(values[1]) / 100).toFixed(2),
-                        unit: 'V',
-                        raw: values[1].toString(),
-                        color: 'green',
-                        timestamp: new Date(Number(timestamp) * 1000)
-                    },
-                    {
-                        name: 'INSTALLATION HEIGHT',
-                        value: (Number(values[2]) / 10000).toFixed(2),
-                        unit: 'm',
-                        raw: values[2].toString(),
-                        color: 'purple',
-                        timestamp: new Date(Number(timestamp) * 1000)
-                    }
-                ];
-                
-                // Create single-point historical data for contract fallback
-                const currentTime = new Date(Number(timestamp) * 1000);
-                const historicalData = [{
-                    timestamp: currentTime,
-                    waterDepth: Number(values[0]) / 10000,
-                    batteryVoltage: Number(values[1]) / 100,
-                    installHeight: Number(values[2]) / 10000,
-                    blockNumber: null // Not available from contract call
-                }];
-                
-                return {
-                    currentReadings,
-                    historicalData,
-                    totalEvents: 1, // Only single point from contract
-                    isContractFallback: true,
-                    timeRange: {
-                        from: currentTime,
-                        to: currentTime
-                    }
-                };
-                
-            } catch (err) {
-                console.error('Error in contract call fallback:', err);
-                throw new Error('Failed to fetch sensor data: ' + err.message);
-            }
-        };
-
-        // Main React Component
-        function FloodBoyApp() {
+        // Main App Component
+        const App = () => {
+            const [loading, setLoading] = useState(true);
             const [data, setData] = useState(null);
-            const [loading, setLoading] = useState(false);
             const [error, setError] = useState(null);
             const [lastUpdate, setLastUpdate] = useState(null);
-            const [storeAddress, setStoreAddress] = useState(DEFAULT_STORE_ADDRESS);
+            const [storeAddress, setStoreAddress] = useState(CONFIG.STORE);
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
+            // EXACT same loadData function as blockchain-simple.html
             const loadData = async () => {
+                if (!storeAddress || !/^0x[a-fA-F0-9]{40}$/i.test(storeAddress)) {
+                    setError('Invalid contract address');
+                    setLoading(false);
+                    return;
+                }
+
                 setLoading(true);
                 setError(null);
                 
                 try {
-                    // Fetch sensor data from event logs using Viem (now returns full historical data)
-                    const sensorData = await fetchSensorDataFromLogs(storeAddress);
-                    
-                    // Set current readings for display cards
-                    setData(sensorData.currentReadings);
+                    console.log('🚀 Loading data from blockchain using WORKING method...');
+                    const viem = await waitForViem();
+                    const client = viem.createPublicClient({
+                        transport: viem.http(CONFIG.RPC_URL)
+                    });
+
+                    // EXACT same parallel data fetching as blockchain-simple.html
+                    const [fields, owner, [timestamp, values], nickname, metadata, lastDataTimestamp, blockNumber] = await Promise.all([
+                        // Store data
+                        client.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'getAllFields'
+                        }),
+                        client.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'owner'
+                        }),
+                        client.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'getLatestRecord',
+                            args: [CONFIG.SENSOR]
+                        }),
+                        // Factory data
+                        client.readContract({
+                            address: CONFIG.FACTORY,
+                            abi: FACTORY_ABI,
+                            functionName: 'storeToNickname',
+                            args: [storeAddress]
+                        }),
+                        client.readContract({
+                            address: CONFIG.FACTORY,
+                            abi: FACTORY_ABI,
+                            functionName: 'getStoreMetadata',
+                            args: [storeAddress]
+                        }),
+                        // Blockchain submission timestamp
+                        client.readContract({
+                            address: storeAddress,
+                            abi: STORE_ABI,
+                            functionName: 'lastDataTimestamp'
+                        }),
+                        // Current block
+                        client.getBlockNumber()
+                    ]);
+
+                    console.log('✅ SUCCESS! Raw values from contract:', {
+                        timestamp: timestamp.toString(),
+                        values: values.map(v => v.toString()),
+                        fields: fields.map(f => f.name + ' (' + f.unit + ')')
+                    });
+
+                    // Parse description for location and GPS
+                    let location = null;
+                    let gps = null;
+                    if (metadata[2]) {
+                        const match = metadata[2].match(/^(.+?)\s+loc:\s*([\d.-]+),\s*([\d.-]+)$/);
+                        if (match) {
+                            location = match[1];
+                            gps = { lat: match[2], lng: match[3] };
+                        }
+                    }
+
+                    const processedData = {
+                        nickname,
+                        owner,
+                        fields: fields.map(f => ({ name: f.name, unit: f.unit })),
+                        values: values.map(v => v.toString()),
+                        timestamp: Number(timestamp),
+                        blockchainTimestamp: Number(lastDataTimestamp),
+                        location,
+                        gps,
+                        blockNumber: Number(blockNumber)
+                    };
+
+                    setData(processedData);
                     setLastUpdate(new Date());
-                    
-                    // Create/update chart with historical data with a small delay to ensure DOM is ready
-                    setTimeout(() => updateChart(sensorData), 100);
-                    
+                    setError(null);
+
+                    // Create simple chart with current values
+                    setTimeout(() => createChart(processedData), 100);
+
                 } catch (err) {
-                    console.error('Error in loadData:', err);
-                    setError(err.message);
+                    console.error('❌ Error loading data:', err);
+                    setError(`Failed to load data: ${err.message}`);
                 } finally {
                     setLoading(false);
                 }
             };
 
-            const updateChart = (sensorData) => {
-                // Always destroy previous chart instance
+            const createChart = (sensorData) => {
+                if (!chartRef.current || !sensorData) return;
+
+                // Destroy existing chart
                 if (chartInstance.current) {
                     chartInstance.current.destroy();
                     chartInstance.current = null;
                 }
 
-                // Check if canvas ref exists before trying to get context
-                if (!chartRef.current) {
-                    console.error('Canvas ref is null');
-                    return;
-                }
-
                 const ctx = chartRef.current.getContext('2d');
-                if (!ctx) {
-                    console.error('Could not get 2d context from canvas');
-                    return;
-                }
-
-                // Extract historical data for time series
-                const { historicalData, totalEvents, isContractFallback, timeRange } = sensorData;
                 
-                if (!historicalData || historicalData.length === 0) {
-                    console.error('No historical data available for chart');
-                    return;
-                }
-                
-                console.log(`Creating chart with ${historicalData.length} data points from ${totalEvents} total events`);
-                console.log('Time range:', timeRange);
-                
-                // Sort historical data by timestamp (should already be sorted, but ensure it)
-                const sortedData = [...historicalData].sort((a, b) => a.timestamp - b.timestamp);
-                
-                // Format timestamps for labels
-                const labels = sortedData.map(record => {
-                    const date = record.timestamp;
-                    if (sortedData.length === 1) {
-                        // Single point - show full date/time
-                        return date.toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                    } else {
-                        // Multiple points - show time only for readability
-                        return date.toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                    }
-                });
-                
-                // Create datasets for time series
-                const datasets = [
-                    {
-                        label: 'Water Depth (m)',
-                        data: sortedData.map(record => record.waterDepth),
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: sortedData.length === 1 ? 8 : 4,
-                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
-                        spanGaps: true
-                    },
-                    {
-                        label: 'Battery Voltage (V)',
-                        data: sortedData.map(record => record.batteryVoltage),
-                        borderColor: 'rgb(16, 185, 129)', 
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.4,
-                        yAxisID: 'y1',
-                        pointRadius: sortedData.length === 1 ? 8 : 4,
-                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
-                        spanGaps: true
-                    },
-                    {
-                        label: 'Installation Height (m)',
-                        data: sortedData.map(record => record.installHeight),
-                        borderColor: 'rgb(139, 92, 246)',
-                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                        tension: 0.4,
-                        pointRadius: sortedData.length === 1 ? 8 : 4,
-                        pointHoverRadius: sortedData.length === 1 ? 10 : 6,
-                        spanGaps: true
-                    }
-                ];
-                
-                // Chart title based on data source
-                const chartTitle = isContractFallback 
-                    ? 'FloodBoy Latest Reading (Contract Fallback)'
-                    : `FloodBoy Historical Data (${totalEvents} events, showing ${historicalData.length})`;
+                // Create a simple bar chart showing current sensor values
+                const chartData = {
+                    labels: sensorData.fields.map(f => f.name.replace('_', ' ').toUpperCase()),
+                    datasets: [{
+                        label: 'Current Values',
+                        data: sensorData.fields.map((field, i) => 
+                            parseFloat(formatValue(sensorData.values[i], field.unit)) || 0
+                        ),
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',  // Blue for water depth
+                            'rgba(16, 185, 129, 0.8)',  // Green for battery
+                            'rgba(139, 92, 246, 0.8)'   // Purple for installation height
+                        ],
+                        borderColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(16, 185, 129)', 
+                            'rgb(139, 92, 246)'
+                        ],
+                        borderWidth: 2
+                    }]
+                };
 
                 chartInstance.current = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels, datasets },
+                    type: 'bar',
+                    data: chartData,
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
-                        },
                         plugins: {
                             legend: {
-                                position: 'top',
+                                display: false
                             },
                             title: {
                                 display: true,
-                                text: chartTitle
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    title: function(context) {
-                                        const dataIndex = context[0].dataIndex;
-                                        const record = sortedData[dataIndex];
-                                        return record.timestamp.toLocaleString('en-US', {
-                                            weekday: 'short',
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit',
-                                            hour12: false
-                                        });
-                                    },
-                                    afterLabel: function(context) {
-                                        const dataIndex = context.dataIndex;
-                                        const record = sortedData[dataIndex];
-                                        return record.blockNumber ? `Block: ${record.blockNumber}` : '';
-                                    }
-                                }
+                                text: 'FloodBoy Sensor Readings'
                             }
                         },
                         scales: {
-                            x: {
-                                display: true,
-                                title: {
-                                    display: true,
-                                    text: 'Time'
-                                },
-                                ticks: {
-                                    maxTicksLimit: sortedData.length > 10 ? 10 : sortedData.length,
-                                    maxRotation: 45
-                                }
-                            },
                             y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
+                                beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: 'Depth / Height (m)'
-                                },
-                                beginAtZero: false
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                title: {
-                                    display: true,
-                                    text: 'Voltage (V)'
-                                },
-                                beginAtZero: false,
-                                grid: {
-                                    drawOnChartArea: false,
+                                    text: 'Values'
                                 }
                             }
                         }
@@ -588,184 +304,194 @@
                 });
             };
 
+            const formatSensorOption = (preset) => {
+                return `${preset.name} (Batch ${preset.batch}) - ${preset.address.slice(0, 6)}...${preset.address.slice(-4)}`;
+            };
+
+            // Auto-load data on mount and when store address changes
             useEffect(() => {
                 loadData();
-                
-                // Auto-refresh every 30 seconds
+            }, [storeAddress]);
+
+            // Auto-refresh every 30 seconds
+            useEffect(() => {
                 const interval = setInterval(loadData, 30000);
-                
-                return () => {
-                    clearInterval(interval);
-                    if (chartInstance.current) {
-                        chartInstance.current.destroy();
-                    }
-                };
-            }, []);
+                return () => clearInterval(interval);
+            }, [storeAddress]);
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                            <p className="text-gray-600">Loading FloodBoy data from blockchain...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (error) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
+                        <div className="bg-white rounded-lg shadow-lg p-8 max-w-lg mx-4">
+                            <div className="text-red-600 text-center">
+                                <div className="text-4xl mb-4">⚠️</div>
+                                <h2 className="text-xl font-bold mb-2">Error Loading Data</h2>
+                                <p className="text-sm text-gray-600 mb-4">{error}</p>
+                                <button 
+                                    onClick={loadData}
+                                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+                                >
+                                    Retry
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-                    <div className="container mx-auto px-4 max-w-6xl">
-                        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h1 className="text-3xl font-bold mb-2">🌊 FloodBoy Dashboard</h1>
-                                        <p className="text-blue-100">Real-time IoT flood monitoring on blockchain</p>
-                                    </div>
-                                    <button
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-7xl mx-auto px-4 py-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">FloodBoy React Demo</h1>
+                                    <p className="text-gray-600 mt-1">Real-time IoT flood monitoring from blockchain</p>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <button 
                                         onClick={loadData}
                                         disabled={loading}
-                                        className="px-6 py-3 bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded-lg transition-all duration-200 flex items-center gap-2"
+                                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                                     >
-                                        <span className={loading ? 'animate-spin' : ''}>🔄</span>
-                                        {loading ? 'Loading...' : 'Refresh'}
+                                        🔄 Refresh
                                     </button>
+                                    {lastUpdate && (
+                                        <div className="text-sm text-gray-500">
+                                            Updated: {lastUpdate.toLocaleTimeString()}
+                                        </div>
+                                    )}
                                 </div>
-                                
-                                {lastUpdate && (
-                                    <p className="text-blue-200 text-sm mt-2">
-                                        Last updated: {lastUpdate.toLocaleTimeString()}
-                                    </p>
-                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 py-8">
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            
+                            {/* Sensor Selection */}
+                            <div className="lg:col-span-3 bg-white rounded-xl shadow-sm p-6 mb-6">
+                                <h2 className="text-xl font-bold text-gray-800 mb-4">Select FloodBoy Sensor</h2>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <select
+                                        value={storeAddress}
+                                        onChange={(e) => setStoreAddress(e.target.value)}
+                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                        {FLOODBOY_PRESETS.map(preset => (
+                                            <option key={preset.address} value={preset.address}>
+                                                {formatSensorOption(preset)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="text"
+                                        value={storeAddress}
+                                        onChange={(e) => setStoreAddress(e.target.value)}
+                                        placeholder="Or enter custom contract address..."
+                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                                    />
+                                </div>
                             </div>
 
-                            <div className="p-6">
-                                {/* Contract Input */}
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                                    <div className="flex flex-col gap-4">
-                                        {/* FloodBoy Presets */}
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-700 mb-2 block">Quick Select FloodBoy Sensors:</label>
-                                            <select
-                                                onChange={(e) => setStoreAddress(e.target.value)}
-                                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
-                                                defaultValue=""
-                                            >
-                                                <option value="" disabled>Select a FloodBoy sensor...</option>
-                                                {FLOODBOY_PRESETS.map(preset => (
-                                                    <option key={preset.address} value={preset.address}>
-                                                        {formatSensorOption(preset)}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        
-                                        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                                            <label className="text-gray-700 text-sm font-medium min-w-fit">
-                                                Store Contract:
-                                            </label>
-                                            <div className="flex-1 flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={storeAddress}
-                                                    onChange={(e) => setStoreAddress(e.target.value)}
-                                                    placeholder="0x..."
-                                                    className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                />
-                                                <button
-                                                    onClick={loadData}
-                                                    disabled={loading || !storeAddress}
-                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 text-sm"
-                                                >
-                                                    Connect
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Loading State */}
-                                {loading && (
-                                    <div className="text-center py-12">
-                                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                                        <p className="text-gray-600">Fetching data from blockchain...</p>
-                                    </div>
-                                )}
-
-                                {/* Error State */}
-                                {error && (
-                                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-                                        <div className="flex items-center mb-2">
-                                            <span className="text-red-500 text-xl mr-2">❌</span>
-                                            <h3 className="text-red-800 font-bold">Error Loading Data</h3>
-                                        </div>
-                                        <p className="text-red-600 mb-4">{error}</p>
-                                        <button
-                                            onClick={loadData}
-                                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                        >
-                                            Try Again
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* Data Display */}
-                                {data && !loading && (
-                                    <div className="grid lg:grid-cols-2 gap-8">
-                                        {/* Sensor Cards */}
-                                        <div className="space-y-4">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Latest Readings</h2>
-                                            {data.map((item, index) => (
-                                                <div key={index} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                                                    <div className="flex justify-between items-center">
-                                                        <div>
-                                                            <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-                                                            <p className="text-sm text-gray-500">Raw: {item.raw}</p>
-                                                            {item.timestamp && (
-                                                                <p className="text-xs text-gray-400">
-                                                                    Latest: {item.timestamp.toLocaleString('en-US', {
-                                                                        year: 'numeric',
-                                                                        month: 'short', 
-                                                                        day: 'numeric',
-                                                                        hour: '2-digit',
-                                                                        minute: '2-digit',
-                                                                        hour12: false
-                                                                    })}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className={`text-3xl font-bold text-${item.color}-600`}>
-                                                                {item.value}
-                                                            </span>
-                                                            <span className="text-lg text-gray-600 ml-1">{item.unit}</span>
-                                                        </div>
+                            {/* Current Readings */}
+                            <div className="lg:col-span-2">
+                                <h2 className="text-xl font-bold text-gray-800 mb-6">Latest Readings</h2>
+                                <div className="space-y-4">
+                                    {data?.fields.map((field, i) => (
+                                        <div key={i} className="bg-gradient-to-r from-white to-gray-50 rounded-xl p-6 border border-gray-200 shadow-sm">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <p className="text-gray-600 text-sm font-medium uppercase tracking-wide">
+                                                        {field.name.replace('_', ' ')}
+                                                    </p>
+                                                    <div className="flex items-baseline mt-2">
+                                                        <span className={`text-3xl font-bold ${
+                                                            field.name.includes('water') ? 'text-blue-600' :
+                                                            field.name.includes('battery') ? 'text-green-600' : 
+                                                            'text-purple-600'
+                                                        }`}>
+                                                            {formatValue(data.values[i], field.unit)}
+                                                        </span>
+                                                        <span className="text-lg text-gray-600 ml-2">
+                                                            {field.unit.replace(/\s*x\s*\d+/gi, '')}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Historical Chart */}
-                                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
-                                            <h2 className="text-xl font-bold text-gray-800 mb-4">Historical Timeline</h2>
-                                            <div className="relative h-80">
-                                                <canvas ref={chartRef}></canvas>
-                                            </div>
-                                            <div className="mt-4 text-sm text-gray-600">
-                                                <p>📊 <strong>Timeline Data:</strong> Real blockchain events with timestamps</p>
-                                                <p>🔗 <strong>Source:</strong> RecordStored events from JIBCHAIN L1</p>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-gray-500">Raw Value</p>
+                                                    <p className="text-sm font-mono text-gray-700">{data.values[i]}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Unit: {field.unit}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    ))}
+                                </div>
+                            </div>
 
-                                {/* Footer Info */}
-                                <div className="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                        <div>
-                                            <p><strong>Store Contract:</strong> <code className="text-xs bg-gray-100 px-1 rounded">{storeAddress}</code></p>
-                                            <p><strong>Sensor Address:</strong> <code className="text-xs bg-gray-100 px-1 rounded">{UNIVERSAL_SIGNER}</code></p>
-                                        </div>
-                                        <div>
-                                            <p><strong>Network:</strong> JIBCHAIN L1 (8899)</p>
-                                            <p><strong>RPC:</strong> rpc2-l1.jbc.xpool.pw</p>
-                                        </div>
+                            {/* Chart */}
+                            <div className="lg:col-span-1">
+                                <h2 className="text-xl font-bold text-gray-800 mb-6">Visual Chart</h2>
+                                <div className="bg-white rounded-xl shadow-sm p-6">
+                                    <div className="h-80">
+                                        <canvas ref={chartRef}></canvas>
                                     </div>
-                                    <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-                                        <p>✨ <strong>Powered by:</strong> React + Viem.js + Chart.js + Tailwind CSS</p>
-                                        <p>🔗 <strong>Data Source:</strong> Historical event logs from JIBCHAIN L1 blockchain</p>
-                                        <p>📊 <strong>Method:</strong> RecordStored event timeline with multi-level fallback</p>
-                                        <p>⏱️ <strong>Block Range:</strong> From deployment block 5.9M to latest (~50 recent events)</p>
+                                </div>
+                            </div>
+
+                            {/* Store Information */}
+                            <div className="lg:col-span-3 bg-white rounded-xl shadow-sm p-6">
+                                <h2 className="text-xl font-bold text-gray-800 mb-4">Store Information</h2>
+                                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                                    <div>
+                                        <p className="text-gray-600">Store Contract</p>
+                                        <p className="font-mono text-gray-800">{formatAddress(storeAddress)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600">Nickname</p>
+                                        <p className="font-semibold text-gray-800">{data?.nickname || 'Loading...'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600">Network</p>
+                                        <p className="text-gray-800">JIBCHAIN L1 ({CONFIG.CHAIN_ID})</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600">Current Block</p>
+                                        <p className="text-gray-800">{data?.blockNumber?.toLocaleString()}</p>
+                                    </div>
+                                    {data?.location && (
+                                        <div>
+                                            <p className="text-gray-600">Location</p>
+                                            <p className="text-gray-800">{data.location}</p>
+                                        </div>
+                                    )}
+                                    {data?.gps && (
+                                        <div>
+                                            <p className="text-gray-600">GPS Coordinates</p>
+                                            <p className="text-gray-800">{data.gps.lat}, {data.gps.lng}</p>
+                                        </div>
+                                    )}
+                                    <div>
+                                        <p className="text-gray-600">Last Updated</p>
+                                        <p className="text-gray-800">
+                                            {data ? new Date(data.timestamp * 1000).toLocaleString() : 'Loading...'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600">Data Source</p>
+                                        <p className="text-green-600 font-semibold">✅ Direct Contract Call</p>
                                     </div>
                                 </div>
                             </div>
@@ -773,10 +499,10 @@
                     </div>
                 </div>
             );
-        }
+        };
 
         // Render the app
-        ReactDOM.render(<FloodBoyApp />, document.getElementById('root'));
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
