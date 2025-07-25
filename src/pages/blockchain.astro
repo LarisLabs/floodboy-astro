@@ -662,7 +662,29 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                     return getNumber(a) - getNumber(b);
                   };
                   
-                  labTestingStores.sort(sortByNickname);
+                  // Special sorting for Lab Testing: Active sensors first, then offline sensors, then by nickname within each group
+                  const sortLabTesting = (a, b) => {
+                    const now = Date.now() / 1000;
+                    const offlineThreshold = 1 * 60 * 60; // 1 hour
+                    
+                    const aIsActive = (now - a.lastDataTimestamp) < offlineThreshold;
+                    const bIsActive = (now - b.lastDataTimestamp) < offlineThreshold;
+                    
+                    // If different status, active comes first
+                    if (aIsActive !== bIsActive) {
+                      return bIsActive - aIsActive; // Active (true) sorts before offline (false)
+                    }
+                    
+                    // Same status, sort by nickname
+                    const getNumber = (store) => {
+                      if (!store.nickname || store.nickname === 'Unknown') return 999999;
+                      const match = store.nickname.match(/FloodBoy(\d+)/);
+                      return match ? parseInt(match[1], 10) : 999999;
+                    };
+                    return getNumber(a) - getNumber(b);
+                  };
+                  
+                  labTestingStores.sort(sortLabTesting);
                   installedStores.sort(sortByNickname);
                   offlineStores.sort(sortByNickname);
                   beingInstalledStores.sort(sortByNickname);
