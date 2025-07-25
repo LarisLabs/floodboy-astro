@@ -98,7 +98,93 @@ import { SITE_TITLE } from '../consts';
 					</div>
 				</div>
 
-				<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
+				<!-- Live Demo Preview -->
+				<div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+					<h3 class="text-lg font-semibold text-gray-800 mb-4">📱 Live Preview</h3>
+					<p class="text-sm text-gray-600 mb-4">
+						See the code in action! This is exactly what you'll get when you copy and run the code above.
+					</p>
+					<div class="bg-white border-2 border-gray-300 rounded-lg overflow-hidden">
+						<div class="bg-gray-100 px-4 py-2 text-xs text-gray-600 font-mono border-b">
+							blockchain-simple.html - FloodBoy Simple Data Viewer
+						</div>
+						<iframe 
+							src="/blockchain-simple.html" 
+							class="w-full h-96 border-0"
+							title="FloodBoy Simple Data Viewer Demo"
+							loading="lazy">
+						</iframe>
+					</div>
+					<div class="mt-3 flex flex-col sm:flex-row gap-3 text-sm">
+						<a 
+							href="/blockchain-simple.html" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+						>
+							🔗 Open Full Demo
+						</a>
+						<a 
+							href="/floodboy-react-demo.html" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+						>
+							📊 Advanced Water-Focused Version
+						</a>
+					</div>
+				</div>
+
+				<!-- Advanced Chart Version Preview -->
+				<div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+					<h3 class="text-lg font-semibold text-green-800 mb-4">📊 Advanced Chart Version Available</h3>
+					<p class="text-sm text-green-600 mb-4">
+						The production-ready version with 7-day historical water level charts and water-focused flood monitoring design.
+					</p>
+					
+					<div class="mb-4">
+						<p class="text-sm text-green-700 mb-2">
+							This simple version is perfect for learning blockchain integration. For production flood monitoring, 
+							check out the advanced water-focused version with historical charts and 7-day data visualization.
+						</p>
+						<ul class="list-disc list-inside text-sm text-green-700 space-y-1 mb-4">
+							<li><strong>7-day historical timeline</strong> with 100+ data points</li>
+							<li><strong>Water-focused design</strong> with toggleable battery line</li>
+							<li><strong>Professional chart visualization</strong> using Chart.js</li>
+							<li><strong>Same proven accuracy</strong> as this baseline version</li>
+						</ul>
+					</div>
+
+					<div class="bg-white border-2 border-green-300 rounded-lg overflow-hidden">
+						<div class="bg-green-100 px-4 py-2 text-xs text-green-700 font-mono border-b">
+							floodboy-react-demo.html - Water-Focused Chart Version
+						</div>
+						<iframe 
+							src="/floodboy-react-demo.html" 
+							class="w-full h-96 border-0"
+							title="FloodBoy Advanced Chart Demo"
+							loading="lazy">
+						</iframe>
+					</div>
+					<div class="mt-3">
+						<a 
+							href="/floodboy-react-demo.html" 
+							target="_blank" 
+							rel="noopener noreferrer"
+							class="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+						>
+							🔗 Open Chart Version
+						</a>
+					</div>
+				</div>
+
+				<!-- Code Section -->
+				<div class="mt-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+					<h3 class="text-lg font-semibold text-gray-800 mb-4">📝 Complete HTML Code</h3>
+					<p class="text-sm text-gray-600 mb-4">
+						Copy this complete HTML file and save it as <code class="bg-gray-200 px-1 rounded">blockchain-simple.html</code>
+					</p>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -464,72 +550,6 @@ import { SITE_TITLE } from '../consts';
     </script>
 </body>
 </html>`}</pre>
-
-
-				<!-- Live Demo Preview -->
-				<div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-					<h3 class="text-lg font-semibold text-gray-800 mb-4">📱 Live Preview</h3>
-					<p class="text-sm text-gray-600 mb-4">
-						See the code in action! This is exactly what you'll get when you copy and run the code above.
-					</p>
-					<div class="bg-white border-2 border-gray-300 rounded-lg overflow-hidden">
-						<div class="bg-gray-100 px-4 py-2 text-xs text-gray-600 font-mono border-b">
-							blockchain-simple.html - FloodBoy Simple Data Viewer
-						</div>
-						<iframe 
-							src="/blockchain-simple.html" 
-							class="w-full h-96 border-0"
-							title="FloodBoy Simple Data Viewer Demo"
-							loading="lazy">
-						</iframe>
-					</div>
-					<div class="mt-3 flex flex-col sm:flex-row gap-3 text-sm">
-						<a 
-							href="/blockchain-simple.html" 
-							target="_blank" 
-							rel="noopener noreferrer"
-							class="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-						>
-							🔗 Open Full Demo
-						</a>
-						<a 
-							href="/floodboy-react-demo.html" 
-							target="_blank" 
-							rel="noopener noreferrer"
-							class="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-						>
-							📊 Advanced Water-Focused Version
-						</a>
-					</div>
-				</div>
-
-				<!-- Advanced Chart Version Preview -->
-				<div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-					<h3 class="text-lg font-semibold text-green-800 mb-4">📊 Advanced Chart Version Preview</h3>
-					<p class="text-sm text-green-600 mb-4">
-						The production-ready version with 7-day historical water level charts and water-focused flood monitoring design.
-					</p>
-					<div class="bg-white border-2 border-green-300 rounded-lg overflow-hidden">
-						<div class="bg-green-100 px-4 py-2 text-xs text-green-700 font-mono border-b">
-							floodboy-react-demo.html - Water-Focused Chart Version
-						</div>
-						<iframe 
-							src="/floodboy-react-demo.html" 
-							class="w-full h-96 border-0"
-							title="FloodBoy Advanced Chart Demo"
-							loading="lazy">
-						</iframe>
-					</div>
-					<div class="mt-3">
-						<a 
-							href="/floodboy-react-demo.html" 
-							target="_blank" 
-							rel="noopener noreferrer"
-							class="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
-						>
-							🔗 Open Chart Version
-						</a>
-					</div>
 				</div>
 
 				<!-- Features Section -->
