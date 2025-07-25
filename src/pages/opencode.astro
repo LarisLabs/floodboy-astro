@@ -45,7 +45,7 @@ import { SITE_TITLE } from '../consts';
 					<div class="grid md:grid-cols-3 gap-4">
 						
 						<!-- 1. Simple Version -->
-						<div class="bg-gradient-to-br from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200">
+						<div class="bg-gradient-to-br from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200 flex flex-col">
 							<h4 class="text-lg font-semibold text-blue-800 mb-2 flex items-center">
 								🔹 Simple Data Viewer
 							</h4>
@@ -53,7 +53,7 @@ import { SITE_TITLE } from '../consts';
 								Perfect for learning blockchain integration and understanding sensor data structure. Clean, minimal interface with real-time updates.
 							</p>
 							
-							<div class="space-y-2 mb-4">
+							<div class="space-y-2 mb-4 flex-grow">
 								<div class="flex items-center text-sm text-blue-700">
 									<span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
 									<strong>Real-time sensor data</strong> from blockchain
@@ -73,13 +73,13 @@ import { SITE_TITLE } from '../consts';
 							</div>
 							
 							<a href="/blockchain-simple.html" target="_blank" rel="noopener noreferrer" 
-							   class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+							   class="inline-flex items-center justify-center px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm mt-auto">
 								🔗 View Simple Demo
 							</a>
 						</div>
 
 						<!-- 2. Chart Version -->
-						<div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+						<div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200 flex flex-col">
 							<h4 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
 								📊 Chart Version
 							</h4>
@@ -87,7 +87,7 @@ import { SITE_TITLE } from '../consts';
 								Enhanced with historical data visualization using Chart.js. Shows 7-day water level trends with battery monitoring for production use.
 							</p>
 							
-							<div class="space-y-2 mb-4">
+							<div class="space-y-2 mb-4 flex-grow">
 								<div class="flex items-center text-sm text-green-700">
 									<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
 									<strong>7-day historical timeline</strong> with 100+ data points
@@ -107,13 +107,13 @@ import { SITE_TITLE } from '../consts';
 							</div>
 							
 							<a href="/floodboy-react-demo.html" target="_blank" rel="noopener noreferrer" 
-							   class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
+							   class="inline-flex items-center justify-center px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium shadow-sm mt-auto">
 								📊 View Chart Demo
 							</a>
 						</div>
 
 						<!-- 3. Advanced Dashboard -->
-						<div class="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
+						<div class="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200 flex flex-col">
 							<h4 class="text-lg font-semibold text-purple-800 mb-2 flex items-center">
 								🏭 Advanced Dashboard
 							</h4>
@@ -121,7 +121,7 @@ import { SITE_TITLE } from '../consts';
 								Production-grade IoT Factory Dashboard with 3D sensor visualization, multi-chain support, and enterprise-level features.
 							</p>
 							
-							<div class="space-y-2 mb-4">
+							<div class="space-y-2 mb-4 flex-grow">
 								<div class="flex items-center text-sm text-purple-700">
 									<span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
 									<strong>3D p5.js sensor visualization</strong> with real-time water levels
@@ -141,7 +141,7 @@ import { SITE_TITLE } from '../consts';
 							</div>
 							
 							<a href="/blockchain-dashboard.html" target="_blank" rel="noopener noreferrer" 
-							   class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm">
+							   class="inline-flex items-center justify-center px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm mt-auto">
 								🏭 View Dashboard
 							</a>
 						</div>
@@ -195,7 +195,8 @@ import { SITE_TITLE } from '../consts';
 						</div>
 						<iframe 
 							src="/blockchain-simple.html" 
-							class="w-full h-96 border-0"
+							class="w-full border-0"
+							style="height: 48rem;"
 							title="FloodBoy Simple Data Viewer Demo"
 							loading="lazy">
 						</iframe>
@@ -246,7 +247,8 @@ import { SITE_TITLE } from '../consts';
 						</div>
 						<iframe 
 							src="/floodboy-react-demo.html" 
-							class="w-full h-96 border-0"
+							class="w-full border-0"
+							style="height: 48rem;"
 							title="FloodBoy Advanced Chart Demo"
 							loading="lazy">
 						</iframe>
@@ -269,7 +271,7 @@ import { SITE_TITLE } from '../consts';
 					<p class="text-sm text-gray-600 mb-4">
 						Copy this complete HTML file and save it as <code class="bg-gray-200 px-1 rounded">blockchain-simple.html</code>
 					</p>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-6 border">{`<!DOCTYPE html>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-auto font-mono mb-6 border max-h-96">{`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -697,7 +699,8 @@ import { SITE_TITLE } from '../consts';
 						</div>
 						<iframe 
 							src="/blockchain-dashboard.html" 
-							class="w-full h-96 border-0"
+							class="w-full border-0"
+							style="height: 48rem;"
 							title="IoT Factory Dashboard Demo"
 							loading="lazy">
 						</iframe>
@@ -749,7 +752,7 @@ import { SITE_TITLE } from '../consts';
 						<summary class="cursor-pointer text-sm text-gray-700 hover:text-gray-900 font-medium">
 							📋 Click to view complete source code
 						</summary>
-						<pre class="text-xs whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono border mt-4 max-h-96 overflow-y-auto">{`<!DOCTYPE html>
+						<pre class="text-xs whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-auto font-mono border mt-4 max-h-96">{`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
