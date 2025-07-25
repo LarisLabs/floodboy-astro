@@ -1,0 +1,406 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { SITE_TITLE } from '../consts';
+---
+
+<BaseLayout title={`Open Data - ${SITE_TITLE}`} description="Direct blockchain access to FloodBoy sensor data">
+	<div class="container mx-auto px-4 py-8 max-w-4xl">
+		<h1 class="text-3xl font-bold mb-6">FloodBoy Open Data Access</h1>
+		
+		<div class="space-y-8">
+			<section>
+				<h2 class="text-xl font-semibold mb-4">Direct Blockchain Access</h2>
+				<div class="bg-blue-50 p-4 rounded border">
+					<p class="mb-4 text-gray-700">Access FloodBoy sensor data directly from the blockchain without any API dependencies. Use these commands to query real-time flood monitoring data from JIBCHAIN L1.</p>
+					
+					<div class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-4">
+						<h4 class="font-semibold text-amber-800 mb-2">🔍 Understanding FloodBoy Data Structure</h4>
+						<p class="text-amber-700 text-sm mb-3">FloodBoy sensors store data in smart contracts with a standardized field system. Each sensor records multiple measurements (water depth, battery voltage, installation height) with precise timestamps.</p>
+						
+						<div class="grid md:grid-cols-2 gap-4 text-sm">
+							<div class="bg-white p-3 rounded">
+								<h5 class="font-medium mb-2">📊 What getAllFields() Returns</h5>
+								<ul class="space-y-1 text-xs">
+									<li><strong>Field Name:</strong> "water_depth", "battery_voltage"</li>
+									<li><strong>Unit:</strong> "m x10000", "V x100" (scaling factor)</li>
+									<li><strong>Data Type:</strong> "int256" (signed integer)</li>
+								</ul>
+							</div>
+							<div class="bg-white p-3 rounded">
+								<h5 class="font-medium mb-2">📈 What getLatestRecord() Returns</h5>
+								<ul class="space-y-1 text-xs">
+									<li><strong>Timestamp:</strong> Unix time when data was recorded</li>
+									<li><strong>Values Array:</strong> Raw sensor readings (needs scaling)</li>
+									<li><strong>Order:</strong> Values match field order from getAllFields()</li>
+								</ul>
+							</div>
+						</div>
+					</div>
+					
+					<h3 class="text-lg font-semibold mb-3">Network Information</h3>
+					<div class="bg-white p-3 rounded mb-4">
+						<p class="mb-3"><strong>Chain ID:</strong> 8899 (JIBCHAIN L1)</p>
+						
+						<div class="mb-4">
+							<p class="font-medium mb-2">🚀 JIBCHAIN L1 RPC URL List (Sorted by Performance)</p>
+							<div class="overflow-x-auto">
+								<table class="w-full text-sm">
+									<thead class="bg-gray-50">
+										<tr>
+											<th class="px-3 py-2 text-left">RPC Server Address</th>
+											<th class="px-3 py-2 text-left">Latency</th>
+											<th class="px-3 py-2 text-left">Status</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-gray-200">
+										<tr class="bg-green-50">
+											<td class="px-3 py-2 font-mono text-xs">
+												<a href="https://rpc2-l1.jbc.xpool.pw" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc2-l1.jbc.xpool.pw</a>
+												<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Fastest</span>
+											</td>
+											<td class="px-3 py-2 text-green-700 font-medium">0.047s</td>
+											<td class="px-3 py-2">
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+													<span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
+													Active
+												</span>
+											</td>
+										</tr>
+										<tr class="bg-blue-50">
+											<td class="px-3 py-2 font-mono text-xs">
+												<a href="https://rpc-l1.jbc.xpool.pw" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.jbc.xpool.pw</a>
+												<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">Primary</span>
+											</td>
+											<td class="px-3 py-2 text-blue-700 font-medium">0.049s</td>
+											<td class="px-3 py-2">
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+													<span class="w-2 h-2 bg-blue-400 rounded-full mr-1"></span>
+													Active
+												</span>
+											</td>
+										</tr>
+										<tr>
+											<td class="px-3 py-2 font-mono text-xs">
+												<a href="https://rpc-l1.inan.in.th" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.inan.in.th</a>
+											</td>
+											<td class="px-3 py-2 text-yellow-700 font-medium">0.137s</td>
+											<td class="px-3 py-2">
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+													<span class="w-2 h-2 bg-yellow-400 rounded-full mr-1"></span>
+													Active
+												</span>
+											</td>
+										</tr>
+										<tr>
+											<td class="px-3 py-2 font-mono text-xs">
+												<a href="https://rpc-l1.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.jibchain.net</a>
+												<span class="ml-2 px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">Used in Examples</span>
+											</td>
+											<td class="px-3 py-2 text-red-700 font-medium">0.405s</td>
+											<td class="px-3 py-2">
+												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
+													<span class="w-2 h-2 bg-red-400 rounded-full mr-1"></span>
+													Slower
+												</span>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<p class="text-xs text-gray-600 mt-2">💡 <strong>Tip:</strong> Use the fastest RPC (rpc2-l1.jbc.xpool.pw) for better performance. All RPCs are compatible and interchangeable.</p>
+						</div>
+						
+						<div class="grid md:grid-cols-2 gap-4 text-sm">
+							<div>
+								<p><strong>Block Explorer:</strong></p>
+								<a href="https://exp.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://exp.jibchain.net</a>
+							</div>
+							<div>
+								<p><strong>Current Block Height:</strong> ~5,947,910</p>
+							</div>
+						</div>
+						
+						<div class="mt-3 pt-3 border-t">
+							<p><strong>FloodBoy001 Store:</strong> <code class="bg-gray-100 px-2 py-1 rounded text-xs">0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb</code></p>
+							<p><strong>Universal Signer:</strong> <code class="bg-gray-100 px-2 py-1 rounded text-xs">0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd</code></p>
+						</div>
+					</div>
+
+					<!-- Cast Commands Section -->
+					<h3 class="text-lg font-semibold mb-3">Cast Commands (Foundry)</h3>
+					<div class="bg-white p-3 rounded mb-4">
+						<div class="mb-4">
+							<p class="mb-2"><strong>What is Cast?</strong></p>
+							<p class="text-sm text-gray-600 mb-3">Cast is Foundry's command-line tool for performing Ethereum RPC calls. It provides a user-friendly interface for interacting with smart contracts, automatically handling ABI encoding/decoding and formatting outputs in human-readable format.</p>
+							
+							<p class="mb-2"><strong>Installation:</strong></p>
+							<pre class="text-sm bg-gray-100 p-2 rounded font-mono mb-3">curl -L https://foundry.paradigm.xyz | bash
+foundryup</pre>
+							
+							<div class="grid md:grid-cols-2 gap-4 text-sm">
+								<div>
+									<p class="font-medium mb-1">✅ Advantages:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Human-readable output</li>
+										<li>Automatic ABI decoding</li>
+										<li>Built-in error handling</li>
+										<li>Type safety</li>
+									</ul>
+								</div>
+								<div>
+									<p class="font-medium mb-1">📋 Requirements:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Foundry installed locally</li>
+										<li>Terminal/command line access</li>
+										<li>Internet connection to RPC</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getAllFields()((string,string,string)[])" --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+
+					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getLatestRecord(address)(uint256,int256[])" 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+
+					<h3 class="text-lg font-semibold mb-3">Viem.js TypeScript Examples</h3>
+					<div class="bg-white p-3 rounded mb-4">
+						<div class="mb-4">
+							<p class="mb-2"><strong>What is Viem?</strong></p>
+							<p class="text-sm text-gray-600 mb-3">Viem is a modern TypeScript interface for Ethereum. It provides type-safe contract interactions, automatic ABI encoding/decoding, and excellent developer experience for building web applications that interact with smart contracts.</p>
+							
+							<div class="grid md:grid-cols-2 gap-4 text-sm">
+								<div>
+									<p class="font-medium mb-1">✅ Benefits:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Full TypeScript support</li>
+										<li>Tree-shakeable & lightweight</li>
+										<li>Automatic type inference</li>
+										<li>Built-in error handling</li>
+										<li>Modern async/await syntax</li>
+									</ul>
+								</div>
+								<div>
+									<p class="font-medium mb-1">📦 Installation:</p>
+									<pre class="text-xs bg-gray-100 p-2 rounded font-mono">npm install viem</pre>
+									<p class="text-xs text-gray-600 mt-1">Works with React, Vue, Node.js, and any JavaScript environment</p>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<h4 class="text-md font-medium mb-2">Setup & Configuration</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-4 border">{`import { createPublicClient, http } from 'viem'
+
+// JIBCHAIN L1 network configuration
+const jibchain = {
+  id: 8899,
+  name: 'JIBCHAIN L1',
+  nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc-l1.jibchain.net/'] }
+  },
+  blockExplorers: {
+    default: { name: 'JIBCHAIN Explorer', url: 'https://exp.jibchain.net' }
+  }
+}
+
+// Create client
+const client = createPublicClient({
+  chain: jibchain,
+  transport: http()
+})
+
+// Contract addresses
+const STORE_ADDRESS = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb'
+const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd'`}</pre>
+
+					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-4 border">{`// ABI for getAllFields function
+const getAllFieldsABI = [
+  {
+    name: 'getAllFields',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [
+      {
+        type: 'tuple[]',
+        components: [
+          { name: 'name', type: 'string' },
+          { name: 'unit', type: 'string' },
+          { name: 'dtype', type: 'string' }
+        ]
+      }
+    ]
+  }
+] as const
+
+// Get all fields
+async function getAllFields() {
+  try {
+    const fields = await client.readContract({
+      address: STORE_ADDRESS,
+      abi: getAllFieldsABI,
+      functionName: 'getAllFields'
+    })
+    
+    console.log('Fields:', fields)
+    // Returns: [
+    //   { name: "water_depth", unit: "m x10000", dtype: "int256" },
+    //   { name: "battery_voltage", unit: "V x100", dtype: "int256" },
+    //   ...
+    // ]
+    
+    return fields
+  } catch (error) {
+    console.error('Error fetching fields:', error)
+    throw error
+  }
+}`}</pre>
+
+					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-4 border">{`// ABI for getLatestRecord function
+const getLatestRecordABI = [
+  {
+    name: 'getLatestRecord',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'sensor', type: 'address' }],
+    outputs: [
+      { name: '', type: 'uint256' },  // timestamp
+      { name: '', type: 'int256[]' }  // values array
+    ]
+  }
+] as const
+
+// Get latest sensor record
+async function getLatestRecord() {
+  try {
+    const [timestamp, values] = await client.readContract({
+      address: STORE_ADDRESS,
+      abi: getLatestRecordABI,
+      functionName: 'getLatestRecord',
+      args: [UNIVERSAL_SIGNER]
+    })
+    
+    console.log('Timestamp:', timestamp)  // 1748044727n (BigInt)
+    console.log('Raw values:', values)    // [2700n, 1291n, 30200n, ...]
+    
+    return { timestamp, values }
+  } catch (error) {
+    console.error('Error fetching latest record:', error)
+    throw error
+  }
+}`}</pre>
+
+					<h3 class="text-lg font-semibold mb-3">Curl Commands (JSON-RPC)</h3>
+					<div class="bg-white p-3 rounded mb-4">
+						<div class="mb-4">
+							<p class="mb-2"><strong>What is JSON-RPC?</strong></p>
+							<p class="text-sm text-gray-600 mb-3">JSON-RPC is the standard protocol for communicating with Ethereum nodes. These curl commands send raw JSON requests directly to the blockchain, giving you complete control over the interaction. No additional tools required - works anywhere curl is available.</p>
+							
+							<div class="grid md:grid-cols-2 gap-4 text-sm">
+								<div>
+									<p class="font-medium mb-1">✅ Advantages:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Works on any system with curl</li>
+										<li>No installation required</li>
+										<li>Direct blockchain access</li>
+										<li>Scriptable and automatable</li>
+										<li>Language agnostic</li>
+									</ul>
+								</div>
+								<div>
+									<p class="font-medium mb-1">⚠️ Considerations:</p>
+									<ul class="list-disc list-inside text-xs space-y-1 text-gray-600">
+										<li>Returns raw hex data</li>
+										<li>Requires manual ABI decoding</li>
+										<li>Need to understand data types</li>
+										<li>More complex error handling</li>
+									</ul>
+								</div>
+							</div>
+							
+							<div class="mt-3 p-2 bg-gray-50 rounded text-xs">
+								<p class="font-medium mb-1">💡 Pro Tip:</p>
+								<p class="text-gray-600">Add <code>| jq</code> to the end of curl commands for pretty JSON formatting. Install jq: <code>brew install jq</code> or <code>apt install jq</code></p>
+							</div>
+						</div>
+					</div>
+					
+					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`curl 'https://rpc-l1.jibchain.net/' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":4,"method":"eth_call","params":[{"data":"0x92208228","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
+
+					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`curl 'https://rpc-l1.jibchain.net/' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":2,"method":"eth_call","params":[{"data":"0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
+
+					<h3 class="text-lg font-semibold mb-3 mt-6">Function Selectors</h3>
+					<div class="bg-white p-3 rounded">
+						<p><code>getAllFields()</code>: <strong>0x92208228</strong></p>
+						<p><code>getLatestRecord(address)</code>: <strong>0x2f63bd6a</strong></p>
+					</div>
+
+					<h3 class="text-lg font-semibold mb-3 mt-6">Alternative Store Addresses</h3>
+					<div class="bg-white p-3 rounded">
+						<p><strong>FloodBoy002:</strong> 0x81ECfbd31D86bc8f3A581bD2f7c0f54B7498AC94</p>
+						<p><strong>FloodBoy003:</strong> 0x935B21D73bE382ba9D5Af56007502ea1d5E3348B</p>
+						<p><strong>FloodBoy004:</strong> 0xD591c530F8c8A62576349a5a0cc9F08C30a50Fab</p>
+						<p class="text-sm text-gray-600 mt-2">See <a href="/stores" class="text-blue-600 hover:underline">/stores page</a> for complete list of 100 deployed stores</p>
+					</div>
+
+					<h3 class="text-lg font-semibold mb-3 mt-6">Data Processing & Interpretation</h3>
+					<div class="bg-white p-3 rounded">
+						<div class="mb-4">
+							<p class="mb-3"><strong>🔢 Understanding Scaling Factors</strong></p>
+							<p class="text-sm text-gray-600 mb-3">FloodBoy stores decimal values as integers to avoid floating-point precision issues on the blockchain. Each field includes a scaling factor that tells you how to convert the raw integer back to the real value.</p>
+							
+							<div class="grid md:grid-cols-2 gap-4 mb-4">
+								<div class="border rounded p-3">
+									<h5 class="font-medium mb-2">⚡ Battery Voltage (x100)</h5>
+									<div class="text-sm space-y-1">
+										<p><strong>Raw:</strong> 1291</p>
+										<p><strong>Formula:</strong> 1291 ÷ 100 = 12.91</p>
+										<p><strong>Result:</strong> 12.91 V</p>
+										<p class="text-gray-600">Range typically 11-14V for healthy battery</p>
+									</div>
+								</div>
+								<div class="border rounded p-3">
+									<h5 class="font-medium mb-2">🌊 Water Depth (x10000)</h5>
+									<div class="text-sm space-y-1">
+										<p><strong>Raw:</strong> 2700</p>
+										<p><strong>Formula:</strong> 2700 ÷ 10000 = 0.27</p>
+										<p><strong>Result:</strong> 0.27 m</p>
+										<p class="text-gray-600">Depth from sensor to water surface</p>
+									</div>
+								</div>
+							</div>
+							
+							<div class="bg-blue-50 p-3 rounded mb-4">
+								<h5 class="font-medium mb-2">📏 Installation Height vs Water Depth</h5>
+								<div class="text-sm space-y-2">
+									<p><strong>Installation Height:</strong> Fixed distance from sensor to ground level (e.g., 3.02m)</p>
+									<p><strong>Water Depth:</strong> Current distance from sensor to water surface (e.g., 0.27m)</p>
+									<p><strong>Flood Level:</strong> Installation Height - Water Depth = 3.02m - 0.27m = 2.75m above ground</p>
+									<p class="text-blue-700"><strong>💡 Lower water depth readings = Higher flood levels!</strong></p>
+								</div>
+							</div>
+							
+							<div class="bg-gray-50 p-3 rounded">
+								<h5 class="font-medium mb-2">🕒 Timestamp Processing</h5>
+								<div class="text-sm space-y-1">
+									<p><strong>Format:</strong> Unix timestamp (seconds since 1970-01-01)</p>
+									<p><strong>Example:</strong> 1748044727 → 2025-01-23 12:25:27 UTC</p>
+									<p><strong>JavaScript:</strong> <code>new Date(timestamp * 1000)</code></p>
+									<p><strong>Python:</strong> <code>datetime.fromtimestamp(timestamp)</code></p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+		</div>
+	</div>
+</BaseLayout>
