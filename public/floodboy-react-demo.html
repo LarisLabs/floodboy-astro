@@ -251,9 +251,9 @@
                         transport: viem.http(CONFIG.RPC_URL)
                     });
 
-                    // Get RecordStored events for last 24 hours
+                    // Get RecordStored events for last 7 days (VERY FULL DATA)
                     const currentBlock = await client.getBlockNumber();
-                    const fromBlock = currentBlock - BigInt(7200); // ~24 hours (assuming 12s blocks)
+                    const fromBlock = currentBlock - BigInt(50400); // ~7 days (assuming 12s blocks)
 
                     const eventLogs = await client.getLogs({
                         address: storeAddress,
@@ -280,7 +280,7 @@
                             values: log.args.values.map(v => Number(v))
                         }))
                         .sort((a, b) => a.timestamp - b.timestamp)
-                        .slice(-20); // Last 20 data points
+                        .slice(-100); // Last 100 data points for VERY FULL DATA
 
                     return processedEvents;
                 } catch (err) {
@@ -312,8 +312,17 @@
                 let labels, waterData, batteryData;
 
                 if (historicalData.length > 0) {
-                    // Use historical data
-                    labels = historicalData.map(d => new Date(d.timestamp * 1000).toLocaleTimeString());
+                    // Use historical data with better time formatting for extended data
+                    labels = historicalData.map(d => {
+                        const date = new Date(d.timestamp * 1000);
+                        // Show date + time for extended range
+                        return date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                    });
                     waterData = historicalData.map(d => parseFloat(formatValue(d.values[waterIndex], waterField.unit)) || 0);
                     batteryData = historicalData.map(d => parseFloat(formatValue(d.values[batteryIndex], batteryField.unit)) || 0);
                 } else {
@@ -336,9 +345,9 @@
                             tension: 0.4,
                             pointBackgroundColor: 'rgb(59, 130, 246)',
                             pointBorderColor: '#ffffff',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointBorderWidth: 1,
+                            pointRadius: historicalData.length > 50 ? 2 : 4, // Smaller points for more data
+                            pointHoverRadius: 4
                         },
                         {
                             label: 'Battery Voltage (V)',
@@ -350,9 +359,10 @@
                             tension: 0.4,
                             pointBackgroundColor: 'rgb(16, 185, 129)',
                             pointBorderColor: '#ffffff',
-                            pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointBorderWidth: 1,
+                            pointRadius: historicalData.length > 50 ? 2 : 4, // Smaller points for more data
+                            pointHoverRadius: 4,
+                            hidden: true // Start with battery line disabled
                         }
                     ]
                 };
@@ -374,7 +384,7 @@
                             },
                             title: {
                                 display: true,
-                                text: `Historical Data (${historicalData.length > 0 ? 'Last 24 Hours' : 'Current Only'})`,
+                                text: `Water Level History (${historicalData.length > 0 ? `${historicalData.length} Points - 7 Days` : 'Current Only'})`,
                                 font: {
                                     size: 16,
                                     weight: 'bold'
