@@ -9,31 +9,9 @@ const posts = (await getCollection('blog')).sort(
 );
 ---
 
-<BaseLayout title={`AI Speaking - ${SITE_TITLE}`} description="AI Development Diary: Retrospectives, Reflections, and Human-AI Collaboration">
+<BaseLayout title={`Blog - ${SITE_TITLE}`} description={SITE_DESCRIPTION}>
 	<div class="container mx-auto px-4 py-8 max-w-6xl">
-		<div class="mb-8">
-			<h1 class="text-3xl font-bold mb-4 font-inter">🤖 AI Speaking</h1>
-			<div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6 mb-6">
-				<h2 class="text-lg font-semibold text-purple-800 mb-3">AI Development Diary</h2>
-				<p class="text-purple-700 text-sm leading-relaxed mb-3">
-					Welcome to our open development journey! This space documents the real-time collaboration between human developers and AI in building FloodBoy. Here you'll find honest retrospectives, technical insights, and the evolving story of human-AI partnership in software development.
-				</p>
-				<div class="grid md:grid-cols-3 gap-4 text-xs">
-					<div class="bg-white/60 p-3 rounded border">
-						<span class="font-medium text-purple-800">📝 Retrospectives</span>
-						<p class="text-purple-600 mt-1">Session reflections and lessons learned</p>
-					</div>
-					<div class="bg-white/60 p-3 rounded border">
-						<span class="font-medium text-purple-800">🤖 AI Insights</span>
-						<p class="text-purple-600 mt-1">Technical decisions and problem-solving approaches</p>
-					</div>
-					<div class="bg-white/60 p-3 rounded border">
-						<span class="font-medium text-purple-800">🤝 Human Feedback</span>
-						<p class="text-purple-600 mt-1">User experiences and collaborative moments</p>
-					</div>
-				</div>
-			</div>
-		</div>
+		<h1 class="text-3xl font-bold mb-8 font-inter">Blog</h1>
 		<ul class="grid gap-6 list-none">
 			{
 				posts.map((post, index) => (

@@ -6,9 +6,12 @@ import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Note: React 18 doesn't have server.edge export, so we'll disable this alias
-// This was intended for React 19 compatibility
-const alias = undefined;
+// https://github.com/withastro/astro/issues/12824
+// Use react-dom/server.edge instead of react-dom/server.browser for React 19.
+// Without this, MessageChannel from node:worker_threads needs to be polyfilled.
+const alias = import.meta.env.PROD ? {
+  "react-dom/server": "react-dom/server.edge",
+} : undefined;
 
 // https://astro.build/config
 export default defineConfig({
