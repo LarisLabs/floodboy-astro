@@ -623,28 +623,33 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                     return labKeywords.some(keyword => description.toLowerCase().includes(keyword));
                   };
                   
-                  // Four-state detection: installed, lab testing (active only), offline, being installed
+                  // Four-state detection: installed, lab testing (all lab sensors), offline (non-lab only), being installed
                   const now = Date.now() / 1000; // Current timestamp in seconds
                   const offlineThreshold = 1 * 60 * 60; // 1 hour in seconds
                   
-                  // Separate stores by status first, then by lab testing within active stores
+                  // Lab Testing: ALL lab sensors regardless of status (active or offline)
+                  const labTestingStores = stores.filter(s => 
+                    s.hasData && isLabTesting(s.description)
+                  );
+                  
+                  // Installed: Active non-lab sensors only
                   const installedStores = stores.filter(s => 
                     s.hasData && 
                     (now - s.lastDataTimestamp) < offlineThreshold && 
                     !isLabTesting(s.description)
                   );
                   
-                  const labTestingStores = stores.filter(s => 
-                    s.hasData && 
-                    (now - s.lastDataTimestamp) < offlineThreshold && 
-                    isLabTesting(s.description)
-                  );
-                  
+                  // Offline: Offline non-lab sensors only (exclude lab sensors)
                   const offlineStores = stores.filter(s => 
-                    s.hasData && (now - s.lastDataTimestamp) >= offlineThreshold
+                    s.hasData && 
+                    (now - s.lastDataTimestamp) >= offlineThreshold &&
+                    !isLabTesting(s.description)
                   );
                   
-                  const beingInstalledStores = stores.filter(s => !s.hasData);
+                  // Being Installed: Non-lab sensors with no data
+                  const beingInstalledStores = stores.filter(s => 
+                    !s.hasData && !isLabTesting(s.description)
+                  );
                   
                   // Sort all groups by nickname (ascending: FloodBoy001, FloodBoy002, etc.)
                   const sortByNickname = (a, b) => {
