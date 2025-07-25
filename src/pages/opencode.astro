@@ -36,69 +36,147 @@ import { SITE_TITLE } from '../consts';
 
 				<!-- Water-Focused Design Showcase -->
 				<div class="mb-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg shadow-sm">
-					<h3 class="text-xl font-bold text-blue-900 mb-4 flex items-center">
+					<h3 class="text-xl font-bold text-blue-900 mb-6 flex items-center">
 						🌊 Water-Focused Design
 						<span class="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Production Ready</span>
 					</h3>
 					
-					<div class="grid md:grid-cols-2 gap-6">
-						<!-- Feature Overview -->
-						<div class="space-y-3">
-							<div class="bg-white p-3 rounded-lg border border-blue-100">
-								<p class="text-sm font-semibold text-blue-800 mb-2">📈 Data Visualization</p>
-								<ul class="list-disc list-inside text-sm text-blue-700 space-y-1">
-									<li><strong>Primary:</strong> Water level history (always visible blue line)</li>
-									<li><strong>Secondary:</strong> Battery voltage (toggleable green line)</li>
-									<li><strong>Historical:</strong> 7-day timeline with 100+ data points</li>
-									<li><strong>Accuracy:</strong> Perfect data (Installation=3.02m, Water=0.53m)</li>
-								</ul>
+					<!-- Three-column layout: Simple → Chart → Advanced -->
+					<div class="grid md:grid-cols-3 gap-4">
+						
+						<!-- 1. Simple Version -->
+						<div class="bg-gradient-to-br from-blue-50 to-sky-50 p-4 rounded-lg border border-blue-200">
+							<h4 class="text-lg font-semibold text-blue-800 mb-2 flex items-center">
+								🔹 Simple Data Viewer
+							</h4>
+							<p class="text-sm text-blue-700 mb-3">
+								Perfect for learning blockchain integration and understanding sensor data structure. Clean, minimal interface with real-time updates.
+							</p>
+							
+							<div class="space-y-2 mb-4">
+								<div class="flex items-center text-sm text-blue-700">
+									<span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+									<strong>Real-time sensor data</strong> from blockchain
+								</div>
+								<div class="flex items-center text-sm text-blue-700">
+									<span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+									<strong>Simple card layout</strong> for easy reading
+								</div>
+								<div class="flex items-center text-sm text-blue-700">
+									<span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+									<strong>Minimal dependencies</strong> - just Viem + React
+								</div>
+								<div class="flex items-center text-sm text-blue-700">
+									<span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+									<strong>Perfect for beginners</strong> and learning
+								</div>
 							</div>
 							
-							<div class="bg-white p-3 rounded-lg border border-blue-100">
-								<p class="text-sm font-semibold text-blue-800 mb-2">🚀 How to Use</p>
-								<ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
-									<li>Copy the complete HTML code below</li>
-									<li>Save it as <code class="bg-blue-100 px-1 rounded">blockchain-simple.html</code></li>
-									<li>Open the file in your web browser</li>
-									<li>Watch the live blockchain data load and update!</li>
+							<a href="/blockchain-simple.html" target="_blank" rel="noopener noreferrer" 
+							   class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+								🔗 View Simple Demo
+							</a>
+						</div>
+
+						<!-- 2. Chart Version -->
+						<div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+							<h4 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
+								📊 Chart Version
+							</h4>
+							<p class="text-sm text-green-700 mb-3">
+								Enhanced with historical data visualization using Chart.js. Shows 7-day water level trends with battery monitoring for production use.
+							</p>
+							
+							<div class="space-y-2 mb-4">
+								<div class="flex items-center text-sm text-green-700">
+									<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+									<strong>7-day historical timeline</strong> with 100+ data points
+								</div>
+								<div class="flex items-center text-sm text-green-700">
+									<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+									<strong>Water-focused design</strong> with toggleable battery line
+								</div>
+								<div class="flex items-center text-sm text-green-700">
+									<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+									<strong>Professional chart visualization</strong> using Chart.js
+								</div>
+								<div class="flex items-center text-sm text-green-700">
+									<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+									<strong>Same proven accuracy</strong> as simple version
+								</div>
+							</div>
+							
+							<a href="/floodboy-react-demo.html" target="_blank" rel="noopener noreferrer" 
+							   class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
+								📊 View Chart Demo
+							</a>
+						</div>
+
+						<!-- 3. Advanced Dashboard -->
+						<div class="bg-gradient-to-br from-purple-50 to-violet-50 p-4 rounded-lg border border-purple-200">
+							<h4 class="text-lg font-semibold text-purple-800 mb-2 flex items-center">
+								🏭 Advanced Dashboard
+							</h4>
+							<p class="text-sm text-purple-700 mb-3">
+								Production-grade IoT Factory Dashboard with 3D sensor visualization, multi-chain support, and enterprise-level features.
+							</p>
+							
+							<div class="space-y-2 mb-4">
+								<div class="flex items-center text-sm text-purple-700">
+									<span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+									<strong>3D p5.js sensor visualization</strong> with real-time water levels
+								</div>
+								<div class="flex items-center text-sm text-purple-700">
+									<span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+									<strong>Multi-chain support</strong> JIBCHAIN L1, SiChang, Anvil
+								</div>
+								<div class="flex items-center text-sm text-purple-700">
+									<span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+									<strong>Professional UI/UX</strong> with dark/light themes
+								</div>
+								<div class="flex items-center text-sm text-purple-700">
+									<span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+									<strong>Enterprise features</strong> wallet integration & exports
+								</div>
+							</div>
+							
+							<a href="/blockchain-dashboard.html" target="_blank" rel="noopener noreferrer" 
+							   class="inline-flex items-center px-3 py-1.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm font-medium shadow-sm">
+								🏭 View Dashboard
+							</a>
+						</div>
+					</div>
+
+					<!-- How to Use Instructions -->
+					<div class="mt-6 bg-white p-4 rounded-lg border border-blue-100">
+						<h4 class="text-lg font-semibold text-blue-800 mb-3">🚀 How to Use Any Version</h4>
+						<div class="grid md:grid-cols-3 gap-4 text-sm">
+							<div>
+								<p class="font-medium text-blue-800 mb-2">Simple Version:</p>
+								<ol class="list-decimal list-inside text-blue-700 space-y-1">
+									<li>Copy blockchain-simple.html code</li>
+									<li>Save as .html file</li>
+									<li>Open in browser</li>
+									<li>Watch live data load!</li>
 								</ol>
 							</div>
-						</div>
-						
-						<!-- Advanced Version Promotion -->
-						<div class="space-y-3">
-							<div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
-								<h4 class="text-lg font-semibold text-green-800 mb-2 flex items-center">
-									📊 Advanced Chart Version Available
-								</h4>
-								<p class="text-sm text-green-700 mb-3">
-									This simple version is perfect for learning blockchain integration. For production flood monitoring, 
-									check out the advanced water-focused version with historical charts and 7-day data visualization.
-								</p>
-								
-								<div class="space-y-2 mb-4">
-									<div class="flex items-center text-sm text-green-700">
-										<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-										<strong>7-day historical timeline</strong> with 100+ data points
-									</div>
-									<div class="flex items-center text-sm text-green-700">
-										<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-										<strong>Water-focused design</strong> with toggleable battery line
-									</div>
-									<div class="flex items-center text-sm text-green-700">
-										<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-										<strong>Professional chart visualization</strong> using Chart.js
-									</div>
-									<div class="flex items-center text-sm text-green-700">
-										<span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-										<strong>Same proven accuracy</strong> as this baseline version
-									</div>
-								</div>
-								
-								<a href="/blockchain-simple.html" target="_blank" rel="noopener noreferrer" 
-								   class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
-									🔗 View Live Demo
-								</a>
+							<div>
+								<p class="font-medium text-green-800 mb-2">Chart Version:</p>
+								<ol class="list-decimal list-inside text-green-700 space-y-1">
+									<li>Copy floodboy-react-demo.html code</li>
+									<li>Save as .html file</li>
+									<li>Open in browser</li>
+									<li>View 7-day historical charts!</li>
+								</ol>
+							</div>
+							<div>
+								<p class="font-medium text-purple-800 mb-2">Advanced Dashboard:</p>
+								<ol class="list-decimal list-inside text-purple-700 space-y-1">
+									<li>Copy blockchain-dashboard.html code</li>
+									<li>Save as .html file</li>
+									<li>Open in browser</li>
+									<li>Experience 3D visualization!</li>
+								</ol>
 							</div>
 						</div>
 					</div>
