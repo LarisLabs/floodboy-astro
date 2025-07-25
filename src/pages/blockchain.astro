@@ -367,10 +367,10 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                 <span>{store.signerCount || 0} signers</span>
               </div>
               
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-auto pt-4 flex gap-2">
                 <a 
                   href={`/blockchain/${store.nickname || store.address}`}
-                  className="card-link bg-white/20 backdrop-blur text-white hover:bg-white/30 border border-white/30 font-medium"
+                  className="card-link bg-white/10 backdrop-blur text-white/80 hover:bg-white/20 hover:text-white border border-white/20 font-medium flex-1 text-center transition-all duration-200"
                   onClick={(e) => e.stopPropagation()}
                 >
                   View Data
@@ -379,7 +379,7 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                   href={`${CONTRACTS[store.chainId].EXPLORER_URL}/address/${store.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="card-link bg-white/20 backdrop-blur text-white hover:bg-white/30 border border-white/30 font-medium"
+                  className="card-link bg-white/10 backdrop-blur text-white/80 hover:bg-white/20 hover:text-white border border-white/20 font-medium flex-1 text-center transition-all duration-200"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Explorer
