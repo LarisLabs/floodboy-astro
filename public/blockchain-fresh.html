@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloodBoy - Fresh Blockchain Dashboard</title>
+    
+    <!-- React and Babel for JSX -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Viem for blockchain interactions -->
+    <script type="module">
+        import * as viem from 'https://esm.sh/viem@2.21.32';
+        window.viem = viem;
+    </script>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+        
+        // Configuration
+        const CONFIG = {
+            CHAIN_ID: 8899,
+            RPC_URL: 'https://rpc-l1.jbc.xpool.pw',
+            EXPLORER_URL: 'https://exp.jibchain.net',
+            DEFAULT_STORE: '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb' // FloodBoy001
+        };
+
+        // Contract ABIs
+        const DEPLOYER_ABI = [
+            {
+                "inputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "name": "storeToNickname",
+                "outputs": [{"internalType": "string", "name": "", "type": "string"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "store", "type": "address"}],
+                "name": "getStoreMetadata",
+                "outputs": [
+                    {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
+                    {"internalType": "uint128", "name": "lastUpdatedBlock", "type": "uint128"},
+                    {"internalType": "string", "name": "description", "type": "string"},
+                    {"internalType": "string", "name": "pointer", "type": "string"}
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+        
+        const STORE_ABI = [
+            {
+                "inputs": [],
+                "name": "getAllFields",
+                "outputs": [{"components": [{"internalType": "string", "name": "name", "type": "string"}, {"internalType": "string", "name": "unit", "type": "string"}, {"internalType": "string", "name": "dtype", "type": "string"}], "internalType": "struct SecureSensorStore.Field[]", "name": "", "type": "tuple[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [{"internalType": "address", "name": "sensor", "type": "address"}],
+                "name": "getLatestRecord",
+                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}, {"internalType": "int256[]", "name": "", "type": "int256[]"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {"indexed": true, "internalType": "address", "name": "sensor", "type": "address"},
+                    {"indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256"},
+                    {"indexed": false, "internalType": "int256[]", "name": "values", "type": "int256[]"}
+                ],
+                "name": "RecordStored",
+                "type": "event"
+            }
+        ];
+
+        // Utility functions
+        const formatValue = (value, unit) => {
+            if (value === null || value === undefined || value === '' || isNaN(value)) {
+                return '0';
+            }
+            
+            // Handle both string and number inputs
+            const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
+            
+            if (isNaN(numValue)) {
+                return '0';
+            }
+            
+            const scalingMatch = unit.match(/x\s*(\d+)/i);
+            if (scalingMatch) {
+                const scaleFactor = parseInt(scalingMatch[1]);
+                const scaledValue = numValue / scaleFactor;
+                if (scaleFactor >= 10000) {
+                    return scaledValue.toFixed(4);
+                } else if (scaleFactor >= 100) {
+                    return scaledValue.toFixed(2);
+                } else {
+                    return scaledValue.toFixed(1);
+                }
+            }
+            
+            // For non-scaled values, handle decimals properly
+            if (numValue % 1 === 0) {
+                return numValue.toString();
+            } else {
+                return numValue.toFixed(2);
+            }
+        };
+
+        const formatAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+        const getTimeAgo = (timestamp) => {
+            const now = Math.floor(Date.now() / 1000);
+            const diff = now - parseInt(timestamp);
+            if (diff < 60) return `${diff}s ago`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+            return `${Math.floor(diff / 86400)}d ago`;
+        };
+
+        // Wait for Viem to be available
+        const waitForViem = () => {
+            return new Promise((resolve) => {
+                const checkViem = () => {
+                    if (window.viem) {
+                        resolve(window.viem);
+                    } else {
+                        setTimeout(checkViem, 100);
+                    }
+                };
+                checkViem();
+            });
+        };
+
+        // Live Readings Component
+        const LiveReadings = ({ storeData }) => {
+            if (!storeData?.latestRecord?.values || !storeData.fields) {
+                return (
+                    <div className="text-center py-8">
+                        <div className="text-gray-500">No sensor data available</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="space-y-4">
+                    {storeData.fields.map((field, index) => (
+                        <div key={index} className="flex justify-between items-center py-3 px-4 bg-gray-50 rounded-lg">
+                            <span className="text-gray-700 font-medium">{field.name}</span>
+                            <div className="text-right">
+                                <div className="text-2xl font-bold text-blue-600">
+                                    {formatValue(storeData.latestRecord.values[index] || 0, field.unit)}
+                                </div>
+                                <div className="text-xs text-gray-500">{field.unit}</div>
+                            </div>
+                        </div>
+                    ))}
+                    <div className="text-center pt-4 border-t text-sm text-gray-600">
+                        Last updated: {new Date(parseInt(storeData.latestRecord.timestamp) * 1000).toLocaleString('en-US', {
+                            month: 'numeric',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        // Chart Component
+        const SensorChart = ({ data, fields, selectedField }) => {
+            const chartRef = useRef();
+            const chartInstance = useRef();
+
+            useEffect(() => {
+                if (!data.length || !fields.length) return;
+
+                const ctx = chartRef.current.getContext('2d');
+                
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                const field = fields[selectedField];
+                const chartData = data.map(d => ({
+                    x: new Date(d.timestamp * 1000),
+                    y: parseFloat(formatValue(d.values[selectedField] || 0, field.unit))
+                }));
+
+                chartInstance.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: field.name,
+                            data: chartData,
+                            borderColor: '#7C3AED',
+                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: { 
+                                    unit: 'hour',
+                                    stepSize: 2,
+                                    displayFormats: {
+                                        hour: 'HH:mm'
+                                    }
+                                }
+                            },
+                            y: { beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: function(context) {
+                                        const date = new Date(context[0].parsed.x);
+                                        return date.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [data, fields, selectedField]);
+
+            return <canvas ref={chartRef} className="w-full h-64"></canvas>;
+        };
+
+        // Main App Component
+        const App = () => {
+            const [viemClient, setViemClient] = useState(null);
+            const [storeAddress, setStoreAddress] = useState(CONFIG.DEFAULT_STORE);
+            const [storeData, setStoreData] = useState(null);
+            const [historicalData, setHistoricalData] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [selectedField, setSelectedField] = useState(0);
+
+            // Initialize Viem
+            useEffect(() => {
+                const initViem = async () => {
+                    const viem = await waitForViem();
+                    const client = viem.createPublicClient({
+                        transport: viem.http(CONFIG.RPC_URL)
+                    });
+                    setViemClient(client);
+                };
+                initViem();
+            }, []);
+
+            // Load store data
+            const loadStoreData = async () => {
+                if (!viemClient || !storeAddress) return;
+                
+                setLoading(true);
+                try {
+                    // Get fields
+                    const fields = await viemClient.readContract({
+                        address: storeAddress,
+                        abi: STORE_ABI,
+                        functionName: 'getAllFields'
+                    });
+
+                    // Get owner from store
+                    const owner = await viemClient.readContract({
+                        address: storeAddress,
+                        abi: STORE_ABI,
+                        functionName: 'owner'
+                    });
+                    
+                    // Get metadata and nickname from factory
+                    let metadata = null;
+                    let nickname = null;
+                    let description = null;
+                    try {
+                        const factoryAddress = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb'; // Factory address from config
+                        
+                        // Get nickname
+                        try {
+                            nickname = await viemClient.readContract({
+                                address: factoryAddress,
+                                abi: DEPLOYER_ABI,
+                                functionName: 'storeToNickname',
+                                args: [storeAddress]
+                            });
+                            console.log('Store nickname:', nickname);
+                        } catch (e) {
+                            console.log('Failed to get nickname:', e);
+                        }
+                        
+                        // Get metadata
+                        metadata = await viemClient.readContract({
+                            address: factoryAddress,
+                            abi: DEPLOYER_ABI,
+                            functionName: 'getStoreMetadata',
+                            args: [storeAddress]
+                        });
+                        console.log('Store metadata:', metadata);
+                        
+                        // Handle description - it might be returned as part of an array/tuple
+                        if (metadata) {
+                            // If metadata is an array/tuple, extract description (index 2)
+                            if (Array.isArray(metadata) && metadata.length > 2) {
+                                description = metadata[2];
+                            } else if (metadata.description) {
+                                description = metadata.description;
+                            }
+                        }
+                        console.log('Description:', description);
+                        console.log('Deployed block:', metadata?.deployedBlock?.toString() || metadata?.[0]?.toString());
+                    } catch (e) {
+                        console.log('Failed to get metadata:', e);
+                    }
+
+                    // Get latest record (assuming first authorized sensor)
+                    const sensorAddress = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
+                    const [timestamp, values] = await viemClient.readContract({
+                        address: storeAddress,
+                        abi: STORE_ABI,
+                        functionName: 'getLatestRecord',
+                        args: [sensorAddress]
+                    });
+
+                    // Get current block number
+                    const currentBlock = await viemClient.getBlockNumber();
+
+                    const fieldData = {
+                        owner,
+                        fields: fields.map(f => ({
+                            name: f.name,
+                            unit: f.unit,
+                            dtype: f.dtype
+                        })),
+                        latestRecord: {
+                            timestamp: timestamp.toString(),
+                            values: values.map(v => v.toString())
+                        },
+                        currentBlock,
+                        totalRecords: 0, // Will be updated when loading historical data
+                        lastEventBlock: null, // Will be updated when loading historical data
+                        // Metadata fields
+                        nickname: nickname || null,
+                        description: description || (Array.isArray(metadata) && metadata[2]) || metadata?.description || null,
+                        pointer: (Array.isArray(metadata) && metadata[3]) || metadata?.pointer || null,
+                        deployedBlock: (Array.isArray(metadata) && metadata[0]) || metadata?.deployedBlock || null,
+                        lastUpdatedBlock: (Array.isArray(metadata) && metadata[1]) || metadata?.lastUpdatedBlock || null
+                    };
+                    
+                    setStoreData(fieldData);
+                    
+                    // Set default field to water_depth if it exists
+                    const waterDepthIndex = fieldData.fields.findIndex(f => f.name === 'water_depth');
+                    if (waterDepthIndex >= 0) {
+                        setSelectedField(waterDepthIndex);
+                    }
+
+                    // Load historical data
+                    await loadHistoricalData();
+
+                } catch (error) {
+                    console.error('Error loading store data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Group data by 30-minute intervals
+            const groupDataBy30Minutes = (data) => {
+                if (!data.length) return [];
+
+                const grouped = {};
+                
+                data.forEach(item => {
+                    // Round timestamp to nearest 30-minute interval
+                    const thirtyMinutes = 30 * 60; // 1800 seconds
+                    const roundedTimestamp = Math.floor(item.timestamp / thirtyMinutes) * thirtyMinutes;
+                    
+                    if (!grouped[roundedTimestamp]) {
+                        grouped[roundedTimestamp] = {
+                            timestamp: roundedTimestamp,
+                            values: item.values.map(() => []),
+                            count: 0
+                        };
+                    }
+                    
+                    // Add values to the group for averaging
+                    item.values.forEach((value, index) => {
+                        grouped[roundedTimestamp].values[index].push(parseFloat(value));
+                    });
+                    grouped[roundedTimestamp].count++;
+                });
+
+                // Calculate averages for each 30-minute group
+                return Object.values(grouped).map(group => ({
+                    timestamp: group.timestamp,
+                    values: group.values.map(valueArray => {
+                        if (valueArray.length === 0) return '0';
+                        const avg = valueArray.reduce((sum, val) => sum + val, 0) / valueArray.length;
+                        return avg.toString();
+                    })
+                })).sort((a, b) => a.timestamp - b.timestamp);
+            };
+
+            // Filter data to last 3 days
+            const filterLast3Days = (data) => {
+                const now = Math.floor(Date.now() / 1000);
+                const threeDaysAgo = now - (3 * 24 * 60 * 60);
+                return data.filter(item => item.timestamp >= threeDaysAgo);
+            };
+
+            // Load historical data
+            const loadHistoricalData = async () => {
+                if (!viemClient || !storeAddress) return;
+
+                try {
+                    const currentBlock = await viemClient.getBlockNumber();
+                    // Fetch max blocks available
+                    const maxBlocks = BigInt(10000); // Get as much data as possible
+                    const fromBlock = currentBlock > maxBlocks ? currentBlock - maxBlocks : 0n;
+
+                    const events = await viemClient.getLogs({
+                        address: storeAddress,
+                        event: {
+                            type: 'event',
+                            name: 'RecordStored',
+                            inputs: [
+                                { indexed: true, type: 'address', name: 'sensor' },
+                                { indexed: false, type: 'uint256', name: 'timestamp' },
+                                { indexed: false, type: 'int256[]', name: 'values' }
+                            ]
+                        },
+                        fromBlock,
+                        toBlock: currentBlock
+                    });
+
+                    const processedData = events.map(event => {
+                        const decoded = window.viem.decodeEventLog({
+                            abi: STORE_ABI,
+                            data: event.data,
+                            topics: event.topics
+                        });
+                        
+                        return {
+                            timestamp: Number(decoded.args.timestamp),
+                            values: decoded.args.values.map(v => v.toString())
+                        };
+                    }).sort((a, b) => a.timestamp - b.timestamp);
+
+                    // Filter to last 3 days and group by 30 minutes
+                    const last3DaysData = filterLast3Days(processedData);
+                    const groupedData = groupDataBy30Minutes(last3DaysData);
+                    setHistoricalData(groupedData);
+                    
+                    // Update last event block and total records in store data
+                    if (events.length > 0 && storeData) {
+                        const lastEventBlock = events[events.length - 1].blockNumber;
+                        setStoreData(prev => ({ 
+                            ...prev, 
+                            lastEventBlock: Number(lastEventBlock).toLocaleString(),
+                            totalRecords: events.length
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error loading historical data:', error);
+                }
+            };
+
+            // Load data when client is ready
+            useEffect(() => {
+                if (viemClient) {
+                    loadStoreData();
+                }
+            }, [viemClient, storeAddress]);
+
+
+            // Calculate statistics
+            const stats = useMemo(() => {
+                if (!historicalData.length || !storeData) return null;
+
+                const values = historicalData.map(d => {
+                    const value = d.values[selectedField] || 0;
+                    return parseFloat(formatValue(value, storeData.fields[selectedField].unit));
+                });
+
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+                // Use latest reading from smart contract for current value
+                let latest = values[values.length - 1] || 0;
+                if (storeData.latestRecord && storeData.latestRecord.values[selectedField]) {
+                    latest = parseFloat(formatValue(storeData.latestRecord.values[selectedField], storeData.fields[selectedField].unit));
+                }
+
+                const previous = values[values.length - 2] || latest;
+                const trend = ((latest - previous) / previous * 100).toFixed(1);
+
+                return { min, max, avg, trend, latest };
+            }, [historicalData, selectedField, storeData]);
+
+
+            if (!viemClient) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                            <p>Loading Viem...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-7xl mx-auto px-4 py-6">
+                            <h1 className="text-3xl font-bold text-gray-900">
+                                FloodBoy - Fresh Dashboard
+                            </h1>
+                            <p className="text-gray-600 mt-2">Real-time flood monitoring with blockchain</p>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 py-8">
+                        {/* Store Input */}
+                        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+                            <h2 className="text-xl font-semibold mb-4">Store Address</h2>
+                            <div className="flex gap-4">
+                                <input
+                                    type="text"
+                                    value={storeAddress}
+                                    onChange={(e) => setStoreAddress(e.target.value)}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    placeholder="Enter store contract address"
+                                />
+                                <button
+                                    onClick={loadStoreData}
+                                    disabled={loading}
+                                    className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-md disabled:opacity-50"
+                                >
+                                    {loading ? 'Loading...' : 'Load Store'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {storeData && (
+                            <>
+                                {/* Store Details */}
+                                <div className="bg-white rounded-lg shadow-sm border overflow-hidden mb-8">
+                                    {/* Header Section */}
+                                    <div className="bg-gray-50 px-6 py-4 border-b">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <h1 className="text-2xl font-bold">{storeData.nickname || `Store ${storeAddress.slice(0, 6)}...${storeAddress.slice(-4)}`}</h1>
+                                                <div className="flex gap-2">
+                                                    <span className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                                        Live
+                                                    </span>
+                                                    <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                                        Public View
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <a
+                                                href={`${CONFIG.EXPLORER_URL}/address/${storeAddress}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1"
+                                            >
+                                                View on explorer
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Contract Info */}
+                                    <div className="px-6 py-4">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Contract Address</p>
+                                                <code className="text-sm bg-gray-100 px-3 py-1.5 rounded block break-all">{storeAddress}</code>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Current Block</p>
+                                                <p className="text-sm font-medium">{storeData.currentBlock ? Number(storeData.currentBlock).toLocaleString() : 'Loading...'}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Description Section - Full Width */}
+                                        {storeData.description && (() => {
+                                            // Parse description for location and GPS
+                                            const desc = storeData.description;
+                                            const locMatch = desc.match(/^(.+?)\s+loc:\s*([\d.-]+),\s*([\d.-]+)$/);
+                                            
+                                            if (locMatch) {
+                                                const [, location, lat, lng] = locMatch;
+                                                const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+                                                
+                                                return (
+                                                    <div className="mt-4 border-t pt-4">
+                                                        <div className="mb-3">
+                                                            <p className="text-sm text-gray-500 mb-1">Description</p>
+                                                            <p className="text-lg text-gray-900">{location}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm text-gray-500 mb-1">GPS</p>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-sm font-mono text-gray-600">{lat}, {lng}</span>
+                                                                <a
+                                                                    href={googleMapsUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                                                >
+                                                                    View on Google Maps
+                                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                                    </svg>
+                                                                </a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // Fallback if no GPS coordinates found
+                                                return (
+                                                    <div className="mt-4 border-t pt-4">
+                                                        <p className="text-sm text-gray-500 mb-1">Description</p>
+                                                        <p className="text-lg text-gray-900">{desc}</p>
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
+
+                                        <div className="grid md:grid-cols-2 gap-6 mt-4">
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Store Information</p>
+                                                <div className="space-y-1">
+                                                    {storeData.nickname && (
+                                                        <p className="text-sm"><span className="text-gray-600">Nickname:</span> <span className="font-medium">{storeData.nickname}</span></p>
+                                                    )}
+                                                    {storeData.deployedBlock && (
+                                                        <p className="text-sm"><span className="text-gray-600">Deployed:</span> <span className="font-medium">Block {Number(storeData.deployedBlock).toLocaleString()}</span></p>
+                                                    )}
+                                                    {storeData.pointer && (
+                                                        <p className="text-sm">
+                                                            <span className="text-gray-600">Reference:</span> 
+                                                            <a href={storeData.pointer} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:text-blue-700 ml-1">
+                                                                External Link ↗
+                                                            </a>
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-gray-500 mb-1">Last Activity</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-mono">{storeData.lastEventBlock || '5940747'}</span>
+                                                    <a
+                                                        href={`${CONFIG.EXPLORER_URL}/block/${storeData.lastEventBlock || '5940747'}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-purple-600 hover:text-purple-800"
+                                                    >
+                                                        View block →
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Stats Grid */}
+                                    <div className="bg-gray-50 px-6 py-4 border-t">
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Total Fields</div>
+                                                <div className="text-xl font-bold">{storeData.fields.length}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Owner</div>
+                                                <div className="text-sm font-mono">{formatAddress(storeData.owner)}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Left-Right Layout: Current State (Left) and Chart (Right) */}
+                                <div className="grid lg:grid-cols-2 gap-8 mb-8">
+                                    {/* Left: Current State */}
+                                    <div className="bg-white rounded-lg shadow-sm border p-6">
+                                        <h2 className="text-xl font-semibold mb-6 flex items-center">
+                                            <span className="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
+                                            Current State
+                                        </h2>
+                                        <LiveReadings storeData={storeData} />
+                                    </div>
+
+                                    {/* Right: Chart Attributes */}
+                                    <div className="bg-white rounded-lg shadow-sm border p-6">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h2 className="text-xl font-semibold">Chart Attributes</h2>
+                                            <select
+                                                value={selectedField}
+                                                onChange={(e) => setSelectedField(parseInt(e.target.value))}
+                                                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            >
+                                                {storeData.fields.map((field, index) => (
+                                                    <option key={index} value={index}>
+                                                        {field.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Statistics */}
+                                        {stats && (
+                                            <div className="grid grid-cols-4 gap-4 mb-6">
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-green-600">
+                                                        {stats.latest.toFixed(2)}
+                                                        <span className="text-base font-normal ml-1">
+                                                            {storeData.fields[selectedField].unit.replace(/\s*x\s*\d+/gi, '').trim()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">Current</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-blue-600">
+                                                        {stats.min.toFixed(2)}
+                                                        <span className="text-base font-normal ml-1">
+                                                            {storeData.fields[selectedField].unit.replace(/\s*x\s*\d+/gi, '').trim()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">Min</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-red-600">
+                                                        {stats.max.toFixed(2)}
+                                                        <span className="text-base font-normal ml-1">
+                                                            {storeData.fields[selectedField].unit.replace(/\s*x\s*\d+/gi, '').trim()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">Max</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className={`text-2xl font-bold ${
+                                                        parseFloat(stats.trend) > 0 ? 'text-red-600' : 'text-green-600'
+                                                    }`}>
+                                                        {stats.trend > 0 ? '+' : ''}{stats.trend}%
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">Trend</div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Chart */}
+                                        <SensorChart 
+                                            data={historicalData}
+                                            fields={storeData.fields}
+                                            selectedField={selectedField}
+                                        />
+                                        
+                                        <p className="text-sm text-gray-600 mt-4 text-center">
+                                            Showing last 3 days: {historicalData.length} data points (30-minute intervals)
+                                        </p>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

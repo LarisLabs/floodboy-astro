@@ -6,6 +6,7 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
 import { BLOCKCHAIN_CONFIG } from '../../config/blockchain.config';
 import { getAddressFromAlias, getAliasFromAddress, STORE_ALIASES } from '../../config/aliases.config';
 import { CatLabSensorStoreABI, CatLabFactoryABI } from '../../abis';
+import { DEPLOYER_ABI } from '../../utils/blockchain-constants';
 
 // Enable server-side rendering for dynamic routes
 export const prerender = false;
@@ -58,7 +59,8 @@ const pageData = {
   aliasInfo: aliasInfo,
   error: error,
   storeABI: CatLabSensorStoreABI,
-  factoryABI: CatLabFactoryABI
+  factoryABI: CatLabFactoryABI,
+  deployerABI: DEPLOYER_ABI
 };
 
 // Prepare configuration for injection
@@ -1184,6 +1186,11 @@ const pageTitle = aliasInfo
 							// Import encodeFunctionData from viem
 							const { encodeFunctionData, decodeFunctionResult } = window.viem;
 							
+							// Get factory address for current chain
+							const factoryAddress = currentChain === 8899 ? '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb' : CONTRACTS[currentChain]?.deployerAddress;
+							const DEPLOYER_ABI = pageData.deployerABI;
+							console.log('Using factory address:', factoryAddress, 'for chain:', currentChain);
+							
 							// Prepare multicall
 							const calls = [
 								{
@@ -1212,6 +1219,8 @@ const pageTitle = aliasInfo
 								}
 							];
 							
+							// Factory calls are now made directly after multicall
+							
 							// Execute multicall
 							const results = await publicClient.readContract({
 								address: MULTICALL3_ADDRESS,
@@ -1238,8 +1247,83 @@ const pageTitle = aliasInfo
 								functionName: 'authorizedSignerCount',
 								data: results[2].returnData
 							}) : 0;
+							
+							// Make direct factory calls (only for JIBCHAIN L1 where we know the factory works)
+							let nickname = null;
+							let description = null;
+							let deployedBlockInfo = null;
+							let metadata = null;
+							
+							// Only try factory calls on JIBCHAIN L1 with known factory
+							if (factoryAddress && currentChain === 8899 && factoryAddress === '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb') {
+								console.log('Attempting factory calls for store:', storeAddress);
+								console.log('Using factory:', factoryAddress);
+								
+								// Try storeToNickname first (simplest call)
+								try {
+									nickname = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'storeToNickname',
+										args: [storeAddress]
+									});
+									console.log('✅ Nickname loaded:', nickname);
+								} catch (nicknameErr) {
+									console.log('❌ storeToNickname failed:', nicknameErr.message);
+								}
+								
+								// Try getStoreMetadata (your Solidity script shows this works)
+								try {
+									metadata = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreMetadata',
+										args: [storeAddress]
+									});
+									console.log('✅ Metadata loaded:', metadata);
+									if (metadata && metadata.length >= 3) {
+										// getStoreMetadata returns: [deployedBlock, lastUpdatedBlock, description, pointer]
+										deployedBlockInfo = metadata[0];
+										description = metadata[2]; // description is at index 2
+									}
+								} catch (metadataErr) {
+									console.log('❌ getStoreMetadata failed:', metadataErr.message);
+								}
+								
+								// Try getStoreInfo as fallback
+								try {
+									const storeInfo = await publicClient.readContract({
+										address: factoryAddress,
+										abi: DEPLOYER_ABI,
+										functionName: 'getStoreInfo',
+										args: [storeAddress]
+									});
+									console.log('✅ Store info loaded:', storeInfo);
+									if (storeInfo && storeInfo.length >= 5) {
+										// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
+										if (!nickname) nickname = storeInfo[0];
+										if (!deployedBlockInfo) deployedBlockInfo = storeInfo[3];
+										if (!description) description = storeInfo[4]; // description is at index 4
+									}
+								} catch (storeInfoErr) {
+									console.log('❌ getStoreInfo failed:', storeInfoErr.message);
+								}
+							} else {
+								console.log('Skipping factory calls - not JIBCHAIN L1 or invalid factory address');
+							}
 
-							console.log('Store info loaded:', { owner, fields, authorizedSignerCount });
+							console.log('Store info loaded:', { 
+								owner, 
+								fields, 
+								authorizedSignerCount, 
+								nickname,
+								description,
+								deployedBlockInfo,
+								metadata,
+								factoryAddress,
+								currentChain
+							});
+							
 
 							// Load ALL events from blockchain
 							const currentBlock = await publicClient.getBlockNumber();
@@ -1248,8 +1332,30 @@ const pageTitle = aliasInfo
 							const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
 							const fromBlock = deploymentBlock; // Get ALL records since deployment
 
-							// Simple fix: Just use owner as the authorized signer for now
-							const authorizedSensorAddresses = [owner];
+							// Get total records from factory contract
+							let totalRecords = 0;
+							try {
+								// Remove this hardcoded address - use the one from multicall above
+								totalRecords = await publicClient.readContract({
+									address: factoryAddress,
+									abi: [
+										{
+											"inputs": [{"name": "_store", "type": "address"}],
+											"name": "getTotalRecords",
+											"outputs": [{"name": "", "type": "uint256"}],
+											"stateMutability": "view", 
+											"type": "function"
+										}
+									],
+									functionName: 'getTotalRecords',
+									args: [storeAddress]
+								});
+								totalRecords = Number(totalRecords);
+								console.log('Total records from factory:', totalRecords);
+							} catch (error) {
+								console.log('Factory contract not available, using event count fallback:', error.message);
+								// Will use processedRecords.length as fallback below
+							}
 
 							const eventLogs = await publicClient.getLogs({
 								address: storeAddress,
@@ -1314,14 +1420,18 @@ const pageTitle = aliasInfo
 							// Update state with enhanced data
 							setStoreData({
 								address: storeAddress,
-								name: "FloodBoy: IoT-Powered Blockchain Sensor Store",
+								name: nickname || description || "Sensor Store", // Use nickname first, then description
+								nickname: nickname,
+								description: description || metadata?.description, // Use description from getStoreInfo first
+								pointer: metadata?.pointer,
+								deployedBlock: deployedBlockInfo || metadata?.deployedBlock,
+								lastUpdatedBlock: metadata?.lastUpdatedBlock,
 								owner: owner,
 								fields: fields,
 								lastTimestamp: latestRecord?.timestamp || 0,
-								totalRecords: processedRecords.length
+								totalRecords: totalRecords || processedRecords.length
 							});
 
-							setAuthorizedSensors(authorizedSensorAddresses);
 							
 							// Only update sensor records if they actually changed
 							setSensorRecords(prevRecords => {
@@ -1380,7 +1490,12 @@ const pageTitle = aliasInfo
 							// Set fallback data
 							setStoreData({
 								address: storeAddress,
-								name: "FloodBoy: IoT-Powered Blockchain Sensor Store (Offline)",
+								name: "Sensor Store (Offline)",
+								nickname: null,
+								description: null,
+								pointer: null,
+								deployedBlock: null,
+								lastUpdatedBlock: null,
 								owner: "Unable to load",
 								fields: [],
 								lastTimestamp: 0
@@ -1576,62 +1691,142 @@ const pageTitle = aliasInfo
 							'Back to all stores'
 						)
 					),
-					React.createElement('div', { className: 'mb-8' },
-						React.createElement('div', { className: 'flex items-center justify-between' },
-							React.createElement('div', {},
-								React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 
-									pageData.aliasInfo ? pageData.aliasInfo.displayName : 'Public Sensor Store View'
-								),
-								React.createElement('p', { className: 'text-gray-600' }, 
-									pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
-								),
-								pageData.aliasInfo && React.createElement('p', { className: 'text-sm text-gray-500 mt-1' }, 
-									`Alias: /${pageData.aliasInfo.alias}`
-								),
-								React.createElement('p', { className: 'text-gray-600 font-mono text-sm mt-2' }, storeAddress)
-							),
-							React.createElement('div', { className: 'flex flex-wrap gap-2' },
-								React.createElement('button', { 
-									className: 'btn btn-primary',
-									onClick: () => window.location.reload()
-								}, '🔄 Refresh'),
-								React.createElement('a', { 
-									href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
-									target: '_blank',
-									className: 'btn btn-secondary'
-								}, '🔗 Explorer')
-							)
-						)
-					),
 
-					// Store Information Section (moved to top)
+					// Store Data Section with header inside
 					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
-						React.createElement('div', { className: 'flex items-center justify-between mb-4' },
-							React.createElement('h2', { className: 'text-xl font-semibold' }, 'Store Information'),
-							React.createElement('a', { 
-								href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
-								target: '_blank',
-								className: 'text-blue-600 hover:text-blue-700 text-sm'
-							}, 'View on explorer ↗')
-						),
-						React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6' },
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, storeData?.totalRecords || '0'),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
-							),
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, authorizedSensors.length),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
-							),
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, storeData?.fields?.length || '0'),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
-							),
-							React.createElement('div', { className: 'text-center' },
-								React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
-									storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
+						React.createElement('div', { className: 'space-y-4' },
+							// Header section inside the box
+							React.createElement('div', { className: 'flex items-center justify-between pb-4 border-b' },
+								React.createElement('div', {},
+									React.createElement('h1', { className: 'text-2xl font-bold text-gray-900 mb-1' }, 
+										storeData?.nickname || pageData.aliasInfo?.displayName || 'Public Sensor Store View'
+									),
+									React.createElement('p', { className: 'text-gray-600 text-sm' }, 
+										pageData.aliasInfo ? 'View sensor data stored on the blockchain' : 'View sensor data stored on the blockchain'
+									),
+									pageData.aliasInfo && React.createElement('p', { className: 'text-xs text-gray-500 mt-1' }, 
+										`Alias: /${pageData.aliasInfo.alias}`
+									),
+									React.createElement('a', { 
+										href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
+										target: '_blank',
+										rel: 'noopener noreferrer',
+										className: 'text-blue-600 hover:text-blue-700 font-mono text-xs mt-1 block hover:underline'
+									}, storeAddress),
 								),
-								React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
+								React.createElement('div', { className: 'space-y-2' },
+									React.createElement('div', { className: 'flex gap-2' },
+										React.createElement('button', { 
+											className: 'btn btn-primary text-sm px-3 py-1',
+											onClick: () => window.location.reload()
+										}, '🔄 Refresh'),
+										React.createElement('a', { 
+											href: `${getExplorerUrl(currentChain)}/address/${storeAddress}`,
+											target: '_blank',
+											className: 'btn btn-secondary text-sm px-3 py-1'
+										}, '🔗 Explorer')
+									),
+									React.createElement('div', { className: 'text-xs text-gray-600 space-y-0.5' },
+										React.createElement('div', {},
+											React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
+											React.createElement('span', { className: 'font-mono' }, 
+												blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
+											)
+										),
+									)
+								)
+							),
+							// Stats grid - 4 columns like production
+							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
+								// Total Records
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-2xl font-bold text-blue-600' }, 
+										storeData?.totalRecords || sensorRecords?.length || '0'
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Total Records')
+								),
+								// Authorized Sensors
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-2xl font-bold text-green-600' }, '1'),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Authorized Sensors')
+								),
+								// Field Count
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-2xl font-bold text-purple-600' }, 
+										storeData?.fields?.length || '0'
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Field Count')
+								),
+								// Owner
+								React.createElement('div', { className: 'text-center p-3 bg-gray-50 rounded' },
+									React.createElement('div', { className: 'text-sm font-mono text-gray-800' }, 
+										storeData?.owner ? `${storeData.owner.slice(0, 6)}...${storeData.owner.slice(-4)}` : 'Loading...'
+									),
+									React.createElement('div', { className: 'text-sm text-gray-600' }, 'Owner')
+								)
+							),
+							// Description section only (Store Name moved to top)
+							storeData?.description && React.createElement('div', { className: 'border-t pt-4 space-y-3' },
+								storeData?.description && React.createElement('div', {},
+									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Description'),
+									(() => {
+										// Parse description for GPS coordinates
+										const desc = storeData.description;
+										const locMatch = desc.match(/^(.+?)\s+loc:\s*([0-9.-]+),([0-9.-]+)$/);
+										
+										if (locMatch) {
+											const [, location, lat, lng] = locMatch;
+											const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+											
+											return React.createElement('div', { className: 'space-y-2' },
+												React.createElement('p', { className: 'text-gray-600' }, location.trim()),
+												React.createElement('div', { className: 'flex items-center gap-2 text-sm' },
+													React.createElement('span', { className: 'text-gray-500' }, 'GPS:'),
+													React.createElement('code', { className: 'bg-gray-100 px-2 py-1 rounded text-xs font-mono' }, `${lat}, ${lng}`),
+													React.createElement('a', {
+														href: googleMapsUrl,
+														target: '_blank',
+														rel: 'noopener noreferrer',
+														className: 'inline-flex items-center text-blue-600 hover:text-blue-700 text-xs'
+													}, 
+														'View on Google Maps ',
+														React.createElement('svg', {
+															className: 'w-3 h-3 ml-1',
+															fill: 'none',
+															viewBox: '0 0 24 24',
+															stroke: 'currentColor'
+														},
+															React.createElement('path', {
+																strokeLinecap: 'round',
+																strokeLinejoin: 'round',
+																strokeWidth: 2,
+																d: 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14'
+															})
+														)
+													)
+												)
+											);
+										} else {
+											return React.createElement('p', { className: 'text-gray-600' }, desc);
+										}
+									})()
+								),
+								// Always show description field even if empty for debugging
+								!storeData?.description && React.createElement('div', {},
+									React.createElement('h3', { className: 'text-sm font-medium text-gray-700 mb-1' }, 'Description'),
+									React.createElement('p', { className: 'text-gray-400 italic' }, 'No description available')
+								)
+							),
+							// External link if available
+							storeData?.pointer && React.createElement('div', { className: 'border-t pt-4' },
+								React.createElement('a', { 
+									href: storeData.pointer,
+									target: '_blank',
+									rel: 'noopener noreferrer',
+									className: 'inline-flex items-center text-blue-600 hover:text-blue-700'
+								}, 
+									'External Reference ↗'
+								)
 							)
 						)
 					),
@@ -2377,43 +2572,6 @@ const pageTitle = aliasInfo
 							)
 						),
 
-						// Authorized Sensors Section (Cat Lab style)
-						authorizedSensors.length > 0 && React.createElement('div', { className: 'card border rounded-lg p-6' },
-							React.createElement('h3', { className: 'text-lg font-semibold mb-4' }, 'Authorized Sensors'),
-							React.createElement('div', { className: 'text-sm text-gray-600 mb-4' }, 'Sensors that can submit data to this store'),
-							React.createElement('div', { className: 'overflow-x-auto' },
-								React.createElement('table', { className: 'w-full text-sm' },
-									React.createElement('thead', {},
-										React.createElement('tr', { className: 'border-b text-left' },
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Sensor Address'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Status'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Submissions'),
-											React.createElement('th', { className: 'py-2 text-gray-600' }, 'Last Submission')
-										)
-									),
-									React.createElement('tbody', {},
-										authorizedSensors.map((sensor, index) => {
-											const sensorRecordCount = sensorRecords.filter(r => r.sensor.toLowerCase() === sensor.toLowerCase()).length;
-											const lastRecord = sensorRecords.find(r => r.sensor.toLowerCase() === sensor.toLowerCase());
-											return React.createElement('tr', { key: index, className: 'border-b hover:bg-gray-50' },
-												React.createElement('td', { className: 'py-3 font-mono text-xs' }, 
-													`${sensor.slice(0, 6)}...${sensor.slice(-4)}`
-												),
-												React.createElement('td', { className: 'py-3' },
-													React.createElement('span', { 
-														className: 'inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800' 
-													}, '● Active')
-												),
-												React.createElement('td', { className: 'py-3 font-medium' }, sensorRecordCount),
-												React.createElement('td', { className: 'py-3 text-gray-600' }, 
-													lastRecord ? new Date(lastRecord.timestamp * 1000).toLocaleString() : '-'
-												)
-											);
-										})
-									)
-								)
-							)
-						)
 					)
 				);
 			}
