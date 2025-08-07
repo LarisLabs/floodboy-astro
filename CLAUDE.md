@@ -714,7 +714,7 @@ gh issue comment XXX --body "Session retrospective created: ${RETRO_PATH}"
    - Development and testing
 
 2. **JIBCHAIN L1** - Chain ID: 8899
-   - RPC: `https://rpc-l1.jbc.xpool.pw`
+   - RPC: `https://rpc-l1.jibchain.net`
    - Explorer: `https://exp.jibchain.net`
 
 3. **SiChang** - Chain ID: 700011

@@ -51,7 +51,7 @@ const jibchain = defineChain({
   network: 'jibchain',
   nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc-l1.jbc.xpool.pw'] }
+    default: { http: ['https://rpc-l1.jibchain.net'] }
   }
 });
 

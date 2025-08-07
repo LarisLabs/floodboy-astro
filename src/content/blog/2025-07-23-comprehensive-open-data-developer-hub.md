@@ -36,7 +36,7 @@ What seemed like a straightforward content reorganization became a 90-minute dee
 
 ```bash
 # This broke Astro parsing
-curl -X POST https://rpc-l1.jbc.xpool.pw \
+curl -X POST https://rpc-l1.jibchain.net \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_call"}'
 ```

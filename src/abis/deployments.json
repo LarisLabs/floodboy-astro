@@ -1,7 +1,7 @@
 {
   "JIBCHAIN": {
     "chainId": 8899,
-    "rpcUrl": "https://rpc-l1.jbc.xpool.pw",
+    "rpcUrl": "https://rpc-l1.jibchain.net",
     "explorer": "https://exp.jibchain.net",
     "contracts": {
       "CatLabFactory": {
