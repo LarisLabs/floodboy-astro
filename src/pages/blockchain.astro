@@ -448,6 +448,9 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
             
             const totalCount = Number(storeCount);
             
+            // Target owner address for filtering stores
+            const TARGET_OWNER = '0x943E41e4cc22f971284ae957A380D3DbeA1Dc481';
+            
             console.log('Fetching all stores:', {
               totalStores: totalCount,
               sortOrder
@@ -529,17 +532,28 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
               });
             }
             
+            // Filter stores by target owner address
+            const filteredStores = processedStores.filter(store => 
+              store.owner?.toLowerCase() === TARGET_OWNER.toLowerCase()
+            );
+            
+            console.log('Filtered stores:', {
+              originalCount: processedStores.length,
+              filteredCount: filteredStores.length,
+              targetOwner: TARGET_OWNER
+            });
+            
             // Sort based on user preference
             if (sortOrder === 'oldest') {
               // For oldest first, lower index comes first
-              processedStores.sort((a, b) => a.factoryIndex - b.factoryIndex);
+              filteredStores.sort((a, b) => a.factoryIndex - b.factoryIndex);
             } else {
               // For newest first, higher index comes first
-              processedStores.sort((a, b) => b.factoryIndex - a.factoryIndex);
+              filteredStores.sort((a, b) => b.factoryIndex - a.factoryIndex);
             }
             
-            // Set all stores
-            setStores(processedStores);
+            // Set filtered stores
+            setStores(filteredStores);
           } catch (err) {
             console.error('Error fetching stores:', err);
             setError(err.message);
