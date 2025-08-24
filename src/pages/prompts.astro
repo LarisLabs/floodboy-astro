@@ -30,8 +30,8 @@ Header Section:
 - Title: "Latest Sensor Data"
 - Store Nickname: Display nickname from factory contract (e.g., "FloodBoy001", "FloodBoy016")
 - Store Description: Display description from factory contract (e.g., "Northern Thailand Flood Monitor", "FloodBoy016")
-- Current Block: "Current Block: 5944625" (green dot indicator, no countdown)
-- Updated timestamp: "Updated: 7:25:08 PM"
+- Current Block: "Current Block: 5944625" (display current block number)
+- Last Updated timestamp: "Last Updated: 7:25:08 PM"
 - Store address (truncated): "0xCd3Ec17d...d1A8Bb" or "0x0994Bc66...632812" with external link icon
 
 Chart Section (Full Width):
@@ -94,7 +94,6 @@ Visual Design:
 - Store metadata section with owner and deployment information
 
 Features:
-- Auto-refresh current block and data
 - Display store nickname and description from factory contract
 - Full-width chart with toggle between Water Depth and Battery Voltage views
 - Toggle buttons with active state highlighting (matching chart colors)
@@ -348,7 +347,7 @@ Sensor Data Records Overview (varies by store):
 - FloodBoy001: 7,379 total → 1,569 grouped (30-min intervals)
 - FloodBoy016: 3,907 total → 917 grouped (30-min intervals)
 - Data Grouping Options: 30 minutes, 1 hour, 6 hours, 24 hours
-- Live Updates: Real-time refresh capability
+- Static data display (no real-time updates needed)
 
 Sample Sensor Output Formats:
 
@@ -372,8 +371,7 @@ UI Controls Required:
 - ⛶ Maximize/fullscreen option
 - Show/hide fields selector
 - Data grouping interval selector (30 min default)
-- ⟳ Manual refresh button
-- Live data toggle
+- Simple static data display (no refresh controls needed)
 
 Chart Data Processing:
 - Handle variable dataset sizes efficiently (FloodBoy001: 7K+ records, FloodBoy016: 4K+ records)
