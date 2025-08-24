@@ -21,17 +21,18 @@ Connection Details:
 Contract Addresses:
 - Factory Contract: 0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb
 - FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
+- FloodBoy016 Store: 0x0994Bc66b2863f8D58C8185b1ed6147895632812
 - Universal Signer: 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd (authorized for all stores)
 
 Final UI Design (Latest Sensor Data Card):
 
 Header Section:
 - Title: "Latest Sensor Data"
-- Store Nickname: Display nickname from factory contract (e.g., "FloodBoy001")
-- Store Description: Display description from factory contract (e.g., "Northern Thailand Flood Monitor")
+- Store Nickname: Display nickname from factory contract (e.g., "FloodBoy001", "FloodBoy016")
+- Store Description: Display description from factory contract (e.g., "Northern Thailand Flood Monitor", "FloodBoy016")
 - Current Block: "Current Block: 5944625" (green dot indicator, no countdown)
 - Updated timestamp: "Updated: 7:25:08 PM"
-- Store address (truncated): "0xCd3Ec17d...d1A8Bb" with external link icon
+- Store address (truncated): "0xCd3Ec17d...d1A8Bb" or "0x0994Bc66...632812" with external link icon
 
 Chart Section (Full Width):
 - Display a full-width line chart with toggle controls
@@ -187,7 +188,8 @@ const client = createPublicClient({
 
 // Constants
 const FACTORY_ADDRESS = '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb';
-const DEFAULT_STORE = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
+const FLOODBOY001_STORE = '0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb';
+const FLOODBOY016_STORE = '0x0994Bc66b2863f8D58C8185b1ed6147895632812';
 const UNIVERSAL_SIGNER = '0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd';
 
 // Step 1: Get store information from factory contract
@@ -195,7 +197,7 @@ const [nickname, owner, sensorCount, deployedBlock, description] = await client.
   address: FACTORY_ADDRESS,
   abi: FactoryABI,
   functionName: 'getStoreInfo',
-  args: [storeAddress]
+  args: [FLOODBOY016_STORE] // Using FloodBoy016 as example
 });
 
 // Display store metadata in UI
@@ -203,14 +205,14 @@ console.log('Store Info:', { nickname, description, owner, sensorCount, deployed
 
 // Step 2: Get field configurations
 const fields = await client.readContract({
-  address: storeAddress,
+  address: FLOODBOY016_STORE,
   abi: StoreABI,
   functionName: 'getAllFields'
 });
 
 // Step 3: Get latest sensor data (using universal signer)
 const [timestamp, values] = await client.readContract({
-  address: storeAddress,
+  address: FLOODBOY016_STORE,
   abi: StoreABI,
   functionName: 'getLatestRecord',
   args: [UNIVERSAL_SIGNER]
@@ -225,7 +227,7 @@ const currentBlockNumber = await client.getBlockNumber();
 const fromBlock = currentBlockNumber - BigInt(28800); // ~24 hours (assuming 3sec blocks)
 
 const historicalEvents = await client.getContractEvents({
-  address: storeAddress,
+  address: FLOODBOY016_STORE,
   abi: StoreABI,
   eventName: 'RecordStored',
   fromBlock: fromBlock,
@@ -253,12 +255,21 @@ const chartData = historicalEvents.map(event => ({
 // Chart toggle state management
 const [activeChart, setActiveChart] = useState('waterDepth'); // 'waterDepth' or 'batteryVoltage'
 
-// Data processing function with correct decimal precision AND field name formatting
+// Data processing function with CORRECT x10000 conversion - MOST CRITICAL FUNCTION
 function processValue(value, unit) {
   const baseUnit = unit.replace(/ x\\d+/, '');
   if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit; // Voltage: 3 decimals
   if (unit.includes('x1000')) return (Number(value) / 1000).toFixed(3) + ' ' + baseUnit;
-  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit; // Meters: 4 decimals for precision
+  
+  // ⚠️ CRITICAL: x10000 MUST divide by 10000, NOT 100!
+  if (unit.includes('x10000')) {
+    // CORRECT: divide by 10000
+    return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit;
+    // WRONG examples that AI often generates:
+    // return (Number(value) / 100).toFixed(3) + ' ' + baseUnit; // ❌ Wrong divisor!
+    // return Number(value).toFixed(3) + ' ' + baseUnit; // ❌ No division!
+  }
+  
   return value + ' ' + unit;
 }
 
@@ -287,13 +298,19 @@ Network Info:
 Chain ID: 8899 (JIBCHAIN L1)
 RPC URL: https://rpc-l1.jibchain.net
 Block Explorer: https://exp.jibchain.net
-FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
+FloodBoy016 Store: 0x0994Bc66b2863f8D58C8185b1ed6147895632812
 
-** CRITICAL FORMATTING REQUIREMENTS **
-Unit Conversion:
-- x100 → divide by 100 (example: 1378 → 13.780 V)
+** CRITICAL UNIT CONVERSION - MOST COMMON ERROR **
+⚠️ x10000 fields MUST divide by 10000, NOT display raw values!
+
+Unit Conversion Rules:
+- x100 → divide by 100 (example: 1384 → 13.840 V) ✅
 - x1000 → divide by 1000 
-- x10000 → divide by 10000 (example: 30200 → 3.0200 m, NOT 302.000 m)
+- x10000 → divide by 10000 ⚠️ CRITICAL:
+  - Raw value 30200 → 3.0200 m ✅ (divide by 10000)
+  - Raw value 4383 → 0.4383 m ✅ (divide by 10000)
+  - NOT 302.000 m ❌ (wrong: displaying raw/100 instead of raw/10000)
+  - NOT 43.830 m ❌ (wrong: displaying raw/100 instead of raw/10000)
 
 Field Name Formatting:
 - ALWAYS use Title Case: "Battery Voltage", "Installation Height", "Water Depth"
@@ -302,8 +319,11 @@ Field Name Formatting:
 - Sample count X is dynamic per store (FloodBoy001: 9, FloodBoy016: 3, etc.)
 
 Common Mistakes to Avoid:
-❌ "installation height: 302.000 m" (wrong: lowercase + incorrect x10000 conversion)
-✅ "Installation Height: [3.0000-3.0200] m" (correct: Title Case + proper x10000 conversion)
+❌ "installation height: 302.000 m" (WRONG: lowercase + x10000 displayed as raw/100)
+✅ "Installation Height: 3.0200 m" (CORRECT: Title Case + raw÷10000)
+
+❌ "Water Depth: 43.830 m" (WRONG: x10000 displayed as raw/100) 
+✅ "Water Depth: 0.4383 m" (CORRECT: raw 4383÷10000)
 
 ❌ "water depth count: [X] count" (wrong: separate count field)
 ✅ "Water Depth ([X] samples): [0.44-0.54] m" (correct: embedded sample count)
