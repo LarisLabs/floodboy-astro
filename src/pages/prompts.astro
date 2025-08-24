@@ -42,6 +42,7 @@ Chart Section (Full Width):
 - Chart colors: Blue (#3B82F6) for water depth, Green (#10B981) for voltage
 - Full container width with proper responsive scaling
 - Show data points and connect with smooth lines
+- Apply data smoothing for better chart visualization (moving averages, interpolation)
 - Include hover tooltips showing exact values and timestamps
 - Toggle buttons above chart: [Water Depth] [Battery Voltage]
 - Active toggle button highlighted with matching chart color
@@ -263,6 +264,50 @@ Block Explorer: https://exp.jibchain.net
 FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
 
 ** BE CAREFUL about the unit conversion please double check if the decimal places are correct example: if it x10000 then it should divide by 10000 and if it x1000 then it should divide by 1000 **
+
+Data Smoothing Requirements:
+- Apply smoothing algorithms when rendering charts to reduce noise and improve readability
+- Use moving averages (window size: 3-5 data points) for real-time data visualization
+- Implement interpolation for gaps in historical data
+- Provide option to toggle between raw data and smoothed data views
+- Maintain original data precision while smoothing display values
+
+Real-World Sensor Data Examples:
+The webapp should handle data volumes similar to production FloodBoy sensors:
+
+Sensor Data Records Overview:
+- Total Records: 7,379 sensor readings collected
+- Grouped Data: 1,569 records (after 30-minute grouping)
+- Data Grouping Options: 30 minutes, 1 hour, 6 hours, 24 hours
+- Live Updates: Real-time refresh capability
+
+Sample Sensor Output Format:
+Store: 0xCd3Ec17d...d1A8Bb
+Current Block: 6,169,057 (12s refresh)
+Updated: 11:25:00 AM
+
+Metrics Display:
+| Metric | Current | Min | Max |
+|--------|---------|-----|-----|
+| Battery Voltage | 13.880 V | 13.780 V | 14.050 V |
+| Installation Height | 3.0200 m | 3.0200 m | 3.0200 m |
+| Water Depth (9 samples) | 0.4500 m | 0.4500 m | 0.4500 m |
+
+UI Controls Required:
+- 📊 Data Table view toggle
+- 📈 Charts view toggle  
+- ⛶ Maximize/fullscreen option
+- Show/hide fields selector
+- Data grouping interval selector (30 min default)
+- ⟳ Manual refresh button
+- Live data toggle
+
+Chart Data Processing:
+- Handle large datasets (7K+ records) efficiently
+- Group data by time intervals to reduce chart complexity
+- Apply smoothing to grouped data for cleaner visualization
+- Show sample counts for grouped metrics (e.g., "9 samples")
+- Maintain responsive performance with large datasets
 
 For direct blockchain access commands (cast/curl), see the dedicated Open Data page: /opendata`}</pre>
 				</div>
