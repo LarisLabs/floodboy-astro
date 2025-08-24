@@ -51,10 +51,16 @@ Chart Section (Full Width):
 
 Data Table:
 Columns: Metric | Current | Min | Max
-Rows:
-- Battery Voltage: 12.910 V | 12.910 V | 12.910 V
-- Installation Height: 3.02 m | 3.02 m | 3.02 m  
-- Water Depth: 0.27 m | 0.27 m | 0.27 m
+Rows (CORRECT FORMAT - use proper capitalization and sample counts):
+- Battery Voltage: 13.780 V | 13.540 V | 14.130 V
+- Installation Height: 3.0200 m | 3.0200 m | 3.0200 m  
+- Water Depth (9 samples): 0.4454 m | 0.4450 m | 0.4460 m
+
+WRONG FORMAT (DO NOT USE):
+❌ battery voltage: 13.780 V (lowercase field name)
+❌ installation height: 302.000 m (incorrect unit conversion - should be 3.0200 m)
+❌ water depth: 44.540 m (wrong conversion - should be ~0.44 m)
+❌ water depth count: 9 count (should be "Water Depth (9 samples)" instead)
 
 Footer:
 - Last Updated: 7/22/2025, 7:25:08 PM
@@ -243,14 +249,29 @@ const chartData = historicalEvents.map(event => ({
 // Chart toggle state management
 const [activeChart, setActiveChart] = useState('waterDepth'); // 'waterDepth' or 'batteryVoltage'
 
-// Data processing function with correct decimal precision
+// Data processing function with correct decimal precision AND field name formatting
 function processValue(value, unit) {
   const baseUnit = unit.replace(/ x\\d+/, '');
   if (unit.includes('x100')) return (Number(value) / 100).toFixed(3) + ' ' + baseUnit; // Voltage: 3 decimals
   if (unit.includes('x1000')) return (Number(value) / 1000).toFixed(3) + ' ' + baseUnit;
-  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(2) + ' ' + baseUnit; // Meters: 2 decimals
+  if (unit.includes('x10000')) return (Number(value) / 10000).toFixed(4) + ' ' + baseUnit; // Meters: 4 decimals for precision
   return value + ' ' + unit;
 }
+
+// Field name formatting - CRITICAL FORMATTING RULES
+function formatFieldName(fieldName) {
+  // Convert snake_case to Title Case
+  return fieldName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Examples of CORRECT field name formatting:
+// "battery_voltage" → "Battery Voltage" (NOT "battery voltage")
+// "installation_height" → "Installation Height" (NOT "installation height") 
+// "water_depth" → "Water Depth" (NOT "water depth")
+// "water_depth_count" → append sample count as "Water Depth (X samples)" (NOT "Water Depth Count: X count")
 
 // Examples of correct processing:
 // Battery voltage: 1291 (x100) → 12.91 V (showing as 12.910 V with 3 decimals)
@@ -263,7 +284,23 @@ RPC URL: https://rpc-l1.jibchain.net
 Block Explorer: https://exp.jibchain.net
 FloodBoy001 Store: 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb
 
-** BE CAREFUL about the unit conversion please double check if the decimal places are correct example: if it x10000 then it should divide by 10000 and if it x1000 then it should divide by 1000 **
+** CRITICAL FORMATTING REQUIREMENTS **
+Unit Conversion:
+- x100 → divide by 100 (example: 1378 → 13.780 V)
+- x1000 → divide by 1000 
+- x10000 → divide by 10000 (example: 30200 → 3.0200 m, NOT 302.000 m)
+
+Field Name Formatting:
+- ALWAYS use Title Case: "Battery Voltage", "Installation Height", "Water Depth"
+- NEVER use lowercase: "battery voltage", "installation height", "water depth"
+- For count fields: Use "Water Depth (9 samples)" format, NOT "Water Depth Count: 9 count"
+
+Common Mistakes to Avoid:
+❌ "installation height: 302.000 m" (wrong: lowercase + incorrect conversion)
+✅ "Installation Height: 3.0200 m" (correct: Title Case + proper x10000 conversion)
+
+❌ "water depth count: 9 count" (wrong: separate count field)
+✅ "Water Depth (9 samples): 0.4454 m" (correct: embedded sample count)
 
 Data Smoothing Requirements:
 - Apply smoothing algorithms when rendering charts to reduce noise and improve readability
