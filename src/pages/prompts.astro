@@ -52,15 +52,19 @@ Chart Section (Full Width):
 Data Table:
 Columns: Metric | Current | Min | Max
 Rows (CORRECT FORMAT - use proper capitalization and sample counts):
-- Battery Voltage: 13.780 V | 13.540 V | 14.130 V
-- Installation Height: 3.0200 m | 3.0200 m | 3.0200 m  
-- Water Depth (9 samples): 0.4454 m | 0.4450 m | 0.4460 m
+- Battery Voltage: [voltage] V | [min] V | [max] V
+- Installation Height: [height] m | [height] m | [height] m  
+- Water Depth ([X] samples): [depth] m | [min] m | [max] m
+
+Real Examples (FloodBoy001 vs FloodBoy016):
+FloodBoy001: Water Depth (9 samples): 0.4454 m | 0.4450 m | 0.4460 m
+FloodBoy016: Water Depth (3 samples): 0.5433 m | 0.5400 m | 0.5490 m
 
 WRONG FORMAT (DO NOT USE):
-❌ battery voltage: 13.780 V (lowercase field name)
-❌ installation height: 302.000 m (incorrect unit conversion - should be 3.0200 m)
-❌ water depth: 44.540 m (wrong conversion - should be ~0.44 m)
-❌ water depth count: 9 count (should be "Water Depth (9 samples)" instead)
+❌ battery voltage: [voltage] V (lowercase field name)
+❌ installation height: 302.000 m (incorrect unit conversion from x10000 - should be ~3.02 m)
+❌ water depth: 44.540 m (wrong conversion from x10000 - should be ~0.44-0.54 m)
+❌ water depth count: [X] count (should be "Water Depth ([X] samples)" format instead)
 
 Footer:
 - Last Updated: 7/22/2025, 7:25:08 PM
@@ -271,7 +275,8 @@ function formatFieldName(fieldName) {
 // "battery_voltage" → "Battery Voltage" (NOT "battery voltage")
 // "installation_height" → "Installation Height" (NOT "installation height") 
 // "water_depth" → "Water Depth" (NOT "water depth")
-// "water_depth_count" → append sample count as "Water Depth (X samples)" (NOT "Water Depth Count: X count")
+// "water_depth_count" → append sample count as "Water Depth ([X] samples)" (NOT "Water Depth Count: [X] count")
+// Note: [X] is dynamic - FloodBoy001: 9 samples, FloodBoy016: 3 samples, etc.
 
 // Examples of correct processing:
 // Battery voltage: 1291 (x100) → 12.91 V (showing as 12.910 V with 3 decimals)
@@ -293,14 +298,21 @@ Unit Conversion:
 Field Name Formatting:
 - ALWAYS use Title Case: "Battery Voltage", "Installation Height", "Water Depth"
 - NEVER use lowercase: "battery voltage", "installation height", "water depth"
-- For count fields: Use "Water Depth (9 samples)" format, NOT "Water Depth Count: 9 count"
+- For count fields: Use "Water Depth ([X] samples)" format, NOT "Water Depth Count: [X] count"
+- Sample count X is dynamic per store (FloodBoy001: 9, FloodBoy016: 3, etc.)
 
 Common Mistakes to Avoid:
-❌ "installation height: 302.000 m" (wrong: lowercase + incorrect conversion)
-✅ "Installation Height: 3.0200 m" (correct: Title Case + proper x10000 conversion)
+❌ "installation height: 302.000 m" (wrong: lowercase + incorrect x10000 conversion)
+✅ "Installation Height: [3.0000-3.0200] m" (correct: Title Case + proper x10000 conversion)
 
-❌ "water depth count: 9 count" (wrong: separate count field)
-✅ "Water Depth (9 samples): 0.4454 m" (correct: embedded sample count)
+❌ "water depth count: [X] count" (wrong: separate count field)
+✅ "Water Depth ([X] samples): [0.44-0.54] m" (correct: embedded sample count)
+
+Generic Pattern for All Stores:
+- Sample count varies by store: FloodBoy001 (9 samples), FloodBoy016 (3 samples)
+- Water depth values vary: ~0.44-0.46m (001) vs ~0.54-0.55m (016)
+- Installation height varies: 3.0200m (001) vs 3.0000m (016)
+- Always use dynamic sample count from actual data
 
 Data Smoothing Requirements:
 - Apply smoothing algorithms when rendering charts to reduce noise and improve readability
@@ -310,25 +322,29 @@ Data Smoothing Requirements:
 - Maintain original data precision while smoothing display values
 
 Real-World Sensor Data Examples:
-The webapp should handle data volumes similar to production FloodBoy sensors:
+The webapp should handle data volumes from various production FloodBoy sensors:
 
-Sensor Data Records Overview:
-- Total Records: 7,379 sensor readings collected
-- Grouped Data: 1,569 records (after 30-minute grouping)
+Sensor Data Records Overview (varies by store):
+- FloodBoy001: 7,379 total → 1,569 grouped (30-min intervals)
+- FloodBoy016: 3,907 total → 917 grouped (30-min intervals)
 - Data Grouping Options: 30 minutes, 1 hour, 6 hours, 24 hours
 - Live Updates: Real-time refresh capability
 
-Sample Sensor Output Format:
-Store: 0xCd3Ec17d...d1A8Bb
-Current Block: 6,169,057 (12s refresh)
-Updated: 11:25:00 AM
+Sample Sensor Output Formats:
 
-Metrics Display:
+FloodBoy001 (0xCd3Ec17d...d1A8Bb):
 | Metric | Current | Min | Max |
 |--------|---------|-----|-----|
-| Battery Voltage | 13.880 V | 13.780 V | 14.050 V |
+| Battery Voltage | 13.780 V | 13.540 V | 14.130 V |
 | Installation Height | 3.0200 m | 3.0200 m | 3.0200 m |
-| Water Depth (9 samples) | 0.4500 m | 0.4500 m | 0.4500 m |
+| Water Depth (9 samples) | 0.4454 m | 0.4450 m | 0.4460 m |
+
+FloodBoy016 (0x0994Bc66...632812):
+| Metric | Current | Min | Max |
+|--------|---------|-----|-----|
+| Battery Voltage | 14.140 V | 14.140 V | 14.150 V |
+| Installation Height | 3.0000 m | 3.0000 m | 3.0000 m |
+| Water Depth (3 samples) | 0.5433 m | 0.5400 m | 0.5490 m |
 
 UI Controls Required:
 - 📊 Data Table view toggle
@@ -340,11 +356,12 @@ UI Controls Required:
 - Live data toggle
 
 Chart Data Processing:
-- Handle large datasets (7K+ records) efficiently
-- Group data by time intervals to reduce chart complexity
+- Handle variable dataset sizes efficiently (FloodBoy001: 7K+ records, FloodBoy016: 4K+ records)
+- Group data by time intervals to reduce chart complexity (30min intervals typical)
 - Apply smoothing to grouped data for cleaner visualization
-- Show sample counts for grouped metrics (e.g., "9 samples")
-- Maintain responsive performance with large datasets
+- Show dynamic sample counts for grouped metrics (varies by store: "9 samples", "3 samples", etc.)
+- Maintain responsive performance across all store sizes
+- Adapt to different water depth ranges (001: ~0.44m, 016: ~0.54m) and sample frequencies
 
 For direct blockchain access commands (cast/curl), see the dedicated Open Data page: /opendata`}</pre>
 				</div>
