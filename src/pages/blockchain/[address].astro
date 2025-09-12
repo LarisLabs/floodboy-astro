@@ -401,6 +401,61 @@ const pageTitle = aliasInfo
 					.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
 			}
 
+			// Smart water level filtering with time-gap awareness
+			function filterWaterLevelData(records, fields) {
+				const waterDepthIdx = fields.findIndex(f => f.name === 'water_depth');
+				if (waterDepthIdx < 0) return records; // No water_depth field, return all
+				
+				return records.filter((record, index, arr) => {
+					const waterDepth = record.values[waterDepthIdx];
+					
+					// 1. Always filter zero values (sensor failures)
+					if (waterDepth === 0) {
+						console.log('Filtered zero reading at', new Date(record.timestamp * 1000));
+						return false;
+					}
+					
+					// 2. Filter impossible values (negative or > 20m)
+					if (waterDepth < 0 || waterDepth > 20000) { // 20000mm = 20m
+						console.log('Filtered impossible value:', waterDepth, 'mm');
+						return false;
+					}
+					
+					// 3. Smart rate-of-change detection with time gap awareness
+					if (index > 0) {
+						const prev = arr[index - 1];
+						const timeDiff = Math.abs(record.timestamp - prev.timestamp) / 60; // minutes
+						const waterChange = Math.abs(waterDepth - prev.values[waterDepthIdx]);
+						
+						// Expected transmission interval (5-10 minutes normal operation)
+						const NORMAL_INTERVAL = 15; // minutes
+						const MAX_CHANGE_PER_INTERVAL = 500; // mm (0.5m) per reading during regular transmission
+						
+						// If transmission is regular (no gap), apply strict filtering
+						if (timeDiff <= NORMAL_INTERVAL) {
+							if (waterChange > MAX_CHANGE_PER_INTERVAL) {
+								console.log('Filtered outlier:', waterChange, 'mm change in', timeDiff, 'min at', 
+									new Date(record.timestamp * 1000));
+								return false;
+							}
+						} else {
+							// There was a gap in transmission - sensor was offline
+							// Calculate acceptable change based on time gap
+							const maxAcceptableChange = (timeDiff / NORMAL_INTERVAL) * MAX_CHANGE_PER_INTERVAL;
+							
+							if (waterChange > maxAcceptableChange) {
+								// Even accounting for the gap, this change is too large
+								console.log('Filtered extreme outlier:', waterChange, 'mm change in', 
+									timeDiff, 'min gap at', new Date(record.timestamp * 1000));
+								return false;
+							}
+						}
+					}
+					
+					return true;
+				});
+			}
+
 			// FloodboyVisualization React Component (inline)
 			function FloodboyVisualization({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead }) {
 				const sketchRef = React.useRef(null);
@@ -1371,7 +1426,15 @@ const pageTitle = aliasInfo
 
 							// Process events - get ALL records
 							const processedRecords = processRecordLogs(eventLogs);
-							const allRecords = processedRecords; // Get all records, no limit
+							
+							// Apply smart water level filtering
+							const filteredRecords = filterWaterLevelData(processedRecords, fields);
+							const filteredCount = processedRecords.length - filteredRecords.length;
+							if (filteredCount > 0) {
+								console.log('Filtered', filteredCount, 'invalid/outlier records from', processedRecords.length, 'total');
+							}
+							
+							const allRecords = filteredRecords; // Use filtered records
 
 							// Get latest record data
 							let latestRecord = null;
