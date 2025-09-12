@@ -433,7 +433,28 @@ const pageTitle = aliasInfo
 						return false;
 					}
 					
-					// 3. Smart rate-of-change detection with time gap awareness
+					// 3. Detect isolated spikes (low → high → low pattern)
+					if (index > 0 && index < arr.length - 1) {
+						const prev = arr[index - 1];
+						const next = arr[index + 1];
+						const prevDepth = prev.values[waterDepthIdx];
+						const nextDepth = next.values[waterDepthIdx];
+						
+						// Check if this is an isolated spike
+						// Pattern: previous and next are similar, but current is much higher
+						const avgSurrounding = (prevDepth + nextDepth) / 2;
+						const spikeThreshold = 3000; // 0.3m difference from surrounding average
+						
+						if (Math.abs(prevDepth - nextDepth) < 2000 && // Previous and next are similar (within 0.2m)
+							waterDepth > avgSurrounding + spikeThreshold) { // Current is spike (>0.3m higher)
+							console.log('Filtered isolated spike:', waterDepth / 10000, 'm between', 
+								prevDepth / 10000, 'm and', nextDepth / 10000, 'm at', 
+								new Date(record.timestamp * 1000));
+							return false;
+						}
+					}
+					
+					// 4. Smart rate-of-change detection with time gap awareness
 					if (index > 0) {
 						const prev = arr[index - 1];
 						const timeDiff = Math.abs(record.timestamp - prev.timestamp) / 60; // minutes
