@@ -433,23 +433,31 @@ const pageTitle = aliasInfo
 						return false;
 					}
 					
-					// 3. Detect isolated spikes (low → high → low pattern)
+					// 3. Detect isolated spikes (both small and large)
 					if (index > 0 && index < arr.length - 1) {
 						const prev = arr[index - 1];
 						const next = arr[index + 1];
 						const prevDepth = prev.values[waterDepthIdx];
 						const nextDepth = next.values[waterDepthIdx];
 						
-						// Check if this is an isolated spike
-						// Pattern: previous and next are similar, but current is higher
+						// Check if previous and next readings are similar (returns to baseline)
+						const returnToBaseline = Math.abs(prevDepth - nextDepth);
 						const avgSurrounding = (prevDepth + nextDepth) / 2;
-						const spikeThreshold = 1000; // 0.1m difference from surrounding average (more sensitive)
+						const currentDeviation = Math.abs(waterDepth - avgSurrounding);
 						
-						if (Math.abs(prevDepth - nextDepth) < 500 && // Previous and next are very similar (within 0.05m)
-							Math.abs(waterDepth - avgSurrounding) > spikeThreshold) { // Current differs by >0.1m from average
-							console.log('Filtered isolated spike:', waterDepth / 10000, 'm between', 
-								prevDepth / 10000, 'm and', nextDepth / 10000, 'm at', 
-								new Date(record.timestamp * 1000));
+						// Two-tier detection:
+						// 1. Fine-grain: If prev/next very similar (<0.05m), filter small spikes (>0.1m)
+						// 2. Coarse: If prev/next somewhat similar (<0.1m), filter larger spikes (>0.25m)
+						
+						if (returnToBaseline < 500 && currentDeviation > 1000) {
+							// Very similar baseline, filter small spikes (0.1m+)
+							console.log('Filtered fine spike:', waterDepth / 10000, 'm (deviation:', 
+								currentDeviation / 10000, 'm) from baseline', avgSurrounding / 10000, 'm');
+							return false;
+						} else if (returnToBaseline < 1000 && currentDeviation > 2500) {
+							// Similar baseline, filter medium spikes (0.25m+)
+							console.log('Filtered medium spike:', waterDepth / 10000, 'm (deviation:', 
+								currentDeviation / 10000, 'm) from baseline', avgSurrounding / 10000, 'm');
 							return false;
 						}
 					}
