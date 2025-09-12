@@ -404,7 +404,7 @@ const pageTitle = aliasInfo
 			// Smart water level filtering with time-gap awareness (FloodBoy020 only)
 			function filterWaterLevelData(records, fields, storeAddress) {
 				// Only apply filtering to FloodBoy020
-				const shouldFilter = storeAddress && (
+				const shouldFilter = true || storeAddress && (
 					storeAddress.toLowerCase() === '0x1701a62b62813160de104461573a9e6069405655' // FloodBoy020 address
 				);
 				
