@@ -845,7 +845,7 @@ const pageTitle = aliasInfo
 				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
 				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
 				const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from zero
-				const [groupingInterval, setGroupingInterval] = React.useState('30min'); // Default to 30 minute grouping
+				const [groupingInterval, setGroupingInterval] = React.useState('3hr'); // Default to 3 hour grouping
 
 				// Aggregate data by time intervals
 				const aggregateDataByInterval = React.useCallback((records, interval) => {
