@@ -401,10 +401,21 @@ const pageTitle = aliasInfo
 					.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
 			}
 
-			// Smart water level filtering with time-gap awareness
-			function filterWaterLevelData(records, fields) {
+			// Smart water level filtering with time-gap awareness (FloodBoy020 only)
+			function filterWaterLevelData(records, fields, storeAddress) {
+				// Only apply filtering to FloodBoy020
+				const shouldFilter = storeAddress && (
+					storeAddress.toLowerCase() === '0x1701a62b62813160de104461573a9e6069405655' // FloodBoy020 address
+				);
+				
+				if (!shouldFilter) {
+					return records; // Return unfiltered for other sensors
+				}
+				
 				const waterDepthIdx = fields.findIndex(f => f.name === 'water_depth');
 				if (waterDepthIdx < 0) return records; // No water_depth field, return all
+				
+				console.log('Applying water level filtering for FloodBoy020');
 				
 				return records.filter((record, index, arr) => {
 					const waterDepth = record.values[waterDepthIdx];
@@ -1427,8 +1438,8 @@ const pageTitle = aliasInfo
 							// Process events - get ALL records
 							const processedRecords = processRecordLogs(eventLogs);
 							
-							// Apply smart water level filtering
-							const filteredRecords = filterWaterLevelData(processedRecords, fields);
+							// Apply smart water level filtering (FloodBoy020 only)
+							const filteredRecords = filterWaterLevelData(processedRecords, fields, storeAddress);
 							const filteredCount = processedRecords.length - filteredRecords.length;
 							if (filteredCount > 0) {
 								console.log('Filtered', filteredCount, 'invalid/outlier records from', processedRecords.length, 'total');
