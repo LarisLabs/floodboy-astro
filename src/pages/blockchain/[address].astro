@@ -427,8 +427,9 @@ const pageTitle = aliasInfo
 					}
 					
 					// 2. Filter impossible values (negative or > 20m)
-					if (waterDepth < 0 || waterDepth > 20000) { // 20000mm = 20m
-						console.log('Filtered impossible value:', waterDepth, 'mm');
+					// Water depth is in m x10000 units, so 20m = 200000 units
+					if (waterDepth < 0 || waterDepth > 200000) { // 200000 = 20m × 10000
+						console.log('Filtered impossible value:', waterDepth / 10000, 'm');
 						return false;
 					}
 					
@@ -440,12 +441,13 @@ const pageTitle = aliasInfo
 						
 						// Expected transmission interval (5-10 minutes normal operation)
 						const NORMAL_INTERVAL = 15; // minutes
-						const MAX_CHANGE_PER_INTERVAL = 500; // mm (0.5m) per reading during regular transmission
+						// MAX_CHANGE_PER_INTERVAL in m x10000 units (0.5m = 5000 units)
+						const MAX_CHANGE_PER_INTERVAL = 5000; // 5000 = 0.5m × 10000
 						
 						// If transmission is regular (no gap), apply strict filtering
 						if (timeDiff <= NORMAL_INTERVAL) {
 							if (waterChange > MAX_CHANGE_PER_INTERVAL) {
-								console.log('Filtered outlier:', waterChange, 'mm change in', timeDiff, 'min at', 
+								console.log('Filtered outlier:', waterChange / 10000, 'm change in', timeDiff, 'min at', 
 									new Date(record.timestamp * 1000));
 								return false;
 							}
@@ -456,7 +458,7 @@ const pageTitle = aliasInfo
 							
 							if (waterChange > maxAcceptableChange) {
 								// Even accounting for the gap, this change is too large
-								console.log('Filtered extreme outlier:', waterChange, 'mm change in', 
+								console.log('Filtered extreme outlier:', waterChange / 10000, 'm change in', 
 									timeDiff, 'min gap at', new Date(record.timestamp * 1000));
 								return false;
 							}
