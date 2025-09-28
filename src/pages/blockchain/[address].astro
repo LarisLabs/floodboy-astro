@@ -895,8 +895,13 @@ const pageTitle = aliasInfo
 			function BlockchainApp() {
 				const [currentChain, setCurrentChain] = React.useState(8899);
 				const [storeData, setStoreData] = React.useState(null);
-				const [isLoading, setIsLoading] = React.useState(true);
-				const [isRefreshing, setIsRefreshing] = React.useState(false);
+                                const [isLoading, setIsLoading] = React.useState(true);
+                                const [isRefreshing, setIsRefreshing] = React.useState(false);
+                                const [activeRpcUrl, setActiveRpcUrl] = React.useState(() => {
+                                        const defaultRpc = window.chains?.jibchainL1?.rpcUrls?.default?.http?.[0];
+                                        return defaultRpc || null;
+                                });
+                                const hasLoadedOnceRef = React.useRef(false);
 				
 				// Helper function to format address
 				const formatAddress = (address) => {
@@ -1251,21 +1256,32 @@ const pageTitle = aliasInfo
 				}, [activeTab, sensorRecords, selectedFields, createChart, startFromZero, groupingInterval]);
 
 				// Define loadEnhancedStoreData function
-				const loadEnhancedStoreData = React.useCallback(async () => {
+                                const loadEnhancedStoreData = React.useCallback(async () => {
 						// Only set loading on initial load, use refreshing for updates
-						if (!storeData) {
-							setIsLoading(true);
-						} else {
-							setIsRefreshing(true);
-						}
-						setError(null);
+                                                if (!hasLoadedOnceRef.current) {
+                                                        setIsLoading(true);
+                                                } else {
+                                                        setIsRefreshing(true);
+                                                }
+                                                setError(null);
 						
 						try {
-							// Create public client for JIBCHAIN L1
-							const publicClient = window.viem.createPublicClient({
-								chain: window.chains.jibchainL1,
-								transport: window.viem.http()
-							});
+                                                        // Determine active chain configuration and RPC URL
+                                                        const chainConfig = (() => {
+                                                                if (currentChain === 700011) return window.chains.sichang;
+                                                                if (currentChain === 31337) return window.chains.anvil;
+                                                                return window.chains.jibchainL1;
+                                                        })();
+
+                                                        const rpcCandidates = (chainConfig?.rpcUrls?.default?.http || []).filter(Boolean);
+                                                        const selectedRpcUrl = rpcCandidates.length > 0 ? rpcCandidates[0] : null;
+
+                                                        setActiveRpcUrl(selectedRpcUrl);
+
+                                                        const publicClient = window.viem.createPublicClient({
+                                                                chain: chainConfig || window.chains.jibchainL1,
+                                                                transport: selectedRpcUrl ? window.viem.http(selectedRpcUrl) : window.viem.http()
+                                                        });
 
 							console.log('Loading enhanced data for store:', storeAddress);
 
@@ -1632,14 +1648,15 @@ const pageTitle = aliasInfo
 							setIsOnline(false);
 						}
 						
-						setIsLoading(false);
-						setIsRefreshing(false);
-				}, [storeAddress]);
-				
-				// Initial load on mount
-				React.useEffect(() => {
-					loadEnhancedStoreData();
-				}, []);
+                                                setIsLoading(false);
+                                                setIsRefreshing(false);
+                                                hasLoadedOnceRef.current = true;
+                                }, [storeAddress, currentChain]);
+
+                                // Initial load on mount
+                                React.useEffect(() => {
+                                        loadEnhancedStoreData();
+                                }, [loadEnhancedStoreData]);
 
 				// Cleanup chart on unmount
 				React.useEffect(() => {
@@ -1651,14 +1668,15 @@ const pageTitle = aliasInfo
 				}, []);
 
 				// Simple block watcher using viem watchBlocks
-				React.useEffect(() => {
-					let unwatch;
-					
-					if (currentChain === 8899) {
-						const publicClient = window.viem.createPublicClient({
-							chain: window.chains.jibchainL1,
-							transport: window.viem.http()
-						});
+                                React.useEffect(() => {
+                                        let unwatch;
+
+                                        if (currentChain === 8899) {
+                                                const transport = activeRpcUrl ? window.viem.http(activeRpcUrl) : window.viem.http();
+                                                const publicClient = window.viem.createPublicClient({
+                                                        chain: window.chains.jibchainL1,
+                                                        transport
+                                                });
 						
 						// Use viem's watchBlocks for efficient block monitoring
 						unwatch = publicClient.watchBlocks({
@@ -1672,12 +1690,12 @@ const pageTitle = aliasInfo
 						});
 					}
 					
-					return () => {
-						if (unwatch) {
-							unwatch();
-						}
-					};
-				}, [currentChain, storeData, storeAddress]);
+                                        return () => {
+                                                if (unwatch) {
+                                                        unwatch();
+                                                }
+                                        };
+                                }, [currentChain, activeRpcUrl]);
 
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
@@ -1768,11 +1786,14 @@ const pageTitle = aliasInfo
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
-							React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
-							React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress)
-						)
-					);
-				}
+                                                        React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
+                                                        React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress),
+                                                        React.createElement('p', { className: 'text-gray-500 text-xs mt-1 font-mono break-all' },
+                                                                `Active RPC: ${activeRpcUrl || 'Auto (viem default)'}`
+                                                        )
+                                                )
+                                        );
+                                }
 
 				if (error) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
@@ -1780,10 +1801,13 @@ const pageTitle = aliasInfo
 							React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
 								React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Connection Error'),
 								React.createElement('p', { className: 'text-red-600 mb-4' }, error),
-								React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
-								React.createElement('button', { 
-									className: 'mt-4 btn btn-primary',
-									onClick: () => window.location.reload()
+                                                                React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
+                                                                React.createElement('p', { className: 'text-gray-500 text-xs font-mono break-all mt-2' },
+                                                                        `Active RPC: ${activeRpcUrl || 'Auto (viem default)'}`
+                                                                ),
+                                                                React.createElement('button', {
+                                                                        className: 'mt-4 btn btn-primary',
+                                                                        onClick: () => window.location.reload()
 								}, 'Retry')
 							)
 						)
@@ -1855,16 +1879,22 @@ const pageTitle = aliasInfo
 											className: 'btn btn-secondary text-sm px-3 py-1'
 										}, '🔗 Explorer')
 									),
-									React.createElement('div', { className: 'text-xs text-gray-600 space-y-0.5' },
-										React.createElement('div', {},
-											React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
-											React.createElement('span', { className: 'font-mono' }, 
-												blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
-											)
-										),
-									)
-								)
-							),
+                                                                        React.createElement('div', { className: 'text-xs text-gray-600 space-y-0.5' },
+                                                                                React.createElement('div', {},
+                                                                                        React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
+                                                                                        React.createElement('span', { className: 'font-mono' },
+                                                                                                blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
+                                                                                        )
+                                                                                ),
+                                                                                React.createElement('div', {},
+                                                                                        React.createElement('span', { className: 'font-medium' }, 'Active RPC: '),
+                                                                                        React.createElement('span', { className: 'font-mono break-all' },
+                                                                                                activeRpcUrl || 'Auto (viem default)'
+                                                                                        )
+                                                                                )
+                                                                        )
+                                                                )
+                                                        ),
 							// Stats grid - 4 columns like production
 							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
 								// Total Records
