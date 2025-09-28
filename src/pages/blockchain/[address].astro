@@ -1083,7 +1083,29 @@ const pageTitle = aliasInfo
 					});
 
 					// Create datasets - show only selected fields
-					const datasets = storeData.fields
+                                        const hexToRgba = (hex, alpha = 1) => {
+                                                const sanitized = hex.replace('#', '');
+                                                const bigint = parseInt(sanitized.length === 3
+                                                        ? sanitized.split('').map(char => char + char).join('')
+                                                        : sanitized, 16);
+                                                const r = (bigint >> 16) & 255;
+                                                const g = (bigint >> 8) & 255;
+                                                const b = bigint & 255;
+                                                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                                        };
+
+                                        const fallbackPalette = [
+                                                '#2563eb', // blue-600
+                                                '#0ea5e9', // sky-500
+                                                '#7c3aed', // violet-600
+                                                '#16a34a', // green-600
+                                                '#f97316', // orange-500
+                                                '#ef4444', // red-500
+                                                '#14b8a6', // teal-500
+                                                '#f59e0b'  // amber-500
+                                        ];
+
+                                        const datasets = storeData.fields
 						.filter((field, fieldIndex) => {
 							// Show only selected fields (not _min, _max, _count variants)
 							return selectedFields.includes(field.name) && 
@@ -1093,12 +1115,12 @@ const pageTitle = aliasInfo
 						})
 						.map((field, index) => {
 							const fieldIndex = storeData.fields.findIndex(f => f.name === field.name);
-							const colors = {
-								'water_depth': 'rgb(59, 130, 246)', // Blue
-								'installation_height': 'rgb(16, 185, 129)', // Green  
-								'battery_voltage': 'rgb(168, 85, 247)', // Purple
-							};
-							const color = colors[field.name] || colors['water_depth'];
+                                                        const colors = {
+                                                                'water_depth': '#2563eb', // Blue
+                                                                'installation_height': '#16a34a', // Green
+                                                                'battery_voltage': '#a855f7', // Purple
+                                                        };
+                                                        const color = colors[field.name] || fallbackPalette[index % fallbackPalette.length];
 							
 							const data = processedRecords.map(record => {
 								if (record.values[fieldIndex] !== undefined) {
@@ -1116,18 +1138,18 @@ const pageTitle = aliasInfo
 								label: `${fieldLabel} (${field.unit.replace(/ x\d+$/, '')})`,
 								data: data,
 								borderColor: color,
-								backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-								borderWidth: 2,
+                                                                backgroundColor: hexToRgba(color, 0.15),
+                                                                borderWidth: 3,
 								tension: 0.4,
 								fill: field.name === 'water_depth', // Only fill water depth
 								spanGaps: true,
 								pointRadius: 2,
 								pointHoverRadius: 4,
-								pointBackgroundColor: color,
-								pointBorderColor: '#fff',
-								pointBorderWidth: 2
-							};
-						});
+                                                                pointBackgroundColor: color,
+                                                                pointBorderColor: color,
+                                                                pointBorderWidth: 1
+                                                        };
+                                                });
 
 					// Check if this is an update or initial creation
 					const isUpdate = chartInstanceRef.current !== null;
