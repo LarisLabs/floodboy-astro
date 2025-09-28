@@ -303,25 +303,74 @@ const pageTitle = aliasInfo
 		</main>
 		<Footer />
 
-		<script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, PAGE_DATA: pageDataJson }}>
-			// Import viem modules
-			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
-			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
-			
-			// Custom chain configurations
-			const jibchainL1 = {
-				id: 8899,
-				name: 'JIBCHAIN L1',
-				network: 'jibchain',
-				nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-				rpcUrls: {
-					default: { http: ['https://rpc-l1.jibchain.net'] },
-					public: { http: ['https://rpc-l1.jibchain.net'] }
-				},
-				blockExplorers: {
-					default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
-				}
-			};
+                <script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, PAGE_DATA: pageDataJson }}>
+                        // Import viem modules
+                        import { createPublicClient, http, fallback, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
+                        import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
+
+                        const JIBCHAIN_RPC_PRIORITY = [
+                                'https://rpc2-l1.jbc.xpool.pw',
+                                'https://rpc-l1.jbc.xpool.pw',
+                                'https://rpc-l1.inan.in.th',
+                                'https://rpc-l1.jibchain.net'
+                        ];
+
+                        const RPC_METADATA = [
+                                {
+                                        url: 'https://rpc2-l1.jbc.xpool.pw',
+                                        label: 'xPool RPC Cluster #2',
+                                        badge: 'Fastest',
+                                        score: 'A+',
+                                        privacy: 'Community (xPool)',
+                                        defaultLatencySeconds: 0.051,
+                                        defaultHeight: 6405266
+                                },
+                                {
+                                        url: 'https://rpc-l1.jbc.xpool.pw',
+                                        label: 'xPool RPC Cluster #1',
+                                        badge: 'Preferred',
+                                        score: 'A',
+                                        privacy: 'Community (xPool)',
+                                        defaultLatencySeconds: 0.054,
+                                        defaultHeight: 6405266
+                                },
+                                {
+                                        url: 'https://rpc-l1.inan.in.th',
+                                        label: 'INAN Edge Node',
+                                        badge: 'Reliable',
+                                        score: 'B+',
+                                        privacy: 'Regional (Thailand)',
+                                        defaultLatencySeconds: 0.083,
+                                        defaultHeight: 6405266
+                                },
+                                {
+                                        url: 'https://rpc-l1.jibchain.net',
+                                        label: 'Official JIBCHAIN RPC',
+                                        badge: 'Official',
+                                        score: 'B',
+                                        privacy: 'Foundation (JIBCHAIN)',
+                                        defaultLatencySeconds: 0.216,
+                                        defaultHeight: 6405266
+                                }
+                        ];
+
+                        const RPC_HEALTH_TIMEOUT = 4000;
+                        const RPC_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+                        // Custom chain configurations
+                        const jibchainL1 = {
+                                id: 8899,
+                                name: 'JIBCHAIN L1',
+                                network: 'jibchain',
+                                nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+                                rpcUrls: {
+                                        default: { http: [...JIBCHAIN_RPC_PRIORITY] },
+                                        public: { http: [...JIBCHAIN_RPC_PRIORITY] }
+                                },
+                                blockExplorers: {
+                                        default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+                                }
+                        };
 			
 			const sichang = {
 				id: 700011,
@@ -338,7 +387,7 @@ const pageTitle = aliasInfo
 			};
 			
 			// Make viem and chains available globally
-			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult };
+                        window.viem = { createPublicClient, http, fallback, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
 
 			// Parse page data from server
@@ -893,6 +942,9 @@ const pageTitle = aliasInfo
 
 			// Main BlockchainApp Component
                         function BlockchainApp() {
+                                const rpcRankingRef = React.useRef({ timestamp: 0, orderedResults: null, urls: [] });
+                                const isMountedRef = React.useRef(true);
+
                                 function getChainConfigForId(chainId) {
                                         switch (chainId) {
                                                 case 8899:
@@ -909,6 +961,21 @@ const pageTitle = aliasInfo
                                 function getRpcUrlForChain(chainId) {
                                         const chainConfig = getChainConfigForId(chainId);
                                         const urls = chainConfig?.rpcUrls?.default?.http || [];
+
+                                        if (chainId === 8899) {
+                                                const cachedOrder = rpcRankingRef.current?.orderedResults;
+                                                if (cachedOrder && cachedOrder.length) {
+                                                        const healthyPrimary = cachedOrder.find(result => result.healthy);
+                                                        if (healthyPrimary) {
+                                                                return healthyPrimary.url;
+                                                        }
+                                                }
+
+                                                if (rpcRankingRef.current?.urls?.length) {
+                                                        return rpcRankingRef.current.urls[0];
+                                                }
+                                        }
+
                                         return urls.length > 0 ? urls[0] : null;
                                 }
 
@@ -917,6 +984,245 @@ const pageTitle = aliasInfo
                                 const [isLoading, setIsLoading] = React.useState(true);
                                 const [isRefreshing, setIsRefreshing] = React.useState(false);
                                 const [activeRpcUrl, setActiveRpcUrl] = React.useState(() => getRpcUrlForChain(8899));
+                                const [rpcDiagnostics, setRpcDiagnostics] = React.useState(() =>
+                                        RPC_METADATA.map(meta => ({
+                                                ...meta,
+                                                height: typeof meta.defaultHeight === 'number' ? meta.defaultHeight.toLocaleString() : '—',
+                                                latencySeconds: typeof meta.defaultLatencySeconds === 'number' ? meta.defaultLatencySeconds : null,
+                                                latencyLabel: typeof meta.defaultLatencySeconds === 'number'
+                                                        ? `${meta.defaultLatencySeconds.toFixed(3)}s`
+                                                        : '—',
+                                                healthy: true
+                                        }))
+                                );
+                                const [isCheckingRpcs, setIsCheckingRpcs] = React.useState(false);
+                                const [lastRpcCheck, setLastRpcCheck] = React.useState(null);
+
+                                React.useEffect(() => () => {
+                                        isMountedRef.current = false;
+                                }, []);
+
+                                const updateDiagnostics = React.useCallback((orderedResults) => {
+                                        if (!isMountedRef.current) {
+                                                return;
+                                        }
+
+                                        if (!orderedResults || !orderedResults.length) {
+                                                setRpcDiagnostics(
+                                                        RPC_METADATA.map(meta => ({
+                                                                ...meta,
+                                                                height: typeof meta.defaultHeight === 'number' ? meta.defaultHeight.toLocaleString() : '—',
+                                                                latencySeconds: typeof meta.defaultLatencySeconds === 'number' ? meta.defaultLatencySeconds : null,
+                                                                latencyLabel: typeof meta.defaultLatencySeconds === 'number'
+                                                                        ? `${meta.defaultLatencySeconds.toFixed(3)}s`
+                                                                        : '—',
+                                                                healthy: true
+                                                        }))
+                                                );
+                                                return;
+                                        }
+
+                                        setRpcDiagnostics(
+                                                orderedResults.map(result => {
+                                                        const meta = RPC_METADATA.find(entry => entry.url === result.url) || { url: result.url, score: '—', privacy: '—' };
+                                                        const hasDefaultHeight = typeof meta.defaultHeight === 'number';
+                                                        const hasDefaultLatency = typeof meta.defaultLatencySeconds === 'number';
+                                                        const blockHeight = typeof result.blockHeight === 'number' && Number.isFinite(result.blockHeight)
+                                                                ? result.blockHeight
+                                                                : null;
+                                                        const latencyMs = Number.isFinite(result.latency) ? result.latency : null;
+                                                        const latencySeconds = latencyMs !== null ? latencyMs / 1000 : null;
+
+                                                        return {
+                                                                ...meta,
+                                                                height: blockHeight !== null
+                                                                        ? blockHeight.toLocaleString()
+                                                                        : (hasDefaultHeight ? meta.defaultHeight.toLocaleString() : '—'),
+                                                                latencySeconds,
+                                                                latencyLabel: latencySeconds !== null ? `${latencySeconds.toFixed(3)}s` : 'Offline',
+                                                                healthy: Boolean(result.healthy && blockHeight !== null)
+                                                        };
+                                                })
+                                        );
+                                }, []);
+
+                                const rankRpcUrls = React.useCallback(async (urls) => {
+                                        if (!urls || !urls.length) {
+                                                return [];
+                                        }
+
+                                        const now = Date.now();
+                                        const cached = rpcRankingRef.current;
+
+                                        if (cached.orderedResults && cached.orderedResults.length && (now - cached.timestamp) < RPC_CACHE_TTL) {
+                                                updateDiagnostics(cached.orderedResults);
+                                                if (isMountedRef.current) {
+                                                        setLastRpcCheck(new Date(cached.timestamp));
+                                                }
+                                                return cached.orderedResults;
+                                        }
+
+                                        if (isMountedRef.current) {
+                                                setIsCheckingRpcs(true);
+                                        }
+
+                                        try {
+                                                const results = await Promise.all(urls.map(async (url) => {
+                                                        const controller = new AbortController();
+                                                        const timeoutId = setTimeout(() => controller.abort(), RPC_HEALTH_TIMEOUT);
+                                                        const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+                                                        try {
+                                                                const response = await fetch(url, {
+                                                                        method: 'POST',
+                                                                        headers: { 'content-type': 'application/json' },
+                                                                        body: JSON.stringify({
+                                                                                jsonrpc: '2.0',
+                                                                                id: Math.floor(Math.random() * 1_000_000),
+                                                                                method: 'eth_blockNumber',
+                                                                                params: []
+                                                                        }),
+                                                                        signal: controller.signal
+                                                                });
+
+                                                                if (!response.ok) {
+                                                                        throw new Error(`Status ${response.status}`);
+                                                                }
+
+                                                                const data = await response.json();
+                                                                const blockNumberHex = data?.result;
+                                                                const blockHeight = typeof blockNumberHex === 'string' ? parseInt(blockNumberHex, 16) : null;
+                                                                const latency = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - start;
+                                                                const healthy = typeof blockHeight === 'number' && Number.isFinite(blockHeight);
+
+                                                                return { url, latency, blockHeight: healthy ? blockHeight : null, healthy };
+                                                        } catch (rpcError) {
+                                                                console.warn('[rpc] RPC latency check failed', url, rpcError);
+                                                                return { url, latency: Number.POSITIVE_INFINITY, blockHeight: null, healthy: false };
+                                                        } finally {
+                                                                clearTimeout(timeoutId);
+                                                        }
+                                                }));
+
+                                                const healthy = results.filter(result => result.healthy).sort((a, b) => a.latency - b.latency);
+                                                const unhealthy = results.filter(result => !result.healthy);
+                                                const orderedResults = [...healthy, ...unhealthy];
+
+                                                rpcRankingRef.current = {
+                                                        timestamp: Date.now(),
+                                                        orderedResults,
+                                                        urls: orderedResults.map(result => result.url)
+                                                };
+
+                                                updateDiagnostics(orderedResults);
+
+                                                if (isMountedRef.current) {
+                                                        setLastRpcCheck(new Date(rpcRankingRef.current.timestamp));
+                                                }
+
+                                                return orderedResults;
+                                        } finally {
+                                                if (isMountedRef.current) {
+                                                        setIsCheckingRpcs(false);
+                                                }
+                                        }
+                                }, [updateDiagnostics]);
+
+                                const createResilientClient = React.useCallback(async (chainId) => {
+                                        const chainConfig = getChainConfigForId(chainId);
+
+                                        if (!chainConfig) {
+                                                throw new Error(`Unsupported chain ${chainId}`);
+                                        }
+
+                                        const baseUrls = chainConfig?.rpcUrls?.default?.http || [];
+                                        if (!baseUrls.length) {
+                                                throw new Error(`No RPC endpoints configured for chain ${chainId}`);
+                                        }
+
+                                        let rankedUrls = [...baseUrls];
+                                        let orderedResults = [];
+
+                                        if (chainId === 8899) {
+                                                orderedResults = await rankRpcUrls(baseUrls);
+                                                if (orderedResults.length) {
+                                                        rankedUrls = orderedResults.map(result => result.url);
+                                                }
+
+                                                if (!rankedUrls.length) {
+                                                        rankedUrls = [...baseUrls];
+                                                }
+
+                                                if (chainConfig.rpcUrls?.default) {
+                                                        chainConfig.rpcUrls.default.http = rankedUrls;
+                                                }
+                                                if (chainConfig.rpcUrls?.public) {
+                                                        chainConfig.rpcUrls.public.http = rankedUrls;
+                                                }
+                                        }
+
+                                        if (!rankedUrls.length) {
+                                                throw new Error('No RPC transport available');
+                                        }
+
+                                        const transports = rankedUrls.map((url) =>
+                                                window.viem.http(url, {
+                                                        timeout: RPC_HEALTH_TIMEOUT,
+                                                        retryCount: 1
+                                                })
+                                        );
+
+                                        const transport = transports.length > 1 ? window.viem.fallback(transports) : transports[0];
+
+                                        const client = window.viem.createPublicClient({
+                                                chain: chainConfig,
+                                                transport
+                                        });
+
+                                        const primaryCandidate = chainId === 8899
+                                                ? ((orderedResults.find(result => result.healthy)?.url) || rankedUrls[0])
+                                                : rankedUrls[0];
+
+                                        return {
+                                                client,
+                                                primaryRpcUrl: primaryCandidate,
+                                                rpcUrls: rankedUrls
+                                        };
+                                }, [rankRpcUrls]);
+
+                                const handleRpcHealthCheck = React.useCallback(async () => {
+                                        rpcRankingRef.current = { timestamp: 0, orderedResults: null, urls: [] };
+                                        const results = await rankRpcUrls(JIBCHAIN_RPC_PRIORITY);
+                                        if (results && results.length) {
+                                                const primary = results.find(result => result.healthy) || results[0];
+                                                if (primary) {
+                                                        setActiveRpcUrl(primary.url);
+                                                }
+                                        }
+                                }, [rankRpcUrls]);
+
+                                const handleAddRpcToMetamask = React.useCallback(async (rpcUrl) => {
+                                        if (!window.ethereum || !window.ethereum.request) {
+                                                alert('MetaMask is not available in this browser.');
+                                                return;
+                                        }
+
+                                        try {
+                                                await window.ethereum.request({
+                                                        method: 'wallet_addEthereumChain',
+                                                        params: [{
+                                                                chainId: '0x22B3',
+                                                                chainName: 'JIBCHAIN L1',
+                                                                nativeCurrency: { name: 'JIBCHAIN', symbol: 'JBC', decimals: 18 },
+                                                                rpcUrls: [rpcUrl],
+                                                                blockExplorerUrls: ['https://exp.jibchain.net']
+                                                        }]
+                                                });
+                                        } catch (addError) {
+                                                console.error('Failed to add RPC to MetaMask', addError);
+                                                alert(addError?.message || 'Unable to add RPC endpoint to MetaMask.');
+                                        }
+                                }, []);
 				
 				// Helper function to format address
 				const formatAddress = (address) => {
@@ -1271,7 +1577,7 @@ const pageTitle = aliasInfo
 				}, [activeTab, sensorRecords, selectedFields, createChart, startFromZero, groupingInterval]);
 
 				// Define loadEnhancedStoreData function
-				const loadEnhancedStoreData = React.useCallback(async () => {
+                                const loadEnhancedStoreData = React.useCallback(async () => {
 						// Only set loading on initial load, use refreshing for updates
 						if (!storeData) {
 							setIsLoading(true);
@@ -1281,19 +1587,13 @@ const pageTitle = aliasInfo
 						setError(null);
 						
                                                 try {
-                                                        const chainConfig = getChainConfigForId(currentChain);
-                                                        const rpcUrl = getRpcUrlForChain(currentChain);
+                                                        const { client: publicClient, primaryRpcUrl } = await createResilientClient(currentChain);
 
-                                                        if (rpcUrl) {
-                                                                setActiveRpcUrl(rpcUrl);
+                                                        if (primaryRpcUrl) {
+                                                                setActiveRpcUrl(primaryRpcUrl);
                                                         }
 
-                                                        const publicClient = window.viem.createPublicClient({
-                                                                chain: chainConfig,
-                                                                transport: rpcUrl ? window.viem.http(rpcUrl) : window.viem.http()
-                                                        });
-
-							console.log('Loading enhanced data for store:', storeAddress);
+                                                        console.log('Loading enhanced data for store:', storeAddress);
 
 							// Get current block number
 							const currentBlockNumber = await publicClient.getBlockNumber();
@@ -1639,12 +1939,13 @@ const pageTitle = aliasInfo
 								setIsOnline(false);
 							}
 
-						} catch (err) {
-							console.error('Error loading enhanced store data:', err);
-							setError(err.message);
-							// Set fallback data
-							setStoreData({
-								address: storeAddress,
+                                                } catch (err) {
+                                                        console.error('Error loading enhanced store data:', err);
+                                                        setError(err?.message || 'Unable to load data from the blockchain.');
+                                                        setActiveRpcUrl(null);
+                                                        // Set fallback data
+                                                        setStoreData({
+                                                                address: storeAddress,
 								name: "Sensor Store (Offline)",
 								nickname: null,
 								description: null,
@@ -1658,14 +1959,14 @@ const pageTitle = aliasInfo
 							setIsOnline(false);
 						}
 						
-						setIsLoading(false);
-						setIsRefreshing(false);
-				}, [storeAddress]);
+                                                setIsLoading(false);
+                                                setIsRefreshing(false);
+                                }, [storeAddress, currentChain, createResilientClient]);
 				
 				// Initial load on mount
-				React.useEffect(() => {
-					loadEnhancedStoreData();
-				}, []);
+                                React.useEffect(() => {
+                                        loadEnhancedStoreData();
+                                }, [loadEnhancedStoreData]);
 
 				// Cleanup chart on unmount
 				React.useEffect(() => {
@@ -1677,40 +1978,48 @@ const pageTitle = aliasInfo
 				}, []);
 
 				// Simple block watcher using viem watchBlocks
-				React.useEffect(() => {
-					let unwatch;
-					
-                                        if (currentChain === 8899) {
-                                                const chainConfig = getChainConfigForId(currentChain);
-                                                const rpcUrl = getRpcUrlForChain(currentChain);
+                                React.useEffect(() => {
+                                        let unwatch;
+                                        let cancelled = false;
 
-                                                if (rpcUrl) {
-                                                        setActiveRpcUrl(rpcUrl);
+                                        async function setupWatcher() {
+                                                if (currentChain !== 8899) {
+                                                        return;
                                                 }
 
-                                                const publicClient = window.viem.createPublicClient({
-                                                        chain: chainConfig,
-                                                        transport: rpcUrl ? window.viem.http(rpcUrl) : window.viem.http()
-                                                });
-						
-						// Use viem's watchBlocks for efficient block monitoring
-						unwatch = publicClient.watchBlocks({
-							onBlock: async (block) => {
-								setBlockNumber(block.number);
-								
-								// Don't auto-refresh data - let user control when to refresh
-								// This prevents chart from re-rendering constantly
-							},
-							pollingInterval: 3000, // 3 seconds
-						});
-					}
-					
-					return () => {
-						if (unwatch) {
-							unwatch();
-						}
-					};
-				}, [currentChain, storeData, storeAddress]);
+                                                try {
+                                                        const { client, primaryRpcUrl } = await createResilientClient(currentChain);
+                                                        if (cancelled) {
+                                                                return;
+                                                        }
+
+                                                        if (primaryRpcUrl) {
+                                                                setActiveRpcUrl(primaryRpcUrl);
+                                                        }
+
+                                                        unwatch = client.watchBlocks({
+                                                                onBlock: (block) => {
+                                                                        setBlockNumber(block.number);
+                                                                },
+                                                                pollingInterval: 3000,
+                                                        });
+                                                } catch (watchError) {
+                                                        console.error('Failed to start block watcher:', watchError);
+                                                        if (!cancelled) {
+                                                                setActiveRpcUrl(null);
+                                                        }
+                                                }
+                                        }
+
+                                        setupWatcher();
+
+                                        return () => {
+                                                cancelled = true;
+                                                if (unwatch) {
+                                                        unwatch();
+                                                }
+                                        };
+                                }, [currentChain, createResilientClient, storeAddress]);
 
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
@@ -1855,8 +2164,90 @@ const pageTitle = aliasInfo
 						)
 					),
 
-					// Store Data Section with header inside
-					React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
+                                        // RPC diagnostics card
+                                        React.createElement('div', { className: 'card border rounded-lg p-6 mb-6' },
+                                                React.createElement('div', { className: 'flex flex-wrap items-start justify-between gap-4 mb-4' },
+                                                        React.createElement('div', { className: 'space-y-1' },
+                                                                React.createElement('h2', { className: 'text-lg font-semibold text-gray-900' }, 'JIBCHAIN RPC Health'),
+                                                                React.createElement('p', { className: 'text-sm text-gray-600' }, 'FloodBoy automatically selects the fastest RPC endpoint and fails over if one becomes unavailable.')
+                                                        ),
+                                                        React.createElement('div', { className: 'flex flex-wrap items-center gap-2' },
+                                                                React.createElement('a', {
+                                                                        href: 'https://chainlist.org/chain/8899',
+                                                                        target: '_blank',
+                                                                        rel: 'noopener noreferrer',
+                                                                        className: 'btn btn-secondary text-xs px-3 py-1'
+                                                                }, 'View on Chainlist'),
+                                                                React.createElement('button', {
+                                                                        type: 'button',
+                                                                        className: `btn btn-primary text-xs px-3 py-1 ${isCheckingRpcs ? 'opacity-75 cursor-not-allowed' : ''}`,
+                                                                        onClick: handleRpcHealthCheck,
+                                                                        disabled: isCheckingRpcs
+                                                                }, isCheckingRpcs ? 'Checking…' : 'Re-run health check')
+                                                        )
+                                                ),
+                                                React.createElement('div', { className: 'overflow-x-auto -mx-2 sm:mx-0' },
+                                                        React.createElement('table', { className: 'min-w-full text-sm' },
+                                                                React.createElement('thead', { className: 'bg-gray-50' },
+                                                                        React.createElement('tr', {},
+                                                                                React.createElement('th', { className: 'px-3 py-2 text-left' }, 'RPC Server Address'),
+                                                                                React.createElement('th', { className: 'px-3 py-2 text-left whitespace-nowrap' }, 'Height'),
+                                                                                React.createElement('th', { className: 'px-3 py-2 text-left whitespace-nowrap' }, 'Latency'),
+                                                                                React.createElement('th', { className: 'px-3 py-2 text-left whitespace-nowrap' }, 'Score'),
+                                                                                React.createElement('th', { className: 'px-3 py-2 text-left' }, 'Privacy')
+                                                                        )
+                                                                ),
+                                                                React.createElement('tbody', { className: 'divide-y divide-gray-200' },
+                                                                        rpcDiagnostics.map((rpc) => {
+                                                                                const isActive = !!activeRpcUrl && rpc.url === activeRpcUrl;
+                                                                                const rowClasses = [
+                                                                                        isActive ? 'bg-green-50/70' : '',
+                                                                                        !rpc.healthy ? 'bg-red-50' : '',
+                                                                                ].filter(Boolean).join(' ');
+                                                                                const latencyClass = rpc.healthy ? 'text-green-700 font-medium' : 'text-red-600 font-medium';
+
+                                                                                return React.createElement('tr', { key: rpc.url, className: rowClasses || undefined },
+                                                                                        React.createElement('td', { className: 'px-3 py-2 align-top' },
+                                                                                                React.createElement('div', { className: 'flex flex-col gap-2' },
+                                                                                                        React.createElement('div', { className: 'flex flex-wrap items-center gap-2' },
+                                                                                                                React.createElement('a', {
+                                                                                                                        href: rpc.url,
+                                                                                                                        target: '_blank',
+                                                                                                                        rel: 'noopener noreferrer',
+                                                                                                                        className: 'font-mono text-xs text-blue-600 hover:underline break-all'
+                                                                                                                }, rpc.url),
+                                                                                                                rpc.badge ? React.createElement('span', { className: 'px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-medium' }, rpc.badge) : null,
+                                                                                                                isActive ? React.createElement('span', { className: 'px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-medium' }, 'Active') : null,
+                                                                                                                !rpc.healthy ? React.createElement('span', { className: 'px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium' }, 'Offline') : null
+                                                                                                        ),
+                                                                                                        React.createElement('div', { className: 'flex flex-wrap items-center gap-2 text-xs text-gray-500' },
+                                                                                                                rpc.label ? React.createElement('span', { className: 'font-medium text-gray-700' }, rpc.label) : null,
+                                                                                                                React.createElement('button', {
+                                                                                                                        type: 'button',
+                                                                                                                        className: 'inline-flex items-center px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition text-xs',
+                                                                                                                        onClick: () => handleAddRpcToMetamask(rpc.url)
+                                                                                                                }, 'Add to MetaMask')
+                                                                                                        )
+                                                                                                )
+                                                                                        ),
+                                                                                        React.createElement('td', { className: 'px-3 py-2 font-mono text-xs whitespace-nowrap align-top' }, rpc.height || '—'),
+                                                                                        React.createElement('td', { className: `px-3 py-2 font-mono text-xs whitespace-nowrap align-top ${latencyClass}` }, rpc.latencyLabel || '—'),
+                                                                                        React.createElement('td', { className: 'px-3 py-2 whitespace-nowrap text-sm text-gray-700 align-top' }, rpc.score || '—'),
+                                                                                        React.createElement('td', { className: 'px-3 py-2 text-xs text-gray-600 align-top' }, rpc.privacy || '—')
+                                                                                );
+                                                                        })
+                                                                )
+                                                        )
+                                                ),
+                                                React.createElement('div', { className: 'mt-4 text-xs text-gray-500 space-y-1' },
+                                                        React.createElement('p', {}, `Active RPC: ${activeRpcUrl || 'selecting optimal endpoint...'}`),
+                                                        React.createElement('p', {}, `Last health check: ${lastRpcCheck ? lastRpcCheck.toLocaleTimeString() : 'Pending'}`),
+                                                        React.createElement('p', {}, 'If the fastest RPC is unreachable, FloodBoy automatically retries the remaining endpoints until a healthy connection is established.')
+                                                )
+                                        ),
+
+                                        // Store Data Section with header inside
+                                        React.createElement('div', { className: 'card border rounded-lg p-6 mb-8' },
 						React.createElement('div', { className: 'space-y-4' },
 							// Header section inside the box
 							React.createElement('div', { className: 'flex items-center justify-between pb-4 border-b' },

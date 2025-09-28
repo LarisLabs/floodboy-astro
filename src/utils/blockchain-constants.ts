@@ -2,9 +2,9 @@
 import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 
 export const JIBCHAIN_RPC_ENDPOINTS = [
-  'https://rpc-l1.inan.in.th',
   'https://rpc2-l1.jbc.xpool.pw',
   'https://rpc-l1.jbc.xpool.pw',
+  'https://rpc-l1.inan.in.th',
   'https://rpc-l1.jibchain.net',
 ] as const;
 
