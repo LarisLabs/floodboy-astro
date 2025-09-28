@@ -1,36 +1,7 @@
 // src/stores/blockchain.store.ts
 import { atom, map, computed } from 'nanostores';
-import { createPublicClient, http, type PublicClient } from 'viem';
-import { parseAbi, decodeEventLog } from 'viem';
-
-// Custom chain configurations
-const jibchainL1 = {
-  id: 8899,
-  name: 'JIBCHAIN L1',
-  network: 'jibchain',
-  nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://rpc-l1.jibchain.net'] },
-    public: { http: ['https://rpc-l1.jibchain.net'] }
-  },
-  blockExplorers: {
-    default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
-  }
-};
-
-const sichang = {
-  id: 700011,
-  name: 'SiChang',
-  network: 'sichang',
-  nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://sichang-rpc.thaichain.org'] },
-    public: { http: ['https://sichang-rpc.thaichain.org'] }
-  },
-  blockExplorers: {
-    default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
-  }
-};
+import type { PublicClient } from 'viem';
+import { createResilientPublicClient } from '../utils/rpc';
 
 // Contract ABIs
 const STORE_ABI = [
@@ -99,6 +70,7 @@ export const $currentBlock = atom<bigint | null>(null);
 export const $chainId = atom<number>(8899); // Default JIBCHAIN
 export const $publicClient = atom<PublicClient | null>(null);
 export const $lastBlockUpdate = atom<Date>(new Date());
+export const $activeRpcUrl = atom<string | null>(null);
 
 // Computed values
 export const $timeSinceUpdate = computed($lastBlockUpdate, (lastUpdate) => {
@@ -149,18 +121,28 @@ function processRecordLogs(logs: any[]): any[] {
 }
 
 // Actions
-export function initializeClient(chainId: number) {
-  const chain = chainId === 8899 ? jibchainL1 : sichang;
-  const client = createPublicClient({
-    chain,
-    transport: http(),
-  });
-  
-  $publicClient.set(client);
-  $chainId.set(chainId);
-  
-  // Start block watching
-  startBlockWatcher(client);
+export async function initializeClient(chainId: number) {
+  try {
+    const result = await createResilientPublicClient(chainId);
+    if (!result) {
+      throw new Error('No RPC transport available');
+    }
+
+    const { client, primaryRpcUrl } = result;
+
+    console.info(`[rpc] Connected to ${primaryRpcUrl}`);
+
+    $publicClient.set(client);
+    $chainId.set(chainId);
+    $activeRpcUrl.set(primaryRpcUrl);
+
+    // Start block watching
+    startBlockWatcher(client);
+  } catch (error) {
+    console.error('Failed to initialize blockchain client:', error);
+    $publicClient.set(null);
+    $activeRpcUrl.set(null);
+  }
 }
 
 let unwatchBlocks: (() => void) | null = null;
