@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPublicClient, http } from 'viem';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ThemeProvider, useTheme } from './blockchain/ui/ThemeProvider';
 import { ViewModeTabs } from './blockchain/ui/ViewModeTabs';
 import { BlockIndicator } from './blockchain/ui/BlockIndicator';
@@ -16,13 +15,8 @@ import { LoadingSkeleton } from './blockchain/ui/LoadingSkeleton';
 import { ErrorDisplay } from './blockchain/ui/ErrorDisplay';
 import { parseUrlParams } from '../utils/blockchain-helpers';
 import { SUPPORTED_CHAINS } from '../utils/blockchain-constants';
+import { createResilientPublicClient } from '../utils/rpc';
 import type { StoreData, BlockchainState, UIState } from '../types/blockchain';
-
-// Helper to get RPC URL for a chain
-const getRpcUrl = (chainId: number): string => {
-  const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
-  return chain?.rpcUrls.default.http[0] || 'http://localhost:8545';
-};
 
 const BlockchainDashboardInner = () => {
   const { theme } = useTheme();
@@ -51,9 +45,21 @@ const BlockchainDashboardInner = () => {
   const [stores, setStores] = useState<any[]>([]);
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [storeData, setStoreData] = useState<StoreData | null>(null);
-  
+
+  const storeDataRef = useRef(storeData);
+  const selectedStoreRef = useRef(selectedStore);
+  const handleStoreLoadRef = useRef<((storeAddress: string, isRefresh?: boolean) => Promise<void>) | null>(null);
+
   // Block watcher ref
   const unwatchBlocksRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    storeDataRef.current = storeData;
+  }, [storeData]);
+
+  useEffect(() => {
+    selectedStoreRef.current = selectedStore;
+  }, [selectedStore]);
 
   // Initialize from URL parameters
   useEffect(() => {
@@ -63,51 +69,68 @@ const BlockchainDashboardInner = () => {
     }
     if (urlParams.storeAddress) {
       // Auto-load store if provided in URL
-      handleStoreLoad(urlParams.storeAddress);
+      void handleStoreLoad(urlParams.storeAddress);
     }
-  }, []);
+  }, [handleStoreLoad]);
 
   // Initialize public client and block watcher
   useEffect(() => {
-    const chainId = blockchainState.chainId;
-    const rpcUrl = getRpcUrl(chainId);
-    
-    // Create public client
-    const publicClient = createPublicClient({
-      chain: SUPPORTED_CHAINS.find(c => c.id === chainId),
-      transport: http(rpcUrl),
-    });
-    
-    setBlockchainState(prev => ({ ...prev, publicClient }));
-    
-    // Start watching blocks
-    if (unwatchBlocksRef.current) {
-      unwatchBlocksRef.current();
-    }
-    
-    const unwatch = publicClient.watchBlocks({
-      onBlock: async (block) => {
-        // Update current block
-        setBlockchainState(prev => ({ ...prev, currentBlock: block.number }));
-        
-        // If we have store data, refresh it
-        if (storeData && selectedStore) {
-          handleStoreLoad(selectedStore.address, true);
+    let isActive = true;
+
+    const setupClient = async () => {
+      try {
+        const result = await createResilientPublicClient(blockchainState.chainId);
+        if (!result || !isActive) {
+          return;
         }
-      },
-      pollingInterval: 3_000, // 3 seconds
-    });
-    
-    unwatchBlocksRef.current = unwatch;
-    
-    // Cleanup on unmount or chain change
+
+        const { client, primaryRpcUrl } = result;
+        console.info(`[rpc] Dashboard connected to ${primaryRpcUrl}`);
+
+        setBlockchainState(prev => ({ ...prev, publicClient: client }));
+
+        if (unwatchBlocksRef.current) {
+          unwatchBlocksRef.current();
+        }
+
+        const unwatch = client.watchBlocks({
+          onBlock: (block) => {
+            if (!isActive) {
+              return;
+            }
+
+            setBlockchainState(prev => ({ ...prev, currentBlock: block.number }));
+
+            const currentStore = selectedStoreRef.current;
+            if (currentStore && handleStoreLoadRef.current) {
+              void handleStoreLoadRef.current(currentStore.address, true);
+            }
+          },
+          pollingInterval: 3_000,
+        });
+
+        unwatchBlocksRef.current = unwatch;
+      } catch (error) {
+        console.error('Failed to initialize public client:', error);
+        if (isActive) {
+          setUIState(prev => ({
+            ...prev,
+            error: 'Unable to connect to blockchain RPC. Please try again later.',
+          }));
+        }
+      }
+    };
+
+    setupClient();
+
     return () => {
+      isActive = false;
       if (unwatchBlocksRef.current) {
         unwatchBlocksRef.current();
         unwatchBlocksRef.current = null;
       }
     };
-  }, [blockchainState.chainId, storeData, selectedStore]);
+  }, [blockchainState.chainId, setBlockchainState, setUIState]);
 
   const handleConnect = async () => {
     setUIState(prev => ({ ...prev, loading: true, error: null }));
@@ -143,20 +166,16 @@ const BlockchainDashboardInner = () => {
     console.log('Switching to chain:', chainId);
   };
 
-  const handleStoreLoad = async (storeAddress: string, isRefresh = false) => {
-    // Only show loading skeleton on initial load, not refresh
+  const handleStoreLoad = useCallback(async (storeAddress: string, isRefresh = false) => {
     if (!isRefresh) {
       setUIState(prev => ({ ...prev, loading: true, error: null }));
     } else {
       setIsRefreshing(true);
     }
-    
+
     try {
-      // TODO: Implement actual store loading logic
-      // This would fetch store data from blockchain
       console.log('Loading store:', storeAddress, isRefresh ? '(refresh)' : '(initial)');
-      
-      // Mock store data for now
+
       const mockStoreData: StoreData = {
         address: storeAddress,
         nickname: 'Flood Sensor Station #1',
@@ -187,18 +206,17 @@ const BlockchainDashboardInner = () => {
         lastUpdatedBlock: BigInt(12345),
         isOwner: false,
       };
-      
+
       setTimeout(() => {
         setStoreData(mockStoreData);
         setSelectedStore({ address: storeAddress, nickname: mockStoreData.nickname });
-        
+
         if (!isRefresh) {
           setUIState(prev => ({ ...prev, loading: false }));
         } else {
           setIsRefreshing(false);
         }
       }, 1000);
-      
     } catch (err) {
       setUIState(prev => ({
         ...prev,
@@ -207,7 +225,11 @@ const BlockchainDashboardInner = () => {
       }));
       setIsRefreshing(false);
     }
-  };
+  }, [setUIState, setIsRefreshing, setStoreData, setSelectedStore]);
+
+  useEffect(() => {
+    handleStoreLoadRef.current = handleStoreLoad;
+  }, [handleStoreLoad]);
 
   const handleAddressLoad = async (address: string) => {
     // TODO: Implement logic to load all stores for a given address

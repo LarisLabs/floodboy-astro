@@ -1,6 +1,13 @@
 // Blockchain network configurations and contract constants
 import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 
+export const JIBCHAIN_RPC_ENDPOINTS = [
+  'https://rpc-l1.inan.in.th',
+  'https://rpc2-l1.jbc.xpool.pw',
+  'https://rpc-l1.jbc.xpool.pw',
+  'https://rpc-l1.jibchain.net',
+] as const;
+
 // Universal Multicall3 address (same on all chains)
 export const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
 
@@ -149,8 +156,8 @@ export const jibchainL1 = {
   network: 'jibchain',
   nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc-l1.jibchain.net'] },
-    public: { http: ['https://rpc-l1.jibchain.net'] }
+    default: { http: [...JIBCHAIN_RPC_ENDPOINTS] },
+    public: { http: [...JIBCHAIN_RPC_ENDPOINTS] }
   },
   blockExplorers: {
     default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
