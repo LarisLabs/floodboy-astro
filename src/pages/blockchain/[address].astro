@@ -355,7 +355,26 @@ const pageTitle = aliasInfo
 			const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
 			
 			// Use the ABI loaded from abis.js
-			const STORE_ABI = pageData.storeABI;
+                        const STORE_ABI = pageData.storeABI;
+
+                        const getChainConfig = (chainId) => {
+                                switch (chainId) {
+                                        case 8899:
+                                                return window.chains.jibchainL1;
+                                        case 700011:
+                                                return window.chains.sichang;
+                                        case 31337:
+                                                return window.chains.anvil;
+                                        default:
+                                                return window.chains.jibchainL1;
+                                }
+                        };
+
+                        const getPrimaryRpcUrl = (chainId) => {
+                                const chain = getChainConfig(chainId);
+                                const urls = chain?.rpcUrls?.default?.http;
+                                return Array.isArray(urls) && urls.length > 0 ? urls[0] : null;
+                        };
 
 			// Event definitions for reading blockchain events
 			const RECORD_STORED_EVENT = {
@@ -893,10 +912,11 @@ const pageTitle = aliasInfo
 
 			// Main BlockchainApp Component
 			function BlockchainApp() {
-				const [currentChain, setCurrentChain] = React.useState(8899);
-				const [storeData, setStoreData] = React.useState(null);
-				const [isLoading, setIsLoading] = React.useState(true);
-				const [isRefreshing, setIsRefreshing] = React.useState(false);
+                                const [currentChain, setCurrentChain] = React.useState(8899);
+                                const [storeData, setStoreData] = React.useState(null);
+                                const [isLoading, setIsLoading] = React.useState(true);
+                                const [isRefreshing, setIsRefreshing] = React.useState(false);
+                                const [activeRpcUrl, setActiveRpcUrl] = React.useState(() => getPrimaryRpcUrl(8899));
 				
 				// Helper function to format address
 				const formatAddress = (address) => {
@@ -1260,12 +1280,17 @@ const pageTitle = aliasInfo
 						}
 						setError(null);
 						
-						try {
-							// Create public client for JIBCHAIN L1
-							const publicClient = window.viem.createPublicClient({
-								chain: window.chains.jibchainL1,
-								transport: window.viem.http()
-							});
+                                                try {
+                                                        const chainConfig = getChainConfig(currentChain);
+                                                        const rpcUrl = getPrimaryRpcUrl(currentChain);
+                                                        const transport = rpcUrl ? window.viem.http(rpcUrl) : window.viem.http();
+
+                                                        setActiveRpcUrl(rpcUrl);
+
+                                                        const publicClient = window.viem.createPublicClient({
+                                                                chain: chainConfig,
+                                                                transport
+                                                        });
 
 							console.log('Loading enhanced data for store:', storeAddress);
 
@@ -1654,11 +1679,17 @@ const pageTitle = aliasInfo
 				React.useEffect(() => {
 					let unwatch;
 					
-					if (currentChain === 8899) {
-						const publicClient = window.viem.createPublicClient({
-							chain: window.chains.jibchainL1,
-							transport: window.viem.http()
-						});
+                                        if (currentChain === 8899) {
+                                                const chainConfig = getChainConfig(currentChain);
+                                                const rpcUrl = getPrimaryRpcUrl(currentChain);
+                                                const transport = rpcUrl ? window.viem.http(rpcUrl) : window.viem.http();
+
+                                                setActiveRpcUrl(rpcUrl);
+
+                                                const publicClient = window.viem.createPublicClient({
+                                                        chain: chainConfig,
+                                                        transport
+                                                });
 						
 						// Use viem's watchBlocks for efficient block monitoring
 						unwatch = publicClient.watchBlocks({
@@ -1768,24 +1799,26 @@ const pageTitle = aliasInfo
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
-							React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
-							React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress)
-						)
-					);
-				}
+                                                        React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
+                                                        React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress),
+                                                        activeRpcUrl && React.createElement('p', { className: 'text-gray-500 text-xs mt-2 font-mono break-all' }, `RPC: ${activeRpcUrl}`)
+                                                )
+                                        );
+                                }
 
 				if (error) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
-							React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
-								React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Connection Error'),
-								React.createElement('p', { className: 'text-red-600 mb-4' }, error),
-								React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
-								React.createElement('button', { 
-									className: 'mt-4 btn btn-primary',
-									onClick: () => window.location.reload()
-								}, 'Retry')
-							)
+                                                                React.createElement('div', { className: 'bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto' },
+                                                                        React.createElement('h3', { className: 'text-lg font-semibold text-red-800 mb-2' }, 'Connection Error'),
+                                                                        React.createElement('p', { className: 'text-red-600 mb-4' }, error),
+                                                                        React.createElement('p', { className: 'text-gray-600 text-sm font-mono' }, storeAddress),
+                                                                        activeRpcUrl && React.createElement('p', { className: 'text-gray-500 text-xs font-mono break-all mt-2' }, `RPC: ${activeRpcUrl}`),
+                                                                        React.createElement('button', {
+                                                                                className: 'mt-4 btn btn-primary',
+                                                                                onClick: () => window.location.reload()
+                                                                        }, 'Retry')
+                                                                )
 						)
 					);
 				}
@@ -1855,16 +1888,20 @@ const pageTitle = aliasInfo
 											className: 'btn btn-secondary text-sm px-3 py-1'
 										}, '🔗 Explorer')
 									),
-									React.createElement('div', { className: 'text-xs text-gray-600 space-y-0.5' },
-										React.createElement('div', {},
-											React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
-											React.createElement('span', { className: 'font-mono' }, 
-												blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
-											)
-										),
-									)
-								)
-							),
+                                                                        React.createElement('div', { className: 'text-xs text-gray-600 space-y-0.5' },
+                                                                                React.createElement('div', {},
+                                                                                        React.createElement('span', { className: 'font-medium' }, 'Current Block: '),
+                                                                                        React.createElement('span', { className: 'font-mono' },
+                                                                                                blockNumber ? Number(blockNumber).toLocaleString() : 'Loading...'
+                                                                                        )
+                                                                                ),
+                                                                                activeRpcUrl && React.createElement('div', {},
+                                                                                        React.createElement('span', { className: 'font-medium' }, 'RPC: '),
+                                                                                        React.createElement('span', { className: 'font-mono break-all' }, activeRpcUrl)
+                                                                                )
+                                                                        )
+                                                                )
+                                                        ),
 							// Stats grid - 4 columns like production
 							React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
 								// Total Records
