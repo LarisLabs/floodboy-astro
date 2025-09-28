@@ -1094,9 +1094,11 @@ const pageTitle = aliasInfo
                                                 return `rgba(${r}, ${g}, ${b}, ${alpha})`;
                                         };
 
+                                        const waterDepthColor = '#0ea5e9';
+
                                         const fallbackPalette = [
+                                                waterDepthColor, // sky-500
                                                 '#2563eb', // blue-600
-                                                '#0ea5e9', // sky-500
                                                 '#7c3aed', // violet-600
                                                 '#16a34a', // green-600
                                                 '#f97316', // orange-500
@@ -1116,7 +1118,7 @@ const pageTitle = aliasInfo
 						.map((field, index) => {
 							const fieldIndex = storeData.fields.findIndex(f => f.name === field.name);
                                                         const colors = {
-                                                                'water_depth': '#2563eb', // Blue
+                                                                'water_depth': waterDepthColor, // Sky
                                                                 'installation_height': '#16a34a', // Green
                                                                 'battery_voltage': '#a855f7', // Purple
                                                         };
