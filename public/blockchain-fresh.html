@@ -139,6 +139,29 @@
             return `${Math.floor(diff / 86400)}d ago`;
         };
 
+        // Color helper functions for consistent sensor type colors
+        const getSensorColor = (fieldName) => {
+            const colors = {
+                'water_depth': '#0ea5e9',        // Sky blue - matches Astro implementation
+                'installation_height': '#16a34a', // Green - matches Astro implementation  
+                'battery_voltage': '#a855f7',     // Purple - matches Astro implementation
+            };
+            
+            // Return specific color if field name matches, otherwise use purple fallback
+            return colors[fieldName] || '#7C3AED';
+        };
+        
+        const getSensorColorBackground = (fieldName) => {
+            const colors = {
+                'water_depth': 'rgba(14, 165, 233, 0.15)',        // Sky blue with transparency
+                'installation_height': 'rgba(22, 163, 74, 0.15)', // Green with transparency
+                'battery_voltage': 'rgba(168, 85, 247, 0.15)',     // Purple with transparency
+            };
+            
+            // Return specific background color if field name matches, otherwise use purple fallback
+            return colors[fieldName] || 'rgba(124, 58, 237, 0.1)';
+        };
+
         // Wait for Viem to be available
         const waitForViem = () => {
             return new Promise((resolve) => {
@@ -217,8 +240,8 @@
                         datasets: [{
                             label: field.name,
                             data: chartData,
-                            borderColor: '#7C3AED',
-                            backgroundColor: 'rgba(124, 58, 237, 0.1)',
+                            borderColor: getSensorColor(field.name),
+                            backgroundColor: getSensorColorBackground(field.name),
                             tension: 0.4,
                             fill: true
                         }]

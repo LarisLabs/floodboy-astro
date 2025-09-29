@@ -280,6 +280,29 @@
             return `${Math.floor(hours / 24)} days ago`;
         };
         
+        // Color helper functions for consistent sensor type colors
+        const getSensorColor = (fieldName, theme) => {
+            const colors = {
+                'water_depth': '#0ea5e9',        // Sky blue - matches Astro implementation
+                'installation_height': '#16a34a', // Green - matches Astro implementation  
+                'battery_voltage': '#a855f7',     // Purple - matches Astro implementation
+            };
+            
+            // Return specific color if field name matches, otherwise use theme-based fallback
+            return colors[fieldName] || (theme === 'dark' ? '#A78BFA' : '#7C3AED');
+        };
+        
+        const getSensorColorBackground = (fieldName, theme) => {
+            const colors = {
+                'water_depth': 'rgba(14, 165, 233, 0.15)',        // Sky blue with transparency
+                'installation_height': 'rgba(22, 163, 74, 0.15)', // Green with transparency
+                'battery_voltage': 'rgba(168, 85, 247, 0.15)',     // Purple with transparency
+            };
+            
+            // Return specific background color if field name matches, otherwise use theme-based fallback
+            return colors[fieldName] || (theme === 'dark' ? 'rgba(167, 139, 250, 0.1)' : 'rgba(124, 58, 237, 0.1)');
+        };
+        
         // Loading skeleton component
         const LoadingSkeleton = ({ lines = 3 }) => (
             <div className="space-y-2">
@@ -1117,8 +1140,8 @@
                             const value = d.values[selectedField] || 0;
                             return formatValue(value, field.unit);
                         }),
-                        borderColor: theme === 'dark' ? '#A78BFA' : '#7C3AED',
-                        backgroundColor: theme === 'dark' ? 'rgba(167, 139, 250, 0.1)' : 'rgba(124, 58, 237, 0.1)',
+                        borderColor: getSensorColor(field.name, theme),
+                        backgroundColor: getSensorColorBackground(field.name, theme),
                         borderWidth: 2,
                         tension: 0.4,
                         pointRadius: historicalData.length <= 50 ? 3 : 0,
