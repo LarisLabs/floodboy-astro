@@ -4,16 +4,18 @@ const currentPath = Astro.url.pathname;
 ---
 
 <header>
-	<nav>
-		<a href="/" class="logo">
-			<img src="/floodboy-logo.png" alt="Floodboy" />
-			<span>FloodBoy: IoT-Powered Blockchain</span>
-		</a>
-		<button class="mobile-menu-toggle" aria-label="Toggle menu">
-			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M3 12h18M3 6h18M3 18h18"></path>
-			</svg>
-		</button>
+        <nav>
+                <div class="branding">
+                        <a href="/" class="logo">
+                                <img src="/floodboy-logo.png" alt="Floodboy" />
+                                <span>FloodBoy: IoT-Powered Blockchain</span>
+                        </a>
+                </div>
+                <button class="mobile-menu-toggle" aria-label="Toggle menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 12h18M3 6h18M3 18h18"></path>
+                        </svg>
+                </button>
 		<div class="internal-links">
 			<HeaderLink href="/blockchain">Blockchain</HeaderLink>
 			<HeaderLink href="/stores">Stores</HeaderLink>
@@ -52,12 +54,18 @@ const currentPath = Astro.url.pathname;
 		margin: 0 auto;
 	}
 	
-	.logo {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		text-decoration: none;
-		color: var(--black);
+        .branding {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+        }
+
+        .logo {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                text-decoration: none;
+                color: var(--black);
 		font-weight: 600;
 		font-size: 1.25rem;
 		transition: opacity 0.2s;
@@ -65,17 +73,17 @@ const currentPath = Astro.url.pathname;
 	
 	.logo:hover {
 		opacity: 0.8;
-	}
-	
-	.logo img {
-		height: 2rem;
-		width: auto;
-	}
-	
-	.internal-links {
-		display: flex;
-		gap: 2rem;
-	}
+        }
+
+        .logo img {
+                height: 2rem;
+                width: auto;
+        }
+
+        .internal-links {
+                display: flex;
+                gap: 2rem;
+        }
 	
 	nav a {
 		color: var(--black);
@@ -108,27 +116,27 @@ const currentPath = Astro.url.pathname;
 		display: flex;
 	}
 	
-	@media (max-width: 640px) {
-		header {
-			position: relative;
-		}
-		
-		.internal-links {
-			display: none;
-		}
-		
-		.mobile-menu-toggle {
-			display: block;
-		}
-		
-		.logo span {
-			font-size: 1rem;
-		}
-		
-		.logo img {
-			height: 1.5rem;
-		}
-	}
+        @media (max-width: 640px) {
+                header {
+                        position: relative;
+                }
+
+                .internal-links {
+                        display: none;
+                }
+
+                .mobile-menu-toggle {
+                        display: block;
+                }
+
+                .logo span {
+                        font-size: 1rem;
+                }
+
+                .logo img {
+                        height: 1.5rem;
+                }
+        }
 </style>
 
 <script>
