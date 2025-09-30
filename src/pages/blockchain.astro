@@ -232,41 +232,79 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
         }
       };
       
-      // Simple multicall function
+      const MULTICALL_CHUNK_SIZE = 60;
+
+      const chunkCalls = (items, size) => {
+        const chunks = [];
+        for (let i = 0; i < items.length; i += size) {
+          chunks.push(items.slice(i, i + size));
+        }
+        return chunks;
+      };
+
+      // Simple multicall function with chunking to avoid RPC payload limits
       async function simpleMulticall(publicClient, calls) {
-        const multicallData = calls.map(call => ({
-          target: call.target,
-          allowFailure: true,
-          callData: encodeFunctionData({
-            abi: call.abi,
-            functionName: call.functionName,
-            args: call.args || []
-          })
-        }));
+        const chunks = chunkCalls(calls, MULTICALL_CHUNK_SIZE);
+        const aggregatedResults = [];
 
-        const results = await publicClient.readContract({
-          address: MULTICALL3_ADDRESS,
-          abi: MULTICALL3_ABI,
-          functionName: 'aggregate3',
-          args: [multicallData]
-        });
+        for (const chunk of chunks) {
+          const multicallData = chunk.map(call => ({
+            target: call.target,
+            allowFailure: true,
+            callData: encodeFunctionData({
+              abi: call.abi,
+              functionName: call.functionName,
+              args: call.args || []
+            })
+          }));
 
-        return results.map((result, index) => {
-          if (!result.success) {
-            return { success: false, data: null };
-          }
-
+          let results;
           try {
-            const decoded = decodeFunctionResult({
-              abi: calls[index].abi,
-              functionName: calls[index].functionName,
-              data: result.returnData
+            results = await publicClient.readContract({
+              address: MULTICALL3_ADDRESS,
+              abi: MULTICALL3_ABI,
+              functionName: 'aggregate3',
+              args: [multicallData]
             });
-            return { success: true, data: decoded };
           } catch (error) {
-            return { success: false, data: null };
+            console.error('Multicall chunk failed, falling back to individual calls', error);
+            // Fallback to sequential calls if the RPC rejects the chunk
+            for (const call of chunk) {
+              try {
+                const data = await publicClient.readContract({
+                  address: call.target,
+                  abi: call.abi,
+                  functionName: call.functionName,
+                  args: call.args || []
+                });
+                aggregatedResults.push({ success: true, data });
+              } catch (singleError) {
+                aggregatedResults.push({ success: false, data: null });
+              }
+            }
+            continue;
           }
-        });
+
+          results.forEach((result, index) => {
+            if (!result.success) {
+              aggregatedResults.push({ success: false, data: null });
+              return;
+            }
+
+            try {
+              const decoded = decodeFunctionResult({
+                abi: chunk[index].abi,
+                functionName: chunk[index].functionName,
+                data: result.returnData
+              });
+              aggregatedResults.push({ success: true, data: decoded });
+            } catch (error) {
+              aggregatedResults.push({ success: false, data: null });
+            }
+          });
+        }
+
+        return aggregatedResults;
       }
       
       // Make imports available globally
