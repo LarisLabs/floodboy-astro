@@ -309,19 +309,26 @@ const pageTitle = aliasInfo
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
 			
 			// Custom chain configurations
-			const jibchainL1 = {
-				id: 8899,
-				name: 'JIBCHAIN L1',
-				network: 'jibchain',
-				nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-				rpcUrls: {
-					default: { http: ['https://rpc-l1.jibchain.net'] },
-					public: { http: ['https://rpc-l1.jibchain.net'] }
-				},
-				blockExplorers: {
-					default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
-				}
-			};
+                        const prioritizedJibchainRpcUrls = [
+                                'https://rpc-l1.inan.in.th',
+                                'https://rpc2-l1.jbc.xpool.pw',
+                                'https://rpc-l1.jbc.xpool.pw',
+                                'https://rpc-l1.jibchain.net'
+                        ];
+
+                        const jibchainL1 = {
+                                id: 8899,
+                                name: 'JIBCHAIN L1',
+                                network: 'jibchain',
+                                nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+                                rpcUrls: {
+                                        default: { http: prioritizedJibchainRpcUrls },
+                                        public: { http: prioritizedJibchainRpcUrls }
+                                },
+                                blockExplorers: {
+                                        default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
+                                }
+                        };
 			
 			const sichang = {
 				id: 700011,
@@ -912,6 +919,60 @@ const pageTitle = aliasInfo
 
 			// Main BlockchainApp Component
 			function BlockchainApp() {
+				function getRpcUrlsForChain(chainId) {
+					const chainConfig = getChainConfig(chainId);
+					if (!chainConfig) return [];
+
+					const defaultUrls = chainConfig?.rpcUrls?.default?.http || [];
+					const publicUrls = chainConfig?.rpcUrls?.public?.http || [];
+					const combined = [...defaultUrls];
+
+					for (const url of publicUrls) {
+						if (!combined.includes(url)) {
+							combined.push(url);
+						}
+					}
+
+					return combined;
+				}
+
+				async function getClientWithFallback(chainId, { onRpcSelected, performHealthCheck = true } = {}) {
+					const chainConfig = getChainConfig(chainId);
+					const rpcUrls = getRpcUrlsForChain(chainId);
+
+					if (!chainConfig || rpcUrls.length === 0) {
+						throw new Error('No RPC endpoints configured for this chain.');
+					}
+
+					let lastError = null;
+
+					for (const url of rpcUrls) {
+						try {
+							const client = window.viem.createPublicClient({
+								chain: chainConfig,
+								transport: window.viem.http(url)
+							});
+
+							let blockNumber = null;
+
+							if (performHealthCheck) {
+								blockNumber = await client.getBlockNumber();
+							}
+
+							if (typeof onRpcSelected === 'function') {
+								onRpcSelected(url, blockNumber);
+							}
+
+							return { client, rpcUrl: url, blockNumber };
+						} catch (err) {
+							lastError = err;
+							console.warn(`RPC endpoint failed for chain ${chainId}: ${url}`, err);
+						}
+					}
+
+					const error = lastError || new Error('Unable to connect to any RPC endpoints.');
+					throw error;
+				}
                                 const [currentChain, setCurrentChain] = React.useState(8899);
                                 const [storeData, setStoreData] = React.useState(null);
                                 const [isLoading, setIsLoading] = React.useState(true);
@@ -1280,23 +1341,21 @@ const pageTitle = aliasInfo
 						}
 						setError(null);
 						
-                                                try {
-                                                        const chainConfig = getChainConfig(currentChain);
-                                                        const rpcUrl = getPrimaryRpcUrl(currentChain);
-                                                        const transport = rpcUrl ? window.viem.http(rpcUrl) : window.viem.http();
+						try {
+							const { client: publicClient, rpcUrl, blockNumber: initialBlockNumber } = await getClientWithFallback(
+								currentChain,
+								{
+									onRpcSelected: (url) => setActiveRpcUrl(url)
+								}
+							);
 
-                                                        setActiveRpcUrl(rpcUrl);
+                                                        console.log('Loading enhanced data for store:', storeAddress);
 
-                                                        const publicClient = window.viem.createPublicClient({
-                                                                chain: chainConfig,
-                                                                transport
-                                                        });
-
-							console.log('Loading enhanced data for store:', storeAddress);
-
-							// Get current block number
-							const currentBlockNumber = await publicClient.getBlockNumber();
-							setBlockNumber(currentBlockNumber);
+                                                        const currentBlockNumber =
+                                                                typeof initialBlockNumber === 'bigint'
+                                                                        ? initialBlockNumber
+                                                                        : await publicClient.getBlockNumber();
+                                                        setBlockNumber(currentBlockNumber);
 
 							// Use multicall3 for parallel loading
 							const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
@@ -1639,8 +1698,8 @@ const pageTitle = aliasInfo
 							}
 
 						} catch (err) {
-							console.error('Error loading enhanced store data:', err);
-							setError(err.message);
+                                                        console.error('Error loading enhanced store data:', err);
+                                                        setError(err.message || 'Unable to load store data from available RPC endpoints.');
 							// Set fallback data
 							setStoreData({
 								address: storeAddress,
@@ -1678,37 +1737,51 @@ const pageTitle = aliasInfo
 				// Simple block watcher using viem watchBlocks
 				React.useEffect(() => {
 					let unwatch;
-					
-                                        if (currentChain === 8899) {
-                                                const chainConfig = getChainConfig(currentChain);
-                                                const rpcUrl = getPrimaryRpcUrl(currentChain);
-                                                const transport = rpcUrl ? window.viem.http(rpcUrl) : window.viem.http();
+					let isMounted = true;
 
-                                                setActiveRpcUrl(rpcUrl);
+					async function setupWatcher() {
+						if (currentChain !== 8899) {
+							return;
+						}
 
-                                                const publicClient = window.viem.createPublicClient({
-                                                        chain: chainConfig,
-                                                        transport
-                                                });
-						
-						// Use viem's watchBlocks for efficient block monitoring
-						unwatch = publicClient.watchBlocks({
-							onBlock: async (block) => {
-								setBlockNumber(block.number);
-								
-								// Don't auto-refresh data - let user control when to refresh
-								// This prevents chart from re-rendering constantly
-							},
-							pollingInterval: 3000, // 3 seconds
-						});
+						try {
+							const { client: publicClient } = await getClientWithFallback(currentChain, {
+								onRpcSelected: (url) => {
+									if (isMounted) {
+										setActiveRpcUrl(url);
+									}
+								},
+								performHealthCheck: false
+							});
+
+							if (!isMounted) {
+								return;
+							}
+
+							// Use viem's watchBlocks for efficient block monitoring
+							unwatch = publicClient.watchBlocks({
+								onBlock: async (block) => {
+									setBlockNumber(block.number);
+
+									// Don't auto-refresh data - let user control when to refresh
+									// This prevents chart from re-rendering constantly
+								},
+								pollingInterval: 3000, // 3 seconds
+							});
+						} catch (watchError) {
+							console.error('Failed to initialize block watcher:', watchError);
+						}
 					}
-					
+
+					setupWatcher();
+
 					return () => {
+						isMounted = false;
 						if (unwatch) {
 							unwatch();
 						}
 					};
-				}, [currentChain, storeData, storeAddress]);
+				}, [currentChain]);
 
 				// Handle block timer and visibility for JBC chain
 				React.useEffect(() => {
@@ -1797,14 +1870,18 @@ const pageTitle = aliasInfo
 				// Only show loading spinner on initial load when no data exists
 				if (isLoading && !storeData) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
+				// Only show loading spinner on initial load when no data exists
+				if (isLoading && !storeData) {
+					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
 						React.createElement('div', { className: 'text-center' },
 							React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4' }),
-                                                        React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
-                                                        React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress),
-                                                        activeRpcUrl && React.createElement('p', { className: 'text-gray-500 text-xs mt-2 font-mono break-all' }, `RPC: ${activeRpcUrl}`)
-                                                )
-                                        );
-                                }
+							React.createElement('p', { className: 'text-gray-600' }, 'Loading blockchain data...'),
+							React.createElement('p', { className: 'text-gray-500 text-xs mt-2 font-mono' }, activeRpcUrl ? `RPC: ${activeRpcUrl}` : 'RPC: selecting optimal endpoint...'),
+							React.createElement('p', { className: 'text-gray-500 text-sm mt-2 font-mono' }, storeAddress)
+					)
+					);
+				}
+
 
 				if (error) {
 					return React.createElement('div', { className: 'container mx-auto p-4 sm:p-6' },
