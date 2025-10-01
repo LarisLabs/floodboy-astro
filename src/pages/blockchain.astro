@@ -6,12 +6,14 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 import { CatLabSensorStoreABI, CatLabFactoryABI } from '../abis';
+import { JIBCHAIN_RPC_ENDPOINTS } from '../utils/blockchain-constants';
 import '../styles/global.css';
 
 // Prepare configuration for injection
 const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 const storeAbiJson = JSON.stringify(CatLabSensorStoreABI);
 const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
+const jibchainRpcJson = JSON.stringify(JIBCHAIN_RPC_ENDPOINTS);
 ---
 
 <!doctype html>
@@ -150,15 +152,23 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
     </main>
     <Footer />
     
-    <script type="module" define:vars={{ BLOCKCHAIN_CONFIG: configJson, STORE_ABI_JSON: storeAbiJson, FACTORY_ABI_JSON: factoryAbiJson }}>
+    <script type="module" define:vars={{
+      BLOCKCHAIN_CONFIG: configJson,
+      STORE_ABI_JSON: storeAbiJson,
+      FACTORY_ABI_JSON: factoryAbiJson,
+      JIBCHAIN_RPC_ENDPOINTS_JSON: jibchainRpcJson,
+    }}>
       import { createPublicClient, http, formatEther, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
       
       // Parse ABIs from server
       const STORE_ABI = JSON.parse(STORE_ABI_JSON);
       const DEPLOYER_ABI = JSON.parse(FACTORY_ABI_JSON);
+      const JIBCHAIN_RPC_ENDPOINTS = JSON.parse(JIBCHAIN_RPC_ENDPOINTS_JSON);
       
       // Define constants inline
       const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+      const DEFAULT_MULTICALL_CHUNK_SIZE = 60; // keep payloads under RPC limits
+      const STORES_DISPLAY_LIMIT = 30; // max stores to render after sorting/filtering
       
       // Configuration injected at build time
       const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
@@ -199,8 +209,8 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
         network: 'jibchain',
         nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
         rpcUrls: {
-          default: { http: ['https://rpc-l1.jibchain.net'] },
-          public: { http: ['https://rpc-l1.jibchain.net'] }
+          default: { http: [...JIBCHAIN_RPC_ENDPOINTS] },
+          public: { http: [...JIBCHAIN_RPC_ENDPOINTS] }
         },
         blockExplorers: {
           default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
@@ -233,45 +243,80 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
       };
       
       // Simple multicall function
-      async function simpleMulticall(publicClient, calls) {
-        const multicallData = calls.map(call => ({
-          target: call.target,
-          allowFailure: true,
-          callData: encodeFunctionData({
-            abi: call.abi,
-            functionName: call.functionName,
-            args: call.args || []
-          })
-        }));
+      async function simpleMulticall(publicClient, calls, options = {}) {
+        if (!calls || calls.length === 0) return [];
 
-        const results = await publicClient.readContract({
-          address: MULTICALL3_ADDRESS,
-          abi: MULTICALL3_ABI,
-          functionName: 'aggregate3',
-          args: [multicallData]
-        });
+        const { chunkSize = DEFAULT_MULTICALL_CHUNK_SIZE } = options;
+        const decodedResults = [];
 
-        return results.map((result, index) => {
-          if (!result.success) {
-            return { success: false, data: null };
-          }
+        for (let start = 0; start < calls.length; start += chunkSize) {
+          const chunk = calls.slice(start, start + chunkSize);
+          const multicallData = chunk.map(call => ({
+            target: call.target,
+            allowFailure: true,
+            callData: encodeFunctionData({
+              abi: call.abi,
+              functionName: call.functionName,
+              args: call.args || []
+            })
+          }));
 
+          let results;
           try {
-            const decoded = decodeFunctionResult({
-              abi: calls[index].abi,
-              functionName: calls[index].functionName,
-              data: result.returnData
+            results = await publicClient.readContract({
+              address: MULTICALL3_ADDRESS,
+              abi: MULTICALL3_ABI,
+              functionName: 'aggregate3',
+              args: [multicallData]
             });
-            return { success: true, data: decoded };
           } catch (error) {
-            return { success: false, data: null };
+            console.error('Multicall chunk failed', {
+              start,
+              chunkSize,
+              chunkLength: chunk.length,
+              error
+            });
+            throw error;
           }
-        });
+
+          results.forEach((result, index) => {
+            const originalCall = chunk[index];
+
+            if (!result || !result.success) {
+              decodedResults.push({ success: false, data: null });
+              if (originalCall) {
+                console.warn('Multicall sub-call failed', {
+                  target: originalCall.target,
+                  functionName: originalCall.functionName
+                });
+              }
+              return;
+            }
+
+            try {
+              const decoded = decodeFunctionResult({
+                abi: originalCall.abi,
+                functionName: originalCall.functionName,
+                data: result.returnData
+              });
+              decodedResults.push({ success: true, data: decoded });
+            } catch (error) {
+              console.error('Failed to decode multicall response', {
+                target: originalCall.target,
+                functionName: originalCall.functionName,
+                error
+              });
+              decodedResults.push({ success: false, data: null });
+            }
+          });
+        }
+
+        return decodedResults;
       }
       
       // Make imports available globally
       window.viem = { createPublicClient, http, formatEther, encodeFunctionData, decodeFunctionResult };
-      window.constants = { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI };
+      window.constants = { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI, DEFAULT_MULTICALL_CHUNK_SIZE, STORES_DISPLAY_LIMIT };
       window.chains = { jibchainL1, sichang, anvil };
       window.simpleMulticall = simpleMulticall;
     </script>
@@ -279,7 +324,7 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
     <script type="text/babel">
       const { useState, useEffect } = React;
       const { createPublicClient, http, formatEther } = window.viem;
-      const { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI } = window.constants;
+      const { CONTRACTS, MULTICALL3_ADDRESS, DEPLOYER_ABI, STORE_ABI, DEFAULT_MULTICALL_CHUNK_SIZE, STORES_DISPLAY_LIMIT } = window.constants;
       const { jibchainL1, sichang, anvil } = window.chains;
       const { simpleMulticall } = window;
       
@@ -445,13 +490,13 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
               setLoading(false);
               return;
             }
-            
+
             const totalCount = Number(storeCount);
             
             // Target owner address for filtering stores
             const TARGET_OWNER = '0x943E41e4cc22f971284ae957A380D3DbeA1Dc481';
             
-            console.log('Fetching all stores:', {
+            console.log('Fetching stores:', {
               totalStores: totalCount,
               sortOrder
             });
@@ -463,13 +508,13 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
               functionName: 'getStoresReverse',
               args: [BigInt(0), BigInt(totalCount)]
             });
-            
+
             if (!storeAddresses || storeAddresses.length === 0) {
               setStores([]);
               setLoading(false);
               return;
             }
-            
+
             // Prepare multicall for store info
             const calls = [];
             storeAddresses.forEach(address => {
@@ -504,37 +549,50 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
             });
             
             // Execute multicall
-            const results = await simpleMulticall(publicClient, calls);
-            
+            const results = await simpleMulticall(publicClient, calls, { chunkSize: DEFAULT_MULTICALL_CHUNK_SIZE });
+
             // Process results - now with 4 results per store
             const processedStores = [];
             for (let i = 0; i < storeAddresses.length; i++) {
-              const infoResult = results[i * 4];
-              const fieldsResult = results[i * 4 + 1];
-              const signerCountResult = results[i * 4 + 2];
-              const timestampResult = results[i * 4 + 3];
-              
+              const infoResult = results[i * 4] ?? { success: false, data: null };
+              const fieldsResult = results[i * 4 + 1] ?? { success: false, data: [] };
+              const signerCountResult = results[i * 4 + 2] ?? { success: false, data: 0n };
+              const timestampResult = results[i * 4 + 3] ?? { success: false, data: 0n };
+
+              if (!infoResult.success) {
+                console.warn('Missing store info from multicall', {
+                  address: storeAddresses[i],
+                  index: i
+                });
+              }
+
+              const infoData = Array.isArray(infoResult.data) ? infoResult.data : [];
+              const nickname = (typeof infoData[0] === 'string' && infoData[0]) ? infoData[0] : 'Unknown';
+              const owner = typeof infoData[1] === 'string' ? infoData[1] : null;
+              const deployedBlockValue = infoData[3] !== undefined ? Number(infoData[3]) : 0;
+              const description = typeof infoData[4] === 'string' ? infoData[4] : '';
+
               const lastDataTimestamp = timestampResult.success ? Number(timestampResult.data) : 0;
-              
+
               processedStores.push({
                 address: storeAddresses[i],
                 chainId,
-                nickname: infoResult.success ? infoResult.data[0] : 'Unknown',
-                owner: infoResult.success ? infoResult.data[1] : null,
-                description: infoResult.success ? infoResult.data[4] : '',
+                nickname,
+                owner,
+                description,
                 fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
                 signerCount: signerCountResult.success ? Number(signerCountResult.data) : 0,
                 hasData: lastDataTimestamp > 0,
                 lastDataTimestamp,
-                deployedBlock: infoResult.success ? Number(infoResult.data[3]) : 0,
+                deployedBlock: Number.isFinite(deployedBlockValue) ? deployedBlockValue : 0,
                 // Store index in the factory array
                 factoryIndex: i
               });
             }
             
             // Filter stores by target owner address
-            const filteredStores = processedStores.filter(store => 
-              store.owner?.toLowerCase() === TARGET_OWNER.toLowerCase()
+            const filteredStores = processedStores.filter(
+              store => store.owner?.toLowerCase() === TARGET_OWNER.toLowerCase()
             );
             
             console.log('Filtered stores:', {
@@ -543,17 +601,28 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
               targetOwner: TARGET_OWNER
             });
             
-            // Sort based on user preference
+            // Sort based on user preference (fallback to factory index if no block)
+            const sortByNicknameNumber = (a, b) => {
+              const getNumber = (store) => {
+                if (!store.nickname || store.nickname === 'Unknown') return Number.MAX_SAFE_INTEGER;
+                const match = store.nickname.match(/(\d+)/);
+                return match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER;
+              };
+              return getNumber(a) - getNumber(b);
+            };
+
             if (sortOrder === 'oldest') {
-              // For oldest first, lower index comes first
-              filteredStores.sort((a, b) => a.factoryIndex - b.factoryIndex);
+              filteredStores.sort(sortByNicknameNumber);
             } else {
-              // For newest first, higher index comes first
-              filteredStores.sort((a, b) => b.factoryIndex - a.factoryIndex);
+              filteredStores.sort((a, b) => sortByNicknameNumber(b, a));
             }
-            
+
+            const limitedStores = STORES_DISPLAY_LIMIT > 0
+              ? filteredStores.slice(0, STORES_DISPLAY_LIMIT)
+              : filteredStores;
+
             // Set filtered stores
-            setStores(filteredStores);
+            setStores(limitedStores);
           } catch (err) {
             console.error('Error fetching stores:', err);
             setError(err.message);
@@ -600,9 +669,10 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
                   <option value="oldest">Oldest First</option>
                 </select>
                 
-                {totalStores > 0 && (
+                {!loading && totalStores > 0 && (
                   <span className="text-gray-700 font-medium">
                     Showing {stores.length} of {totalStores} stores
+                    {totalStores > stores.length && stores.length > 0 ? ` (displaying ${stores.length} based on current sort)` : ''}
                   </span>
                 )}
               </div>
