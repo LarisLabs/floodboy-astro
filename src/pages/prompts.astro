@@ -126,9 +126,11 @@ Factory Contract ABI (Key Functions):
     "outputs": [
       {"name": "nickname", "type": "string"},
       {"name": "owner", "type": "address"},
-      {"name": "authorizedSensorCount", "type": "uint256"},
+      {"name": "authorizedSignerCount", "type": "uint256"},
       {"name": "deployedBlock", "type": "uint128"},
-      {"name": "description", "type": "string"}
+      {"name": "description", "type": "string"},
+      {"name": "lastDataTimestamp", "type": "uint256"},
+      {"name": "hasData", "type": "bool"}
     ],
     "stateMutability": "view",
     "type": "function"

@@ -68,10 +68,11 @@ export const DEPLOYER_ABI = [
     "outputs": [
       {"internalType": "string", "name": "nickname", "type": "string"},
       {"internalType": "address", "name": "owner", "type": "address"},
-      {"internalType": "uint256", "name": "authorizedSensorCount", "type": "uint256"},
-      {"internalType": "bool", "name": "isEventOnly", "type": "bool"},
+      {"internalType": "uint256", "name": "authorizedSignerCount", "type": "uint256"},
       {"internalType": "uint128", "name": "deployedBlock", "type": "uint128"},
-      {"internalType": "string", "name": "description", "type": "string"}
+      {"internalType": "string", "name": "description", "type": "string"},
+      {"internalType": "uint256", "name": "lastDataTimestamp", "type": "uint256"},
+      {"internalType": "bool", "name": "hasData", "type": "bool"}
     ],
     "stateMutability": "view",
     "type": "function"

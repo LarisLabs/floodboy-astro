@@ -505,28 +505,40 @@ const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
             
             // Execute multicall
             const results = await simpleMulticall(publicClient, calls);
-            
+
             // Process results - now with 4 results per store
             const processedStores = [];
             for (let i = 0; i < storeAddresses.length; i++) {
-              const infoResult = results[i * 4];
-              const fieldsResult = results[i * 4 + 1];
-              const signerCountResult = results[i * 4 + 2];
-              const timestampResult = results[i * 4 + 3];
-              
-              const lastDataTimestamp = timestampResult.success ? Number(timestampResult.data) : 0;
-              
+              const infoResult = results[i * 4] ?? { success: false, data: null };
+              const fieldsResult = results[i * 4 + 1] ?? { success: false, data: [] };
+              const signerCountResult = results[i * 4 + 2] ?? { success: false, data: 0n };
+              const timestampResult = results[i * 4 + 3] ?? { success: false, data: 0n };
+
+              const infoData = Array.isArray(infoResult.data) ? infoResult.data : [];
+              const nickname = infoData[0] || 'Unknown';
+              const owner = infoData[1] || null;
+              const signerCountFromFactory = infoData[2] !== undefined ? Number(infoData[2]) : null;
+              const deployedBlockFromFactory = infoData[3] !== undefined ? Number(infoData[3]) : null;
+              const description = infoData[4] || '';
+              const lastDataTimestampFromFactory = infoData[5] !== undefined ? Number(infoData[5]) : null;
+              const hasDataFlag = infoData[6] !== undefined ? Boolean(infoData[6]) : null;
+
+              const lastDataTimestamp = timestampResult.success ? Number(timestampResult.data) : (lastDataTimestampFromFactory || 0);
+              const signerCount = signerCountResult.success
+                ? Number(signerCountResult.data)
+                : (signerCountFromFactory ?? 0);
+
               processedStores.push({
                 address: storeAddresses[i],
                 chainId,
-                nickname: infoResult.success ? infoResult.data[0] : 'Unknown',
-                owner: infoResult.success ? infoResult.data[1] : null,
-                description: infoResult.success ? infoResult.data[4] : '',
+                nickname,
+                owner,
+                description,
                 fieldCount: fieldsResult.success ? fieldsResult.data.length : 0,
-                signerCount: signerCountResult.success ? Number(signerCountResult.data) : 0,
-                hasData: lastDataTimestamp > 0,
+                signerCount,
+                hasData: hasDataFlag !== null ? hasDataFlag : lastDataTimestamp > 0,
                 lastDataTimestamp,
-                deployedBlock: infoResult.success ? Number(infoResult.data[3]) : 0,
+                deployedBlock: deployedBlockFromFactory ?? 0,
                 // Store index in the factory array
                 factoryIndex: i
               });

@@ -1447,17 +1447,19 @@ const pageTitle = aliasInfo
 								data: results[1].returnData
 							}) : [];
 							
-							const authorizedSignerCount = results[2].success ? decodeFunctionResult({
+							let authorizedSignerCount = results[2].success ? Number(decodeFunctionResult({
 								abi: STORE_ABI,
 								functionName: 'authorizedSignerCount',
 								data: results[2].returnData
-							}) : 0;
+							})) : 0;
 							
 							// Make direct factory calls (only for JIBCHAIN L1 where we know the factory works)
 							let nickname = null;
 							let description = null;
 							let deployedBlockInfo = null;
 							let metadata = null;
+							let lastDataTimestamp = 0;
+							let hasData = false;
 							
 							// Only try factory calls on JIBCHAIN L1 with known factory
 							if (factoryAddress && currentChain === 8899 && factoryAddress === '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb') {
@@ -1504,11 +1506,22 @@ const pageTitle = aliasInfo
 										args: [storeAddress]
 									});
 									console.log('✅ Store info loaded:', storeInfo);
-									if (storeInfo && storeInfo.length >= 5) {
-										// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
-										if (!nickname) nickname = storeInfo[0];
-										if (!deployedBlockInfo) deployedBlockInfo = storeInfo[3];
-										if (!description) description = storeInfo[4]; // description is at index 4
+									if (storeInfo && storeInfo.length >= 7) {
+										// getStoreInfo returns: [nickname, owner, authorizedSignerCount, deployedBlock, description, lastDataTimestamp, hasData]
+										const [nicknameValue, ownerValue, signerCountValue, deployedBlockValue, descriptionValue, lastDataTsValue, hasDataValue] = storeInfo;
+										if (!nickname) nickname = nicknameValue;
+										if (!owner) owner = ownerValue;
+										if (!deployedBlockInfo) deployedBlockInfo = deployedBlockValue;
+										if (!description) description = descriptionValue;
+										if (typeof signerCountValue !== 'undefined') {
+											authorizedSignerCount = Number(signerCountValue);
+										}
+										if (typeof lastDataTsValue !== 'undefined') {
+											lastDataTimestamp = Number(lastDataTsValue);
+										}
+										if (typeof hasDataValue === 'boolean') {
+											hasData = hasDataValue;
+										}
 									}
 								} catch (storeInfoErr) {
 									console.log('❌ getStoreInfo failed:', storeInfoErr.message);
