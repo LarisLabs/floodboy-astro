@@ -1147,8 +1147,8 @@ const pageTitle = aliasInfo
                                                 aggregateDataByInterval(sortedRecords, groupingInterval) :
                                                 sortedRecords;
 
-                                        // Filter chart data to only include records from September 9, 2024 onward
-                                        const chartCutoffTimestamp = Math.floor(new Date('2024-09-09T00:00:00Z').getTime() / 1000);
+                                        // Filter chart data to only include records from September 9, 2025 onward
+                                        const chartCutoffTimestamp = Math.floor(new Date('2025-09-09T00:00:00Z').getTime() / 1000);
                                         const chartRecords = processedRecords.filter(record => record.timestamp >= chartCutoffTimestamp);
 
                                         // Format labels based on grouping mode
