@@ -1143,12 +1143,16 @@ const pageTitle = aliasInfo
 					const sortedRecords = [...sensorRecords].sort((a, b) => a.timestamp - b.timestamp);
 					
 					// Apply time interval grouping if enabled
-					const processedRecords = groupingInterval !== 'none' ? 
-						aggregateDataByInterval(sortedRecords, groupingInterval) : 
-						sortedRecords;
-					
-					// Format labels based on grouping mode
-					const labels = processedRecords.map(record => {
+                                        const processedRecords = groupingInterval !== 'none' ?
+                                                aggregateDataByInterval(sortedRecords, groupingInterval) :
+                                                sortedRecords;
+
+                                        // Filter chart data to only include records from September 9, 2024 onward
+                                        const chartCutoffTimestamp = Math.floor(new Date('2024-09-09T00:00:00Z').getTime() / 1000);
+                                        const chartRecords = processedRecords.filter(record => record.timestamp >= chartCutoffTimestamp);
+
+                                        // Format labels based on grouping mode
+                                        const labels = chartRecords.map(record => {
 						const date = new Date(record.timestamp * 1000);
 						if (groupingInterval !== 'none') {
 							// For grouped data, show cleaner time format
@@ -1205,7 +1209,7 @@ const pageTitle = aliasInfo
                                                         };
                                                         const color = colors[field.name] || fallbackPalette[index % fallbackPalette.length];
 							
-							const data = processedRecords.map(record => {
+                                                        const data = chartRecords.map(record => {
 								if (record.values[fieldIndex] !== undefined) {
 									return parseFloat(formatScaledValue(record.values[fieldIndex], field.unit));
 								}
@@ -1268,8 +1272,8 @@ const pageTitle = aliasInfo
 									callbacks: {
 										afterLabel: function(context) {
 											// Show aggregation info in tooltip when grouping is enabled
-											if (groupingInterval !== 'none' && processedRecords[context.dataIndex]) {
-												const record = processedRecords[context.dataIndex];
+                                                                                        if (groupingInterval !== 'none' && chartRecords[context.dataIndex]) {
+                                                                                                const record = chartRecords[context.dataIndex];
 												if (record.aggregated && record.recordCount) {
 													return `Aggregated from ${record.recordCount} records`;
 												}
