@@ -2,10 +2,10 @@
 import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 
 export const JIBCHAIN_RPC_ENDPOINTS = [
-  'https://rpc-l1.inan.in.th',
+  'https://rpc-l1.jibchain.net',
   'https://rpc2-l1.jbc.xpool.pw',
   'https://rpc-l1.jbc.xpool.pw',
-  'https://rpc-l1.jibchain.net',
+  'https://rpc-l1.inan.in.th',
 ] as const;
 
 // Universal Multicall3 address (same on all chains)
