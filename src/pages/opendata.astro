@@ -1,6 +1,68 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { SITE_TITLE } from '../consts';
+import { JIBCHAIN_RPC_ENDPOINTS } from '../utils/blockchain-constants';
+
+type BadgeMeta = {
+        label: string;
+        className: string;
+};
+
+type StatusMeta = {
+        label: string;
+        className: string;
+        dotClassName: string;
+};
+
+type RpcTableRow = {
+        url: string;
+        latency: string;
+        latencyClass?: string;
+        rowClass?: string;
+        badge?: BadgeMeta;
+        status: StatusMeta;
+};
+
+const rpcEndpointMeta: Record<string, Omit<RpcTableRow, 'url'>> = {
+        'https://rpc-l1.jibchain.net': {
+                latency: '0.049s',
+                rowClass: 'bg-blue-50',
+                latencyClass: 'text-blue-700',
+                badge: { label: 'Primary', className: 'bg-blue-100 text-blue-800' },
+                status: { label: 'Active', className: 'bg-blue-100 text-blue-800', dotClassName: 'bg-blue-400' },
+        },
+        'https://rpc2-l1.jbc.xpool.pw': {
+                latency: '0.047s',
+                rowClass: 'bg-emerald-50',
+                badge: { label: 'Performance', className: 'bg-emerald-100 text-emerald-800' },
+                status: { label: 'Active', className: 'bg-emerald-100 text-emerald-800', dotClassName: 'bg-emerald-400' },
+                latencyClass: 'text-emerald-700',
+        },
+        'https://rpc-l1.jbc.xpool.pw': {
+                latency: '0.072s',
+                status: { label: 'Active', className: 'bg-teal-100 text-teal-800', dotClassName: 'bg-teal-400' },
+                latencyClass: 'text-teal-700',
+        },
+        'https://rpc-l1.inan.in.th': {
+                latency: '0.137s',
+                status: { label: 'Active', className: 'bg-yellow-100 text-yellow-800', dotClassName: 'bg-yellow-400' },
+                latencyClass: 'text-yellow-700',
+        },
+};
+
+const rpcTableRows: RpcTableRow[] = JIBCHAIN_RPC_ENDPOINTS.map((url) => ({
+        url,
+        latency: rpcEndpointMeta[url]?.latency ?? '—',
+        rowClass: rpcEndpointMeta[url]?.rowClass,
+        latencyClass: rpcEndpointMeta[url]?.latencyClass,
+        badge: rpcEndpointMeta[url]?.badge,
+        status:
+                rpcEndpointMeta[url]?.status ?? {
+                        label: 'Active',
+                        className: 'bg-gray-100 text-gray-800',
+                        dotClassName: 'bg-gray-400',
+                },
+}));
 ---
 
 <BaseLayout title={`Open Data - ${SITE_TITLE}`} description="Direct blockchain access to FloodBoy sensor data">
@@ -53,61 +115,31 @@ import { SITE_TITLE } from '../consts';
 										</tr>
 									</thead>
 									<tbody class="divide-y divide-gray-200">
-										<tr class="bg-green-50">
-											<td class="px-3 py-2 font-mono text-xs">
-												<a href="https://rpc2-l1.jbc.xpool.pw" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc2-l1.jbc.xpool.pw</a>
-												<span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Fastest</span>
-											</td>
-											<td class="px-3 py-2 text-green-700 font-medium">0.047s</td>
-											<td class="px-3 py-2">
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-													<span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
-													Active
-												</span>
-											</td>
-										</tr>
-										<tr class="bg-blue-50">
-											<td class="px-3 py-2 font-mono text-xs">
-												<a href="https://rpc-l1.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.jibchain.net</a>
-												<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">Primary</span>
-											</td>
-											<td class="px-3 py-2 text-blue-700 font-medium">0.049s</td>
-											<td class="px-3 py-2">
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-													<span class="w-2 h-2 bg-blue-400 rounded-full mr-1"></span>
-													Active
-												</span>
-											</td>
-										</tr>
-										<tr>
-											<td class="px-3 py-2 font-mono text-xs">
-												<a href="https://rpc-l1.inan.in.th" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.inan.in.th</a>
-											</td>
-											<td class="px-3 py-2 text-yellow-700 font-medium">0.137s</td>
-											<td class="px-3 py-2">
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-													<span class="w-2 h-2 bg-yellow-400 rounded-full mr-1"></span>
-													Active
-												</span>
-											</td>
-										</tr>
-										<tr>
-											<td class="px-3 py-2 font-mono text-xs">
-												<a href="https://rpc-l1.jibchain.net" target="_blank" rel="noopener" class="text-blue-600 hover:underline">https://rpc-l1.jibchain.net</a>
-												<span class="ml-2 px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">Used in Examples</span>
-											</td>
-											<td class="px-3 py-2 text-red-700 font-medium">0.405s</td>
-											<td class="px-3 py-2">
-												<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
-													<span class="w-2 h-2 bg-red-400 rounded-full mr-1"></span>
-													Slower
-												</span>
-											</td>
-										</tr>
-									</tbody>
+                                                                                {rpcTableRows.map((row) => (
+                                                                                        <tr class={row.rowClass ?? ''}>
+                                                                                                <td class="px-3 py-2 font-mono text-xs">
+                                                                                                        <a href={row.url} target="_blank" rel="noopener" class="text-blue-600 hover:underline">{row.url}</a>
+                                                                                                        {row.badge && (
+                                                                                                                <span class={`ml-2 px-2 py-1 rounded text-xs ${row.badge.className}`}>
+                                                                                                                        {row.badge.label}
+                                                                                                                </span>
+                                                                                                        )}
+                                                                                                </td>
+                                                                                                <td class={`px-3 py-2 font-medium ${row.latencyClass ?? 'text-gray-700'}`}>
+                                                                                                        {row.latency}
+                                                                                                </td>
+                                                                                                <td class="px-3 py-2">
+                                                                                                        <span class={`inline-flex items-center px-2 py-1 rounded-full text-xs ${row.status.className}`}>
+                                                                                                                <span class={`w-2 h-2 rounded-full mr-1 ${row.status.dotClassName}`}></span>
+                                                                                                                {row.status.label}
+                                                                                                        </span>
+                                                                                                </td>
+                                                                                        </tr>
+                                                                                ))}
+                                                                        </tbody>
 								</table>
 							</div>
-							<p class="text-xs text-gray-600 mt-2">💡 <strong>Tip:</strong> Use the fastest RPC (rpc2-l1.jbc.xpool.pw) for better performance. All RPCs are compatible and interchangeable.</p>
+							<p class="text-xs text-gray-600 mt-2">💡 <strong>Tip:</strong> Start with the primary endpoint (rpc-l1.jibchain.net) for maximum reliability. If you encounter rate limits, rotate through the high-performance fallbacks in the order listed above.</p>
 						</div>
 						
 						<div class="grid md:grid-cols-2 gap-4 text-sm">
@@ -160,10 +192,10 @@ foundryup</pre>
 					</div>
 
 					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getAllFields()((string,string,string)[])" --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getAllFields()((string,string,string)[])" --rpc-url https://rpc-l1.jibchain.net`}</pre>
 
 					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getLatestRecord(address)(uint256,int256[])" 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd --rpc-url https://rpc-l1.jibchain.net/`}</pre>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`cast call 0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb "getLatestRecord(address)(uint256,int256[])" 0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd --rpc-url https://rpc-l1.jibchain.net`}</pre>
 
 					<h3 class="text-lg font-semibold mb-3">Viem.js TypeScript Examples</h3>
 					<div class="bg-white p-3 rounded mb-4">
@@ -194,13 +226,21 @@ foundryup</pre>
 					<h4 class="text-md font-medium mb-2">Setup & Configuration</h4>
 					<pre class="text-sm whitespace-pre-wrap bg-gray-100 text-gray-800 p-4 rounded overflow-x-auto font-mono mb-4 border">{`import { createPublicClient, http } from 'viem'
 
+const JIBCHAIN_RPC_ENDPOINTS = [
+  'https://rpc-l1.jibchain.net',
+  'https://rpc2-l1.jbc.xpool.pw',
+  'https://rpc-l1.jbc.xpool.pw',
+  'https://rpc-l1.inan.in.th',
+] as const
+
 // JIBCHAIN L1 network configuration
 const jibchain = {
   id: 8899,
   name: 'JIBCHAIN L1',
   nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc-l1.jibchain.net/'] }
+    default: { http: [...JIBCHAIN_RPC_ENDPOINTS] },
+    public: { http: [...JIBCHAIN_RPC_ENDPOINTS] },
   },
   blockExplorers: {
     default: { name: 'JIBCHAIN Explorer', url: 'https://exp.jibchain.net' }
@@ -210,7 +250,7 @@ const jibchain = {
 // Create client
 const client = createPublicClient({
   chain: jibchain,
-  transport: http()
+  transport: http(JIBCHAIN_RPC_ENDPOINTS[0])
 })
 
 // Contract addresses
@@ -332,10 +372,10 @@ async function getLatestRecord() {
 					</div>
 					
 					<h4 class="text-md font-medium mb-2">Get All Fields</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`curl 'https://rpc-l1.jibchain.net/' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":4,"method":"eth_call","params":[{"data":"0x92208228","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-4">{`curl 'https://rpc-l1.jibchain.net' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":4,"method":"eth_call","params":[{"data":"0x92208228","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
 
 					<h4 class="text-md font-medium mb-2">Get Latest Record</h4>
-					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`curl 'https://rpc-l1.jibchain.net/' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":2,"method":"eth_call","params":[{"data":"0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
+					<pre class="text-sm whitespace-pre-wrap bg-gray-600 text-green-300 p-4 rounded overflow-x-auto font-mono mb-6">{`curl 'https://rpc-l1.jibchain.net' -H 'content-type: application/json' --data-raw '{"jsonrpc":"2.0","id":2,"method":"eth_call","params":[{"data":"0x2f63bd6a000000000000000000000000cb0e58b011924e049ce4b4d62298edf43dff0bdd","to":"0xCd3Ec17ddFDa24f8F97131fa0FDf20e7cbd1A8Bb","value":"0x0"},"latest"]}' | jq`}</pre>
 
 					<h3 class="text-lg font-semibold mb-3 mt-6">Function Selectors</h3>
 					<div class="bg-white p-3 rounded">

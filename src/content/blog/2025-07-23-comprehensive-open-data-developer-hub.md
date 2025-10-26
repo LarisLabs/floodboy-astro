@@ -50,13 +50,15 @@ curl -X POST https://rpc-l1.jibchain.net \
 **Added**:
 - **RPC Performance Table**: 4 JIBCHAIN L1 endpoints sorted by latency
 - **Network Information**: Chain ID, explorer links, optimal settings
-- **Performance Recommendations**: Use fastest endpoint (`rpc2-l1.jbc.xpool.pw`)
+- **Performance Recommendations**: Default to `rpc-l1.jibchain.net` and rotate through the documented fallbacks if you hit rate limits
 
 ```markdown
 | Endpoint | Latency | Status | Recommended Use |
 |----------|---------|--------|-----------------|
-| rpc2-l1.jbc.xpool.pw | ~120ms | ✅ Active | **Primary** |
-| rpc-l1.jbc.xpool.pw | ~150ms | ✅ Active | Backup |
+| rpc-l1.jibchain.net | ~49ms | ✅ Active | **Primary** (stable core RPC) |
+| rpc2-l1.jbc.xpool.pw | ~47ms | ✅ Active | Performance fallback |
+| rpc-l1.jbc.xpool.pw | ~72ms | ✅ Active | Secondary fallback |
+| rpc-l1.inan.in.th | ~137ms | ✅ Active | Backup during outages |
 ```
 
 ### Phase 3: Interactive Examples (02:30-03:10)
