@@ -1018,12 +1018,73 @@ const pageTitle = aliasInfo
 				const blockTimerRef = React.useRef(null);
 				
 				// Enhanced view states
-				const [isMaximized, setIsMaximized] = React.useState(false);
-				const [showAllRecords, setShowAllRecords] = React.useState(false);
-				const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
-				const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
-				const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from zero
-				const [groupingInterval, setGroupingInterval] = React.useState('3hr'); // Default to 3 hour grouping
+                                const [isMaximized, setIsMaximized] = React.useState(false);
+                                const [showAllRecords, setShowAllRecords] = React.useState(false);
+                                const [recordsLimit, setRecordsLimit] = React.useState(10); // Default to 10 records
+                                const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
+                                const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from zero
+                                const [groupingInterval, setGroupingInterval] = React.useState('3hr'); // Default to 3 hour grouping
+
+                                // Fetch logs in manageable chunks to avoid RPC limitations
+                                async function fetchLogsInChunks({ client, address, event, fromBlock, toBlock, initialBatchSize = 50000n, maxRetries = 3 }) {
+                                        const logs = [];
+                                        const startBlock = BigInt(fromBlock);
+                                        let latestBlock;
+
+                                        if (typeof toBlock === 'string') {
+                                                if (toBlock.toLowerCase() === 'latest') {
+                                                        latestBlock = await client.getBlockNumber();
+                                                } else {
+                                                        latestBlock = BigInt(toBlock);
+                                                }
+                                        } else {
+                                                latestBlock = BigInt(toBlock);
+                                        }
+                                        let batchSize = initialBatchSize;
+                                        let currentFrom = startBlock;
+
+                                        while (currentFrom <= latestBlock) {
+                                                let currentTo = currentFrom + batchSize;
+                                                if (currentTo > latestBlock) {
+                                                        currentTo = latestBlock;
+                                                }
+
+                                                let attempt = 0;
+                                                while (attempt < maxRetries) {
+                                                        try {
+                                                                const chunkLogs = await client.getLogs({
+                                                                        address,
+                                                                        event,
+                                                                        fromBlock: currentFrom,
+                                                                        toBlock: currentTo
+                                                                });
+                                                                logs.push(...chunkLogs);
+                                                                break;
+                                                        } catch (chunkError) {
+                                                                attempt += 1;
+                                                                console.warn(`getLogs failed for range ${currentFrom.toString()} - ${currentTo.toString()} (attempt ${attempt}/${maxRetries}):`, chunkError);
+
+                                                                if (attempt >= maxRetries) {
+                                                                        throw chunkError;
+                                                                }
+
+                                                                batchSize = batchSize / 2n;
+                                                                if (batchSize < 1000n) {
+                                                                        batchSize = 1000n;
+                                                                }
+
+                                                                currentTo = currentFrom + batchSize;
+                                                                if (currentTo > latestBlock) {
+                                                                        currentTo = latestBlock;
+                                                                }
+                                                        }
+                                                }
+
+                                                currentFrom = currentTo + 1n;
+                                        }
+
+                                        return logs;
+                                }
 
 				// Aggregate data by time intervals
 				const aggregateDataByInterval = React.useCallback((records, interval) => {
@@ -1535,11 +1596,11 @@ const pageTitle = aliasInfo
 							
 
 							// Load ALL events from blockchain
-							const currentBlock = await publicClient.getBlockNumber();
-							// For production deployment, we know the approximate deployment block
-							// This ensures we get ALL historical data without querying unnecessarily far back
-							const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
-							const fromBlock = deploymentBlock; // Get ALL records since deployment
+                                                        const latestBlock = currentBlockNumber;
+                                                        // For production deployment, we know the approximate deployment block
+                                                        // This ensures we get ALL historical data without querying unnecessarily far back
+                                                        const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
+                                                        const fromBlock = deploymentBlock; // Get ALL records since deployment
 
 							// Get total records from factory contract
 							let totalRecords = 0;
@@ -1566,17 +1627,19 @@ const pageTitle = aliasInfo
 								// Will use processedRecords.length as fallback below
 							}
 
-							const eventLogs = await publicClient.getLogs({
-								address: storeAddress,
-								event: RECORD_STORED_EVENT,
-								fromBlock: fromBlock,
-								toBlock: 'latest'
-							}).catch((err) => {
-								console.log('Event loading failed, using fallback:', err.message);
-								return [];
-							});
+                                                        const eventLogs = await fetchLogsInChunks({
+                                                                client: publicClient,
+                                                                address: storeAddress,
+                                                                event: RECORD_STORED_EVENT,
+                                                                fromBlock,
+                                                                toBlock: latestBlock,
+                                                                initialBatchSize: currentChain === 8899 ? 50000n : 20000n
+                                                        }).catch((err) => {
+                                                                console.log('Event loading failed, using fallback:', err.message);
+                                                                return [];
+                                                        });
 
-							console.log('Event logs loaded:', eventLogs.length, 'events from block', fromBlock.toString(), 'to latest');
+                                                        console.log('Event logs loaded:', eventLogs.length, 'events from block', fromBlock.toString(), 'to', latestBlock.toString());
 
 							// Process events - get ALL records
 							const processedRecords = processRecordLogs(eventLogs);
