@@ -289,51 +289,26 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
         });
       }
 
-      async function checkEndpoint(url, index) {
+      // Update UI for a single endpoint result
+      function updateEndpointUI(result, index) {
         const statusDot = document.querySelector(`[data-status-dot="${index}"]`);
         const heightEl = document.querySelector(`[data-height="${index}"]`);
         const latencyEl = document.querySelector(`[data-latency="${index}"]`);
         const statusBadge = document.querySelector(`[data-status-badge="${index}"]`);
-        const scoreEl = document.querySelector(`[data-score="${index}"]`);
         const providerEl = document.querySelector(`[data-provider="${index}"]`);
 
-        const start = Date.now();
-
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: Date.now(),
-              method: 'eth_blockNumber',
-              params: []
-            }),
-            signal: controller.signal
-          });
-
-          clearTimeout(timeout);
-
-          if (!response.ok) throw new Error('HTTP error');
-
-          const data = await response.json();
-          const latency = Date.now() - start;
-          const blockNumber = parseInt(data.result, 16);
-
+        if (result.online) {
           // Update UI
-          heightEl.textContent = blockNumber.toLocaleString();
-          latencyEl.textContent = `${latency}ms`;
-          latencyEl.className = `font-mono ${latency < 200 ? 'text-green-600' : latency < 500 ? 'text-yellow-600' : 'text-red-600'}`;
+          heightEl.textContent = result.blockNumber.toLocaleString();
+          latencyEl.textContent = `${result.latency}ms`;
+          latencyEl.className = `font-mono ${result.latency < 200 ? 'text-green-600' : result.latency < 500 ? 'text-yellow-600' : 'text-red-600'}`;
 
           // Status
-          if (latency < 200) {
+          if (result.latency < 200) {
             statusDot.className = 'status-dot status-online';
             statusBadge.textContent = 'Fast';
             statusBadge.className = 'px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800';
-          } else if (latency < 500) {
+          } else if (result.latency < 500) {
             statusDot.className = 'status-dot status-slow';
             statusBadge.textContent = 'OK';
             statusBadge.className = 'px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800';
@@ -343,33 +318,20 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
             statusBadge.className = 'px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800';
           }
 
-          // Score (inverse of latency, max 100)
-          const score = Math.max(0, Math.min(100, Math.round(100 - (latency / 10))));
-          scoreEl.textContent = score;
-          scoreEl.className = `font-bold ${score > 80 ? 'text-green-600' : score > 50 ? 'text-yellow-600' : 'text-red-600'}`;
-
           // Provider name from URL
-          const hostname = new URL(url).hostname;
+          const hostname = new URL(result.url).hostname;
           providerEl.textContent = hostname;
-
-          return { url, latency, blockNumber, online: true };
-
-        } catch (error) {
-          const latency = Date.now() - start;
-
+        } else {
+          // Offline
           statusDot.className = 'status-dot status-offline';
           heightEl.textContent = '-';
           latencyEl.textContent = 'Timeout';
           latencyEl.className = 'font-mono text-red-600';
           statusBadge.textContent = 'Offline';
           statusBadge.className = 'px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800';
-          scoreEl.textContent = '0';
-          scoreEl.className = 'font-bold text-red-600';
 
-          const hostname = new URL(url).hostname;
+          const hostname = new URL(result.url).hostname;
           providerEl.textContent = hostname;
-
-          return { url, latency: Infinity, blockNumber: 0, online: false };
         }
       }
 
@@ -380,9 +342,16 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
         refreshBtn.disabled = true;
         refreshIcon.classList.add('refresh-spin');
 
-        const results = await Promise.all(
-          endpoints.map((url, index) => checkEndpoint(url, index))
-        );
+        try {
+          // Fetch from server-side proxy to avoid CORS issues
+          const response = await fetch('/api/rpc-check');
+          const data = await response.json();
+          const results = data.results;
+
+          // Update each endpoint's UI
+          results.forEach((result, index) => {
+            updateEndpointUI(result, index);
+          });
 
         // Get reference block height - prefer INAN (fastest), fallback to jibchain.net, then max
         const inanResult = results.find(r => r.url.includes('inan.in.th') && r.online);
@@ -430,10 +399,14 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
         const heights = results.filter(r => r.online).map(r => r.blockNumber);
         const latencies = results.filter(r => r.online).map(r => r.latency);
 
-        document.getElementById('stat-online').textContent = `${synced}/${endpoints.length}`;
-        document.getElementById('stat-block').textContent = heights.length ? Math.max(...heights).toLocaleString() : '-';
-        document.getElementById('stat-fastest').textContent = latencies.length ? `${Math.min(...latencies)}ms` : '-';
-        document.getElementById('stat-avg').textContent = latencies.length ? `${Math.round(latencies.reduce((a,b) => a+b, 0) / latencies.length)}ms` : '-';
+          document.getElementById('stat-online').textContent = `${synced}/${endpoints.length}`;
+          document.getElementById('stat-block').textContent = heights.length ? Math.max(...heights).toLocaleString() : '-';
+          document.getElementById('stat-fastest').textContent = latencies.length ? `${Math.min(...latencies)}ms` : '-';
+          document.getElementById('stat-avg').textContent = latencies.length ? `${Math.round(latencies.reduce((a,b) => a+b, 0) / latencies.length)}ms` : '-';
+
+        } catch (error) {
+          console.error('Failed to fetch RPC status:', error);
+        }
 
         refreshBtn.disabled = false;
         refreshIcon.classList.remove('refresh-spin');
