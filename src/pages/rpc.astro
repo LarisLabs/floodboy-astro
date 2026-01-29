@@ -95,7 +95,13 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="connect-wallet-btn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Connect Wallet
+            </button>
             <button id="refresh-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
               <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -444,6 +450,63 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
 
       // Start auto-refresh
       refreshInterval = setInterval(refreshAll, 10000);
+
+      // Connect Wallet - Add JIBCHAIN to MetaMask
+      document.getElementById('connect-wallet-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('connect-wallet-btn');
+
+        if (typeof window.ethereum === 'undefined') {
+          alert('Please install MetaMask or another Web3 wallet to connect.');
+          window.open('https://metamask.io/download/', '_blank');
+          return;
+        }
+
+        // Get preferred RPC or use default
+        const preferredRpc = getPreferredRpc() || 'https://rpc-l1.inan.in.th';
+
+        try {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="animate-pulse">Connecting...</span>';
+
+          // Try to switch to JIBCHAIN first
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x22c3' }], // 8899 in hex
+            });
+            btn.innerHTML = '✓ Connected';
+            btn.className = 'px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2';
+          } catch (switchError) {
+            // Chain not added yet, add it
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: '0x22c3',
+                  chainName: 'JIBCHAIN L1',
+                  nativeCurrency: {
+                    name: 'JBC',
+                    symbol: 'JBC',
+                    decimals: 18
+                  },
+                  rpcUrls: [preferredRpc],
+                  blockExplorerUrls: ['https://exp.jibchain.net']
+                }]
+              });
+              btn.innerHTML = '✓ Added & Connected';
+              btn.className = 'px-4 py-2 bg-green-600 text-white rounded-lg flex items-center gap-2';
+            } else {
+              throw switchError;
+            }
+          }
+        } catch (error) {
+          console.error('Wallet connection error:', error);
+          btn.innerHTML = 'Connect Wallet';
+          btn.className = 'px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2';
+          btn.disabled = false;
+          alert('Failed to connect: ' + (error.message || 'Unknown error'));
+        }
+      });
     </script>
   </body>
 </html>
