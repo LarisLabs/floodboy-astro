@@ -33,6 +33,11 @@ try {
 				<span class="status-label">Block:</span>
 				<code id="header-block">...</code>
 			</span>
+			<span class="status-sep">•</span>
+			<span class="status-item">
+				<span class="status-label">Load:</span>
+				<code id="header-load">...</code>
+			</span>
 		</div>
 	</div>
         <nav>
@@ -326,9 +331,10 @@ try {
 		});
 	}
 
-	// Status bar: RPC and Block
+	// Status bar: RPC, Block, and Load time
 	const rpcEl = document.getElementById('header-rpc');
 	const blockEl = document.getElementById('header-block');
+	const loadEl = document.getElementById('header-load');
 
 	if (rpcEl) {
 		const preferred = localStorage.getItem('floodboy_preferred_rpc');
@@ -356,5 +362,20 @@ try {
 				blockEl.textContent = 'offline';
 			});
 		}
+	}
+
+	// Page load time using Performance API
+	if (loadEl) {
+		window.addEventListener('load', () => {
+			setTimeout(() => {
+				const perf = performance.getEntriesByType('navigation')[0];
+				if (perf) {
+					const loadTime = Math.round(perf.loadEventEnd - perf.startTime);
+					const color = loadTime < 1000 ? '#4ade80' : loadTime < 2000 ? '#facc15' : '#f87171';
+					loadEl.textContent = loadTime + 'ms';
+					loadEl.style.color = color;
+				}
+			}, 0);
+		});
 	}
 </script>
