@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { JIBCHAIN_RPC_ENDPOINTS } from '../../utils/blockchain-constants';
+import { createPublicClient, http } from 'viem';
+import { JIBCHAIN_RPC_ENDPOINTS, jibchainL1 } from '../../utils/blockchain-constants';
 
 const RPC_TIMEOUT = 5000;
 
@@ -11,42 +12,28 @@ interface RpcResult {
   error?: string;
 }
 
-async function checkEndpoint(url: string): Promise<RpcResult> {
+async function checkEndpointWithViem(url: string): Promise<RpcResult> {
   const start = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT);
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: Date.now(),
-        method: 'eth_blockNumber',
-        params: [],
+    const client = createPublicClient({
+      chain: jibchainL1,
+      transport: http(url, {
+        timeout: RPC_TIMEOUT,
+        retryCount: 0,
       }),
-      signal: controller.signal,
     });
 
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+    const blockNumber = await client.getBlockNumber();
     const latency = Date.now() - start;
-    const blockNumber = parseInt(data.result, 16);
 
     return {
       url,
       latency,
-      blockNumber,
+      blockNumber: Number(blockNumber),
       online: true,
     };
   } catch (error) {
-    clearTimeout(timeout);
     return {
       url,
       latency: Date.now() - start,
@@ -59,10 +46,22 @@ async function checkEndpoint(url: string): Promise<RpcResult> {
 
 export const GET: APIRoute = async () => {
   const results = await Promise.all(
-    JIBCHAIN_RPC_ENDPOINTS.map((url) => checkEndpoint(url))
+    JIBCHAIN_RPC_ENDPOINTS.map((url) => checkEndpointWithViem(url))
   );
 
-  return new Response(JSON.stringify({ results, timestamp: Date.now() }), {
+  // Sort by latency (online first, then by speed)
+  const sorted = [...results].sort((a, b) => {
+    if (a.online && !b.online) return -1;
+    if (!a.online && b.online) return 1;
+    return a.latency - b.latency;
+  });
+
+  return new Response(JSON.stringify({
+    results,
+    ranked: sorted,
+    fastest: sorted.find(r => r.online)?.url || null,
+    timestamp: Date.now()
+  }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
