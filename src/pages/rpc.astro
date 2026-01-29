@@ -245,8 +245,23 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
 
     <Footer />
 
-    <script define:vars={{ rpcEndpoints }}>
-      const endpoints = rpcEndpoints;
+    <script type="module">
+      import { createPublicClient, http } from 'https://esm.sh/viem@2.21.32';
+
+      const endpoints = [
+        'https://rpc-l1.jibchain.net',
+        'https://rpc2-l1.jbc.xpool.pw',
+        'https://rpc-l1.jbc.xpool.pw',
+        'https://rpc-l1.inan.in.th',
+      ];
+
+      const jibchainL1 = {
+        id: 8899,
+        name: 'JIBCHAIN L1',
+        nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
+        rpcUrls: { default: { http: endpoints } },
+      };
+
       let autoRefresh = true;
       let refreshInterval;
       const STORAGE_KEY = 'floodboy_preferred_rpc';
@@ -341,6 +356,32 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
         }
       }
 
+      // Check single endpoint using viem (client-side, user's internet)
+      async function checkEndpoint(url) {
+        const start = Date.now();
+        try {
+          const client = createPublicClient({
+            chain: jibchainL1,
+            transport: http(url, { timeout: 5000, retryCount: 0 }),
+          });
+          const blockNumber = await client.getBlockNumber();
+          return {
+            url,
+            latency: Date.now() - start,
+            blockNumber: Number(blockNumber),
+            online: true,
+          };
+        } catch (error) {
+          return {
+            url,
+            latency: Date.now() - start,
+            blockNumber: 0,
+            online: false,
+            error: error.message,
+          };
+        }
+      }
+
       async function refreshAll() {
         const refreshBtn = document.getElementById('refresh-btn');
         const refreshIcon = document.getElementById('refresh-icon');
@@ -349,10 +390,10 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
         refreshIcon.classList.add('refresh-spin');
 
         try {
-          // Fetch from server-side proxy to avoid CORS issues
-          const response = await fetch('/api/rpc-check');
-          const data = await response.json();
-          const results = data.results;
+          // Client-side check - measures from USER's browser (true Web3 style)
+          const results = await Promise.all(
+            endpoints.map((url) => checkEndpoint(url))
+          );
 
           // Update each endpoint's UI
           results.forEach((result, index) => {
