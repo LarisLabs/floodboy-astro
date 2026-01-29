@@ -1,5 +1,6 @@
 {
   "name": "floodboy-astro",
+  "account_id": "a5eabdc2b11aae9bd5af46bd6a88179e",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./dist/_worker.js/index.js",
