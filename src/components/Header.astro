@@ -1,9 +1,40 @@
 ---
 import HeaderLink from './HeaderLink.astro';
+import { execSync } from 'child_process';
+
 const currentPath = Astro.url.pathname;
+
+// Get git info at build time
+let gitHash = 'dev';
+let gitDate = '';
+try {
+	gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+	gitDate = execSync('git log -1 --format=%cd --date=short', { encoding: 'utf-8' }).trim();
+} catch (e) {
+	// Fallback if git not available
+}
 ---
 
 <header>
+	<div class="status-bar">
+		<div class="status-items">
+			<span class="status-item">
+				<span class="status-label">Git:</span>
+				<code>{gitHash}</code>
+				<span class="status-date">({gitDate})</span>
+			</span>
+			<span class="status-sep">•</span>
+			<span class="status-item">
+				<span class="status-label">RPC:</span>
+				<a href="/rpc" id="header-rpc"><code>checking...</code></a>
+			</span>
+			<span class="status-sep">•</span>
+			<span class="status-item">
+				<span class="status-label">Block:</span>
+				<code id="header-block">...</code>
+			</span>
+		</div>
+	</div>
         <nav>
                 <div class="branding">
                         <a href="/" class="logo">
@@ -50,13 +81,78 @@ const currentPath = Astro.url.pathname;
 <style>
         header {
                 margin: 0;
-                padding: 0 1em 0.5rem;
+                padding: 0;
                 background: white;
                 box-shadow: 0 2px 8px rgba(var(--black), 5%);
                 border-bottom: 1px solid #e5e7eb;
                 display: flex;
                 flex-direction: column;
-                gap: 0.5rem;
+                gap: 0;
+        }
+
+        .status-bar {
+                background: linear-gradient(90deg, #1e3a5f 0%, #2d5a87 100%);
+                color: white;
+                font-size: 0.7rem;
+                padding: 0.35rem 1rem;
+        }
+
+        .status-items {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.75rem;
+                max-width: 80rem;
+                margin: 0 auto;
+        }
+
+        .status-item {
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+        }
+
+        .status-label {
+                opacity: 0.8;
+        }
+
+        .status-date {
+                opacity: 0.6;
+                font-size: 0.65rem;
+        }
+
+        .status-bar code {
+                background: rgba(255,255,255,0.15);
+                padding: 0.1rem 0.35rem;
+                border-radius: 0.2rem;
+                font-family: 'Monaco', 'Menlo', monospace;
+                font-size: 0.65rem;
+        }
+
+        .status-bar a {
+                color: white;
+                text-decoration: none;
+        }
+
+        .status-bar a:hover {
+                text-decoration: underline;
+        }
+
+        .status-sep {
+                opacity: 0.4;
+        }
+
+        @media (max-width: 640px) {
+                .status-bar {
+                        font-size: 0.6rem;
+                        padding: 0.25rem 0.5rem;
+                }
+                .status-items {
+                        gap: 0.5rem;
+                }
+                .status-date {
+                        display: none;
+                }
         }
 
         nav {
@@ -67,6 +163,7 @@ const currentPath = Astro.url.pathname;
                 max-width: 80rem;
                 margin: 0 auto;
                 width: 100%;
+                padding: 0 1rem;
         }
 	
         .branding {
@@ -142,7 +239,7 @@ const currentPath = Astro.url.pathname;
                 max-width: 80rem;
                 margin: 0 auto;
                 width: 100%;
-                padding: 0.35rem 0;
+                padding: 0.35rem 1rem 0.5rem;
         }
 
         .main-site-copy {
@@ -215,17 +312,49 @@ const currentPath = Astro.url.pathname;
 	// Mobile menu toggle
 	const toggle = document.querySelector('.mobile-menu-toggle');
 	const menu = document.querySelector('.mobile-menu');
-	
+
 	if (toggle && menu) {
 		toggle.addEventListener('click', () => {
 			menu.classList.toggle('active');
 		});
-		
+
 		// Close menu when clicking outside
 		document.addEventListener('click', (e) => {
 			if (!toggle.contains(e.target) && !menu.contains(e.target)) {
 				menu.classList.remove('active');
 			}
 		});
+	}
+
+	// Status bar: RPC and Block
+	const rpcEl = document.getElementById('header-rpc');
+	const blockEl = document.getElementById('header-block');
+
+	if (rpcEl) {
+		const preferred = localStorage.getItem('floodboy_preferred_rpc');
+		const defaultRpc = 'https://rpc-l1.inan.in.th';
+		const activeRpc = preferred || defaultRpc;
+		const hostname = new URL(activeRpc).hostname;
+		rpcEl.innerHTML = `<code>${hostname}</code>`;
+		rpcEl.title = activeRpc;
+
+		// Fetch block number
+		if (blockEl) {
+			fetch(activeRpc, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', id: 1 })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data.result) {
+					const blockNum = parseInt(data.result, 16);
+					blockEl.textContent = '#' + blockNum.toLocaleString();
+				}
+			})
+			.catch(() => {
+				blockEl.textContent = 'offline';
+			});
+		}
 	}
 </script>
