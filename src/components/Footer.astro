@@ -10,10 +10,24 @@ const today = new Date();
 		<span class="tagline">Real-time flood monitoring for smart cities</span>
 	</div>
 	<div class="footer-info">
+		<span class="rpc-info">RPC: <a href="/rpc" id="active-rpc"><code>checking...</code></a></span>
+		<span class="separator">•</span>
 		<span class="git-info">Git: <code>21205b5</code> (2025-07-23)</span>
 		<span class="separator">•</span>
 		<span class="contract-info">Factory (JIBCHAIN): <a href="https://exp.jibchain.net/address/0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb" target="_blank" rel="noopener noreferrer"><code>0x63bB...5Bb</code></a></span>
 	</div>
+	<script>
+		// Show active RPC in footer
+		const rpcEl = document.getElementById('active-rpc');
+		if (rpcEl) {
+			const preferred = localStorage.getItem('floodboy_preferred_rpc');
+			const defaultRpc = 'https://rpc-l1.inan.in.th';
+			const activeRpc = preferred || defaultRpc;
+			const hostname = new URL(activeRpc).hostname;
+			rpcEl.innerHTML = `<code>${hostname}</code>`;
+			rpcEl.title = activeRpc;
+		}
+	</script>
 </footer>
 <style>
 	footer {
