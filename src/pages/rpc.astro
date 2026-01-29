@@ -142,20 +142,35 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
           </div>
         </div>
 
+        <!-- Current Selection Banner -->
+        <div id="current-rpc-banner" class="px-6 py-3 bg-blue-50 border-b border-blue-200 hidden">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-sm text-blue-800">
+                <strong>Active RPC:</strong> <code id="current-rpc-url" class="bg-blue-100 px-2 py-0.5 rounded"></code>
+              </span>
+            </div>
+            <button id="reset-rpc" class="text-sm text-blue-600 hover:text-blue-800 font-medium">Reset to Auto</button>
+          </div>
+        </div>
+
         <!-- Table Header -->
         <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-sm font-medium text-gray-500 border-b">
-          <div class="col-span-5">RPC Server Address</div>
+          <div class="col-span-4">RPC Server Address</div>
           <div class="col-span-2 text-center">Height</div>
           <div class="col-span-2 text-center">Latency</div>
           <div class="col-span-2 text-center">Status</div>
-          <div class="col-span-1 text-center">Score</div>
+          <div class="col-span-2 text-center">Action</div>
         </div>
 
         <!-- RPC Rows -->
         <div id="rpc-list">
           {rpcEndpoints.map((endpoint, index) => (
             <div class="rpc-card grid grid-cols-12 gap-4 px-6 py-4 border-b border-gray-100 items-center hover:bg-gray-50" data-endpoint={endpoint}>
-              <div class="col-span-5">
+              <div class="col-span-4">
                 <div class="flex items-center gap-3">
                   <div class="status-dot status-checking" data-status-dot={index}></div>
                   <div>
@@ -173,8 +188,14 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
               <div class="col-span-2 text-center">
                 <span class="px-2 py-1 rounded-full text-xs font-medium" data-status-badge={index}>Checking</span>
               </div>
-              <div class="col-span-1 text-center">
-                <span class="font-bold" data-score={index}>-</span>
+              <div class="col-span-2 text-center">
+                <button
+                  class="use-rpc-btn px-3 py-1.5 text-xs font-medium rounded-lg border transition"
+                  data-rpc-btn={index}
+                  data-rpc-url={endpoint}
+                >
+                  Use This
+                </button>
               </div>
             </div>
           ))}
@@ -205,6 +226,10 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
           The system measures latency to all endpoints, caches results for 5 minutes, and
           automatically falls back to healthy nodes if the primary fails.
         </p>
+        <p class="text-blue-800 text-sm mt-2">
+          <strong>Manual Override:</strong> Click "Use This" to set a preferred RPC. Your choice is saved
+          in your browser and used as the primary endpoint. Click "Reset to Auto" to return to automatic selection.
+        </p>
         <div class="mt-4 flex gap-4">
           <a href="/blockchain" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View Sensor Dashboard →</a>
           <a href="/opendata" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Open Data →</a>
@@ -218,6 +243,51 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
       const endpoints = rpcEndpoints;
       let autoRefresh = true;
       let refreshInterval;
+      const STORAGE_KEY = 'floodboy_preferred_rpc';
+
+      // Get/set preferred RPC
+      function getPreferredRpc() {
+        return localStorage.getItem(STORAGE_KEY);
+      }
+
+      function setPreferredRpc(url) {
+        localStorage.setItem(STORAGE_KEY, url);
+        updateBanner();
+        updateButtons();
+      }
+
+      function resetPreferredRpc() {
+        localStorage.removeItem(STORAGE_KEY);
+        updateBanner();
+        updateButtons();
+      }
+
+      function updateBanner() {
+        const banner = document.getElementById('current-rpc-banner');
+        const urlDisplay = document.getElementById('current-rpc-url');
+        const preferred = getPreferredRpc();
+
+        if (preferred) {
+          banner.classList.remove('hidden');
+          urlDisplay.textContent = new URL(preferred).hostname;
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+
+      function updateButtons() {
+        const preferred = getPreferredRpc();
+        document.querySelectorAll('.use-rpc-btn').forEach(btn => {
+          const url = btn.dataset.rpcUrl;
+          if (url === preferred) {
+            btn.textContent = '✓ Active';
+            btn.className = 'use-rpc-btn px-3 py-1.5 text-xs font-medium rounded-lg border transition bg-green-100 border-green-300 text-green-700';
+          } else {
+            btn.textContent = 'Use This';
+            btn.className = 'use-rpc-btn px-3 py-1.5 text-xs font-medium rounded-lg border transition bg-white border-gray-300 text-gray-700 hover:bg-gray-50';
+          }
+        });
+      }
 
       async function checkEndpoint(url, index) {
         const statusDot = document.querySelector(`[data-status-dot="${index}"]`);
@@ -370,7 +440,8 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
       }
 
       // Initial load
-      refreshAll();
+      updateBanner();
+      refreshAll().then(updateButtons);
 
       // Auto-refresh toggle
       document.getElementById('auto-refresh').addEventListener('change', (e) => {
@@ -384,6 +455,19 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
 
       // Manual refresh
       document.getElementById('refresh-btn').addEventListener('click', refreshAll);
+
+      // Reset RPC button
+      document.getElementById('reset-rpc').addEventListener('click', () => {
+        resetPreferredRpc();
+      });
+
+      // Use RPC buttons
+      document.querySelectorAll('.use-rpc-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const url = btn.dataset.rpcUrl;
+          setPreferredRpc(url);
+        });
+      });
 
       // Start auto-refresh
       refreshInterval = setInterval(refreshAll, 10000);
