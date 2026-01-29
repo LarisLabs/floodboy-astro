@@ -6,7 +6,13 @@ import Footer from '../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 import { BLOCKCHAIN_CONFIG } from '../config/blockchain.config';
 import { CatLabSensorStoreABI, CatLabFactoryABI } from '../abis';
-import { JIBCHAIN_RPC_ENDPOINTS } from '../utils/blockchain-constants';
+import {
+  JIBCHAIN_RPC_ENDPOINTS,
+  MULTICALL3_ADDRESS,
+  jibchainL1,
+  sichang,
+  anvil
+} from '../utils/blockchain-constants';
 import '../styles/global.css';
 
 // Prepare configuration for injection
@@ -14,6 +20,8 @@ const configJson = JSON.stringify(BLOCKCHAIN_CONFIG);
 const storeAbiJson = JSON.stringify(CatLabSensorStoreABI);
 const factoryAbiJson = JSON.stringify(CatLabFactoryABI);
 const jibchainRpcJson = JSON.stringify(JIBCHAIN_RPC_ENDPOINTS);
+const chainsJson = JSON.stringify({ jibchainL1, sichang, anvil });
+const multicall3Address = MULTICALL3_ADDRESS;
 ---
 
 <!doctype html>
@@ -157,22 +165,25 @@ const jibchainRpcJson = JSON.stringify(JIBCHAIN_RPC_ENDPOINTS);
       STORE_ABI_JSON: storeAbiJson,
       FACTORY_ABI_JSON: factoryAbiJson,
       JIBCHAIN_RPC_ENDPOINTS_JSON: jibchainRpcJson,
+      CHAINS_JSON: chainsJson,
+      MULTICALL3_ADDR: multicall3Address,
     }}>
       import { createPublicClient, http, formatEther, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
-      
-      // Parse ABIs from server
+
+      // Parse configurations from server
       const STORE_ABI = JSON.parse(STORE_ABI_JSON);
       const DEPLOYER_ABI = JSON.parse(FACTORY_ABI_JSON);
       const JIBCHAIN_RPC_ENDPOINTS = JSON.parse(JIBCHAIN_RPC_ENDPOINTS_JSON);
-      
-      // Define constants inline
-      const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+      const { jibchainL1, sichang, anvil } = JSON.parse(CHAINS_JSON);
+
+      // Constants from blockchain-constants.ts
+      const MULTICALL3_ADDRESS = MULTICALL3_ADDR;
       const DEFAULT_MULTICALL_CHUNK_SIZE = 60; // keep payloads under RPC limits
       const STORES_DISPLAY_LIMIT = 30; // max stores to render after sorting/filtering
-      
+
       // Configuration injected at build time
       const CONTRACTS = JSON.parse(BLOCKCHAIN_CONFIG);
-      
+
       const MULTICALL3_ABI = [
         {
           inputs: [
@@ -201,46 +212,6 @@ const jibchainRpcJson = JSON.stringify(JIBCHAIN_RPC_ENDPOINTS);
           type: 'function'
         }
       ];
-      
-      // Define chains
-      const jibchainL1 = {
-        id: 8899,
-        name: 'JIBCHAIN L1',
-        network: 'jibchain',
-        nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-        rpcUrls: {
-          default: { http: [...JIBCHAIN_RPC_ENDPOINTS] },
-          public: { http: [...JIBCHAIN_RPC_ENDPOINTS] }
-        },
-        blockExplorers: {
-          default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
-        }
-      };
-      
-      const sichang = {
-        id: 700011,
-        name: 'SiChang',
-        network: 'sichang',
-        nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
-        rpcUrls: {
-          default: { http: ['https://sichang-rpc.thaichain.org'] },
-          public: { http: ['https://sichang-rpc.thaichain.org'] }
-        },
-        blockExplorers: {
-          default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
-        }
-      };
-      
-      const anvil = {
-        id: 31337,
-        name: 'Anvil',
-        network: 'foundry',
-        nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-        rpcUrls: {
-          default: { http: ['http://127.0.0.1:8545'] },
-          public: { http: ['http://127.0.0.1:8545'] }
-        }
-      };
       
       // Simple multicall function
       async function simpleMulticall(publicClient, calls, options = {}) {

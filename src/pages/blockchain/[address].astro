@@ -85,6 +85,11 @@ const pageTitle = aliasInfo
 		
 		<!-- p5.js for visualization -->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+
+		<!-- Blockchain utilities (bundled by Astro) -->
+		<script>
+			import '../../scripts/blockchain-page.ts';
+		</script>
 		
 		<!-- Chart.js with proper module loading -->
 		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -307,43 +312,46 @@ const pageTitle = aliasInfo
 			// Import viem modules
 			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
-			
-			// Custom chain configurations - INAN first (fastest for Thai users)
-                        const prioritizedJibchainRpcUrls = [
-                                'https://rpc-l1.inan.in.th',      // fastest
-                                'https://rpc-l1.jibchain.net',    // official fallback
-                                'https://rpc2-l1.jbc.xpool.pw',   // often offline
-                                'https://rpc-l1.jbc.xpool.pw'     // often offline
-                        ];
 
-                        const jibchainL1 = {
-                                id: 8899,
-                                name: 'JIBCHAIN L1',
-                                network: 'jibchain',
-                                nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-                                rpcUrls: {
-                                        default: { http: prioritizedJibchainRpcUrls },
-                                        public: { http: prioritizedJibchainRpcUrls }
-                                },
-                                blockExplorers: {
-                                        default: { name: 'JBC Explorer', url: 'https://exp.jibchain.net' }
-                                }
-                        };
-			
-			const sichang = {
-				id: 700011,
-				name: 'SiChang',
-				network: 'sichang',
-				nativeCurrency: { name: 'TCH', symbol: 'TCH', decimals: 18 },
-				rpcUrls: {
-					default: { http: ['https://sichang-rpc.thaichain.org'] },
-					public: { http: ['https://sichang-rpc.thaichain.org'] }
-				},
-				blockExplorers: {
-					default: { name: 'SiChang Explorer', url: 'https://sichang.thaichain.org' }
-				}
-			};
-			
+			// ============================================
+			// Wait for blockchainUtils to be available
+			// (loaded via src/scripts/blockchain-page.ts)
+			// ============================================
+			function waitForBlockchainUtils(maxWait = 5000) {
+				return new Promise((resolve, reject) => {
+					if (window.blockchainUtils) {
+						resolve(window.blockchainUtils);
+						return;
+					}
+					const startTime = Date.now();
+					const checkInterval = setInterval(() => {
+						if (window.blockchainUtils) {
+							clearInterval(checkInterval);
+							resolve(window.blockchainUtils);
+						} else if (Date.now() - startTime > maxWait) {
+							clearInterval(checkInterval);
+							reject(new Error('Timeout waiting for blockchainUtils'));
+						}
+					}, 50);
+				});
+			}
+
+			// Wait for utilities then initialize
+			const utils = await waitForBlockchainUtils();
+			const {
+				getCachedEvents,
+				setCachedEvents,
+				getBlockFromDaysAgo,
+				jibchainL1,
+				sichang,
+				formatScaledValue,
+				formatAddress: formatAddressUtil,
+				processRecordLogs,
+				filterWaterLevelData,
+				RECORD_STORED_EVENT,
+				createFloodboyVisualization
+			} = utils;
+
 			// Make viem and chains available globally
 			window.viem = { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult };
 			window.chains = { mainnet, sepolia, anvil, jibchainL1, sichang };
@@ -364,539 +372,11 @@ const pageTitle = aliasInfo
 			// Use the ABI loaded from abis.js
 			const STORE_ABI = pageData.storeABI;
 
-			// Event definitions for reading blockchain events
-			const RECORD_STORED_EVENT = {
-				type: 'event',
-				name: 'RecordStored',
-				inputs: [
-					{ name: 'sensor', type: 'address', indexed: true },
-					{ name: 'timestamp', type: 'uint256', indexed: false },
-					{ name: 'values', type: 'int256[]', indexed: false }
-				]
-			};
+			// Note: RECORD_STORED_EVENT, formatScaledValue, processRecordLogs, filterWaterLevelData
+			// are now imported from window.blockchainUtils above
 
-			// Utility functions adapted from web3-iot-factory
-			function parseScalingFactor(unit) {
-				const match = unit.match(/x\s*(\d+)/i);
-				return match ? parseInt(match[1]) : 100; // Default to 100 if no scaling found
-			}
-
-			function formatScaledValue(value, unit) {
-				// If unit contains "count", return the raw integer value as it's a counter
-				if (unit.toLowerCase().includes('count')) {
-					return Math.round(Number(value)).toString();
-				}
-				
-				const scaleFactor = parseScalingFactor(unit);
-				const numValue = Number(value);
-				const decimalValue = numValue / scaleFactor;
-				const decimalPlaces = Math.log10(scaleFactor);
-				return decimalValue.toFixed(Math.max(0, decimalPlaces));
-			}
-
-			// Process event logs
-			function processRecordLogs(logs) {
-				return logs
-					.filter(log => log.args && log.args.sensor && log.args.timestamp && log.args.values)
-					.map(log => ({
-						sensor: log.args.sensor,
-						timestamp: Number(log.args.timestamp),
-						values: log.args.values.map(v => Number(v)),
-						blockNumber: log.blockNumber,
-						transactionHash: log.transactionHash
-					}))
-					.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
-			}
-
-			// Smart water level filtering with time-gap awareness (FloodBoy020 only)
-			function filterWaterLevelData(records, fields, storeAddress) {
-				// Only apply filtering to FloodBoy020
-				const shouldFilter = true || storeAddress && (
-					storeAddress.toLowerCase() === '0x1701a62b62813160de104461573a9e6069405655' // FloodBoy020 address
-				);
-				
-				if (!shouldFilter) {
-					return records; // Return unfiltered for other sensors
-				}
-				
-				const waterDepthIdx = fields.findIndex(f => f.name === 'water_depth');
-				if (waterDepthIdx < 0) return records; // No water_depth field, return all
-				
-				console.log('Applying water level filtering for FloodBoy020');
-				
-				return records.filter((record, index, arr) => {
-					const waterDepth = record.values[waterDepthIdx];
-					
-					// 1. Always filter zero values (sensor failures)
-					if (waterDepth === 0) {
-						console.log('Filtered zero reading at', new Date(record.timestamp * 1000));
-						return false;
-					}
-					
-					// 2. Filter impossible values (negative or > 20m)
-					// Water depth is in m x10000 units, so 20m = 200000 units
-					if (waterDepth < 0 || waterDepth > 200000) { // 200000 = 20m × 10000
-						console.log('Filtered impossible value:', waterDepth / 10000, 'm');
-						return false;
-					}
-					
-					// 3. Detect isolated spikes (both small and large)
-					if (index > 0 && index < arr.length - 1) {
-						const prev = arr[index - 1];
-						const next = arr[index + 1];
-						const prevDepth = prev.values[waterDepthIdx];
-						const nextDepth = next.values[waterDepthIdx];
-						
-						// Check if previous and next readings are similar (returns to baseline)
-						const returnToBaseline = Math.abs(prevDepth - nextDepth);
-						const avgSurrounding = (prevDepth + nextDepth) / 2;
-						const currentDeviation = Math.abs(waterDepth - avgSurrounding);
-						
-						// Two-tier detection:
-						// 1. Fine-grain: If prev/next very similar (<0.05m), filter small spikes (>0.1m)
-						// 2. Coarse: If prev/next somewhat similar (<0.1m), filter larger spikes (>0.25m)
-						
-						if (returnToBaseline < 500 && currentDeviation > 1000) {
-							// Very similar baseline, filter small spikes (0.1m+)
-							console.log('Filtered fine spike:', waterDepth / 10000, 'm (deviation:', 
-								currentDeviation / 10000, 'm) from baseline', avgSurrounding / 10000, 'm');
-							return false;
-						} else if (returnToBaseline < 1000 && currentDeviation > 2500) {
-							// Similar baseline, filter medium spikes (0.25m+)
-							console.log('Filtered medium spike:', waterDepth / 10000, 'm (deviation:', 
-								currentDeviation / 10000, 'm) from baseline', avgSurrounding / 10000, 'm');
-							return false;
-						}
-					}
-					
-					// 4. Smart rate-of-change detection with time gap awareness
-					if (index > 0) {
-						const prev = arr[index - 1];
-						const timeDiff = Math.abs(record.timestamp - prev.timestamp) / 60; // minutes
-						const waterChange = Math.abs(waterDepth - prev.values[waterDepthIdx]);
-						
-						// Expected transmission interval (5-10 minutes normal operation)
-						const NORMAL_INTERVAL = 15; // minutes
-						// MAX_CHANGE_PER_INTERVAL in m x10000 units (0.5m = 5000 units)
-						const MAX_CHANGE_PER_INTERVAL = 5000; // 5000 = 0.5m × 10000
-						
-						// If transmission is regular (no gap), apply strict filtering
-						if (timeDiff <= NORMAL_INTERVAL) {
-							if (waterChange > MAX_CHANGE_PER_INTERVAL) {
-								console.log('Filtered outlier:', waterChange / 10000, 'm change in', timeDiff, 'min at', 
-									new Date(record.timestamp * 1000));
-								return false;
-							}
-						} else {
-							// There was a gap in transmission - sensor was offline
-							// Calculate acceptable change based on time gap
-							const maxAcceptableChange = (timeDiff / NORMAL_INTERVAL) * MAX_CHANGE_PER_INTERVAL;
-							
-							if (waterChange > maxAcceptableChange) {
-								// Even accounting for the gap, this change is too large
-								console.log('Filtered extreme outlier:', waterChange / 10000, 'm change in', 
-									timeDiff, 'min gap at', new Date(record.timestamp * 1000));
-								return false;
-							}
-						}
-					}
-					
-					return true;
-				});
-			}
-
-			// FloodboyVisualization React Component (inline)
-			function FloodboyVisualization({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead }) {
-				const sketchRef = React.useRef(null);
-				const p5InstanceRef = React.useRef(null);
-				const propsRef = React.useRef({ waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead });
-
-				// Update props ref
-				React.useEffect(() => {
-					propsRef.current = { waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead };
-				}, [waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead]);
-
-				React.useEffect(() => {
-					const sketch = (p) => {
-						p.setup = () => {
-							const canvas = p.createCanvas(350, 420);
-							canvas.parent(sketchRef.current);
-							p.frameRate(30);
-						};
-
-						p.draw = () => {
-							p.clear();
-							p.background(255, 255, 255, 0);
-							
-							const { 
-								waterLevel: currentWaterLevel, 
-								airLevel: currentAirLevel, 
-								sensorMode: currentSensorMode, 
-								installationHeight: currentInstallationHeight, 
-								showMeasurement: currentShowMeasurement, 
-								isOnline, 
-								isDead 
-							} = propsRef.current;
-							
-							const centerX = 150;
-							const baseY = 380;
-							const yOffset = -10;
-							const armY = yOffset + 136;
-							const armStartX = centerX + 5;
-							const armLength = 120;
-							const sensorX = armStartX + armLength + 10;
-							const sensorY = armY + 4;
-							
-							// Base/Foundation
-							p.fill(75, 85, 99);
-							p.rect(centerX - 30, baseY - 20, 60, 20, 2);
-							p.fill(55, 65, 81);
-							p.rect(centerX - 40, baseY - 5, 80, 8);
-							
-							// Vertical Pole
-							p.fill(107, 114, 128);
-							p.rect(centerX - 5, yOffset + 70, 10, 30);
-							p.fill(156, 163, 175, 127);
-							p.rect(centerX - 3, yOffset + 70, 6, 300);
-							
-							// Solar Panel Support
-							p.fill(55, 65, 81);
-							p.rect(centerX - 10, yOffset + 90, 20, 4);
-							
-							// Solar Panel
-							p.push();
-							p.fill(31, 41, 55);
-							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
-							
-							// Solar cell grid
-							p.stroke(55, 65, 81);
-							p.strokeWeight(1);
-							for (let i = 1; i < 4; i++) {
-								p.line(centerX - 40 + i * 20, yOffset + 50, centerX - 40 + i * 20, yOffset + 90);
-							}
-							for (let i = 1; i < 3; i++) {
-								p.line(centerX - 40, yOffset + 50 + i * 15, centerX + 40, yOffset + 50 + i * 15);
-							}
-							p.noStroke();
-							
-							// Solar shine effect
-							p.fill(59, 130, 246, 77);
-							p.rect(centerX - 40, yOffset + 50, 80, 40, 2);
-							p.pop();
-							
-							// Horizontal Arm (telescopic)
-							p.fill(107, 114, 128);
-							p.rect(armStartX, armY, armLength, 8);
-							p.fill(156, 163, 175, 127);
-							p.rect(armStartX, armY + 2, armLength, 4);
-							
-							// Telescopic segments
-							p.fill(124, 124, 124);
-							p.rect(armStartX + 20, armY + 1, 100, 6);
-							p.fill(140, 140, 140);
-							p.rect(armStartX + 40, armY + 2, 80, 4);
-							
-							// Segment joints
-							p.fill(90, 90, 90);
-							for (let i = 1; i <= 3; i++) {
-								p.rect(armStartX + i * 20, armY, 2, 8);
-							}
-							
-							// Control Box
-							p.fill(31, 41, 55);
-							p.rect(centerX - 25, yOffset + 110, 50, 60, 3);
-							p.fill(17, 24, 39);
-							p.rect(centerX - 20, yOffset + 115, 40, 50, 2);
-							
-							// FLOODBOY text on control box
-							p.push();
-							p.fill(255, 255, 255, 200);
-							p.textAlign(p.CENTER, p.CENTER);
-							p.textSize(9);
-							p.textStyle(p.BOLD);
-							const boxCenterX = centerX;
-							p.text('FLOOD', boxCenterX, yOffset + 145);
-							p.text('BOY', boxCenterX, yOffset + 157);
-							p.textStyle(p.NORMAL);
-							p.pop();
-							
-							// LED indicators
-							const time = p.millis() / 1000;
-							p.noStroke();
-							
-							// Status LEDs
-							if (isDead) {
-								p.fill(239, 68, 68, 204 + Math.sin(time * Math.PI * 2) * 51);
-								p.circle(centerX, yOffset + 125, 8);
-							} else if (isOnline) {
-								p.fill(16, 185, 129, 204 + Math.sin(time * Math.PI) * 51);
-								p.circle(centerX - 10, yOffset + 125, 4);
-								p.fill(59, 130, 246, 204 + Math.sin(time * Math.PI * 0.8) * 51);
-								p.circle(centerX, yOffset + 125, 4);
-							} else {
-								p.fill(245, 158, 11, 204 + Math.sin(time * Math.PI * 1.5) * 51);
-								p.circle(centerX, yOffset + 125, 6);
-							}
-							
-							// Sensor Cylinder
-							p.fill(55, 65, 81);
-							p.ellipse(sensorX, sensorY, 30, 50);
-							p.fill(31, 41, 55);
-							p.ellipse(sensorX, sensorY, 24, 44);
-							
-							// Sensor lens
-							p.fill(17, 24, 39);
-							p.circle(sensorX, sensorY + 11, 16);
-							p.fill(0, 0, 0, 204);
-							p.circle(sensorX, sensorY + 11, 12);
-							
-							// Measurement visualization
-							if (currentSensorMode === 'air' && currentShowMeasurement) {
-								// Air measurement visualization
-								const pulsePhase = (time * 2) % 4;
-								const measurementDistance = baseY - 5 - (sensorY + 20);
-								
-								// Animated measurement pulse
-								for (let i = 0; i < 3; i++) {
-									const offset = i * 1.2;
-									const alpha = Math.max(0, 1 - (pulsePhase + offset) / 4) * 153;
-									
-									if (alpha > 0) {
-										p.stroke(59, 130, 246, alpha);
-										p.strokeWeight(2 - i * 0.5);
-										
-										const pulseProgress = ((pulsePhase + offset) % 4) / 4;
-										const startY = sensorY + 20;
-										const endY = startY + measurementDistance * Math.min(pulseProgress * 1.2, 1);
-										
-										p.drawingContext.setLineDash([6, 6]);
-										p.line(sensorX, startY, sensorX, endY);
-										p.drawingContext.setLineDash([]);
-									}
-								}
-								
-								// Distance label
-								p.noStroke();
-								p.fill(255, 255, 255, 230);
-								p.rect(sensorX + 10, armY + 100, 55, 24, 3);
-								p.fill(239, 68, 68);
-								p.textAlign(p.CENTER, p.CENTER);
-								p.textSize(16);
-								p.text(currentAirLevel.toFixed(2) + 'm', sensorX + 37.5, armY + 112);
-								
-							} else if (currentSensorMode === 'water' && currentShowMeasurement) {
-								// Water mode
-								const waterArea = centerX + 50;
-								// Cap water level at installation height for visualization
-								const visualWaterLevel = Math.min(currentWaterLevel, currentInstallationHeight);
-								const isOverflow = currentWaterLevel > currentInstallationHeight;
-								
-								// Calculate water Y position - when water level = installation height, water should reach sensor
-								// The sensor is at sensorY + 25 (bottom of sensor)
-								// Scale factor = distance from base to sensor bottom / installation height
-								const sensorBottomY = sensorY + 25;
-								const groundY = baseY - 5;
-								const totalDistance = groundY - sensorBottomY;
-								const scaleFactor = totalDistance / currentInstallationHeight;
-								const waterY = groundY - (visualWaterLevel * scaleFactor);
-								
-								if (currentWaterLevel > 0) {
-									// Water surface
-									p.noStroke();
-									if (isDead) {
-										p.fill(239, 68, 68, 102);
-									} else if (isOnline) {
-										p.fill(59, 130, 246, 102);
-									} else {
-										p.fill(245, 158, 11, 102);
-									}
-									p.rect(waterArea, waterY, 150, groundY - waterY);
-									
-									// Water surface line with wave animation
-									if (isDead) {
-										p.stroke(239, 68, 68);
-									} else if (isOnline) {
-										p.stroke(59, 130, 246);
-									} else {
-										p.stroke(245, 158, 11);
-									}
-									p.strokeWeight(2);
-									p.noFill();
-									p.beginShape();
-									for (let x = 0; x <= 150; x += 5) {
-										const waveY = waterY + Math.sin((x + time * 50) * 0.05) * 2;
-										p.vertex(waterArea + x, waveY);
-									}
-									p.endShape();
-									
-									// Animated ripples
-									for (let i = 0; i < 3; i++) {
-										const rippleTime = (time * 1.5 + i * 0.8) % 3;
-										const rippleRadius = 5 + rippleTime * 20;
-										const rippleAlpha = Math.max(0, 1 - rippleTime / 3) * 77;
-										
-										if (rippleAlpha > 0) {
-											p.noFill();
-											if (isDead) {
-												p.stroke(239, 68, 68, rippleAlpha);
-											} else if (isOnline) {
-												p.stroke(59, 130, 246, rippleAlpha);
-											} else {
-												p.stroke(245, 158, 11, rippleAlpha);
-											}
-											p.strokeWeight(1.5 - rippleTime * 0.5);
-											p.ellipse(sensorX, waterY, rippleRadius * 2, rippleRadius * 0.5);
-										}
-									}
-								} else {
-									// Dry floor
-									p.noStroke();
-									p.fill(139, 115, 85, 204);
-									p.rect(waterArea, baseY - 5, 150, 5);
-									
-									// Floor texture
-									p.fill(160, 130, 109, 127);
-									for (let x = 0; x < 150; x += 20) {
-										p.rect(waterArea + x, baseY - 5, 10, 5);
-									}
-									
-									// Impact waves on dry floor
-									for (let i = 0; i < 3; i++) {
-										const waveTime = (time * 2 + i * 0.7) % 3;
-										const waveRadius = 5 + waveTime * 15;
-										const waveAlpha = Math.max(0, 1 - waveTime / 3) * 102;
-										
-										if (waveAlpha > 0) {
-											p.noFill();
-											p.stroke(59, 130, 246, waveAlpha);
-											p.strokeWeight(2 - waveTime * 0.5);
-											p.circle(sensorX, baseY - 5, waveRadius * 2);
-										}
-									}
-								}
-								
-								// Measurement line
-								p.stroke(59, 130, 246, 153);
-								p.strokeWeight(1);
-								p.drawingContext.setLineDash([4, 4]);
-								p.line(sensorX, sensorY + 20, sensorX, currentWaterLevel > 0 ? waterY : baseY - 5);
-								p.drawingContext.setLineDash([]);
-								
-								// Distance label
-								p.noStroke();
-								if (isDead) {
-									p.fill(239, 68, 68);
-								} else if (isOnline) {
-									p.fill(59, 130, 246);
-								} else {
-									p.fill(245, 158, 11);
-								}
-								p.textAlign(p.LEFT, p.CENTER);
-								const labelY = visualWaterLevel > 0 ? waterY + 20 : baseY - 30;
-								
-								// Show actual value with overflow indicator
-								if (isOverflow) {
-									// Overflow warning - position text more to the right to avoid cropping
-									p.fill(239, 68, 68); // Red for warning
-									p.textAlign(p.CENTER, p.CENTER);
-									
-									// Main value with warning icon
-									p.text(currentWaterLevel.toFixed(2) + 'm ⚠️', waterArea + 75, labelY);
-									
-									// Additional warning text below
-									p.textSize(10);
-									p.text(`Exceeds ${currentInstallationHeight.toFixed(2)}m range`, waterArea + 75, labelY + 15);
-									p.textSize(12); // Reset text size
-								} else {
-									p.text(currentWaterLevel.toFixed(2) + 'm', sensorX + 5, labelY);
-								}
-							}
-							
-							// Display installation height and constraint indicators
-							if (currentInstallationHeight > 0) {
-								// Draw a subtle line showing installation height - directly under the sensor
-								p.stroke(156, 163, 175, 100); // Light gray
-								p.strokeWeight(1);
-								p.drawingContext.setLineDash([2, 2]);
-								p.line(sensorX, sensorY + 25, sensorX, baseY - 5);
-								p.drawingContext.setLineDash([]);
-								
-								// Small markers at top and bottom
-								p.line(sensorX - 5, sensorY + 25, sensorX + 5, sensorY + 25);
-								p.line(sensorX - 5, baseY - 5, sensorX + 5, baseY - 5);
-								
-								// Draw max water level indicator line (installation height from base)
-								// Only show when water level is at or very close to max
-								if (currentSensorMode === 'water' && Math.abs(currentWaterLevel - currentInstallationHeight) < 0.01) {
-									const waterArea = centerX + 50; // Define waterArea here
-									// Use same calculation as water rendering to get the actual water Y position
-									const sensorBottomY = sensorY + 25;
-									const groundY = baseY - 5;
-									const totalDistance = groundY - sensorBottomY;
-									const scaleFactor = totalDistance / currentInstallationHeight;
-									const waterY = groundY - (currentWaterLevel * scaleFactor);
-									
-									// Draw MAX indicator at the water surface
-									p.stroke(239, 68, 68, 80); // Red line for max water level
-									p.strokeWeight(2);
-									p.drawingContext.setLineDash([5, 5]);
-									p.line(waterArea - 10, waterY, waterArea + 160, waterY);
-									p.drawingContext.setLineDash([]);
-									
-									// Label for max level - positioned below the installation height text
-									p.noStroke();
-									p.fill(239, 68, 68, 150);
-									p.textAlign(p.CENTER, p.CENTER);
-									p.textSize(10);
-									// Position MAX below the installation height label (which is at sensorY)
-									const boxX = sensorX + 20; // Same X as installation height box
-									const textWidth = 40; // Same width as installation height box
-									p.text('(MAX)', boxX + textWidth/2, sensorY + 15);
-								}
-								
-								p.noStroke();
-								
-								// Background box for better readability - positioned to fit within canvas
-								const textWidth = 40;
-								const boxX = sensorX + 20; // Position to the right of sensor
-								p.fill(255, 255, 255, 230);
-								p.rect(boxX, sensorY - 10, textWidth, 20, 3);
-								
-								// Installation height text
-								p.fill(75, 65, 81); // Dark gray to match sensor color
-								p.textAlign(p.CENTER, p.CENTER);
-								p.textSize(12);
-								p.text(`${currentInstallationHeight.toFixed(2)}m`, boxX + textWidth/2, sensorY);
-							}
-							
-							p.noStroke();
-						};
-					};
-
-					if (sketchRef.current && !p5InstanceRef.current && typeof window !== 'undefined' && window.p5) {
-						p5InstanceRef.current = new window.p5(sketch, sketchRef.current);
-					}
-
-					return () => {
-						if (p5InstanceRef.current) {
-							p5InstanceRef.current.remove();
-							p5InstanceRef.current = null;
-						}
-					};
-				}, []);
-
-				React.useEffect(() => {
-					if (p5InstanceRef.current) {
-						p5InstanceRef.current.redraw();
-					}
-				}, [waterLevel, airLevel, sensorMode, installationHeight, showMeasurement, isOnline, isDead]);
-
-				return React.createElement('div', { 
-					ref: sketchRef, 
-					id: 'p5-container',
-					style: { width: '350px', height: '420px', margin: '0 auto' }
-				});
-			}
+			// FloodboyVisualization - use factory from extracted module
+			const FloodboyVisualization = createFloodboyVisualization(React);
 
 			// Main BlockchainApp Component
                         function BlockchainApp() {
@@ -978,26 +458,11 @@ const pageTitle = aliasInfo
                                 const [isLoading, setIsLoading] = React.useState(true);
                                 const [isRefreshing, setIsRefreshing] = React.useState(false);
                                 const [activeRpcUrl, setActiveRpcUrl] = React.useState(() => getRpcUrlForChain(8899));
-				
-				// Helper function to format address
-				const formatAddress = (address) => {
-					if (!address) return '';
-					return `${address.slice(0, 10)}...${address.slice(-6)}`;
-				};
-				
-				// Helper function to get explorer URL based on chain
-				const getExplorerUrl = (chainId) => {
-					switch(chainId) {
-						case 8899:
-							return window.chains.jibchainL1.blockExplorers.default.url;
-						case 700011:
-							return window.chains.sichang.blockExplorers.default.url;
-						case 31337:
-							return 'http://localhost:8545'; // Local anvil doesn't have a real explorer
-						default:
-							return window.chains.jibchainL1.blockExplorers.default.url; // Default to JBC
-					}
-				};
+
+				// Use extracted utilities (defined at top-level from window.blockchainUtils)
+				const formatAddress = formatAddressUtil;
+				const getExplorerUrl = window.blockchainUtils.getExplorerUrl;
+
 				const [waterLevel, setWaterLevel] = React.useState(0);
 				const [temperature, setTemperature] = React.useState(0);
 				const [installationHeight, setInstallationHeight] = React.useState(3.0); // Default 3m, will be updated from contract
@@ -1024,6 +489,11 @@ const pageTitle = aliasInfo
                                 const [selectedFields, setSelectedFields] = React.useState(['water_depth']); // Default to water depth only
                                 const [startFromZero, setStartFromZero] = React.useState(true); // Default to start from zero
                                 const [groupingInterval, setGroupingInterval] = React.useState('3hr'); // Default to 3 hour grouping
+
+                                // Lazy loading state - default to 7 days for fast initial load
+                                const [loadRange, setLoadRange] = React.useState(7); // days - 7 = last week, 30 = last month, 0 = all
+                                const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+                                const [hasMoreData, setHasMoreData] = React.useState(true); // Whether there's older data available
 
                                 // Fetch logs in manageable chunks to avoid RPC limitations
                                 async function fetchLogsInChunks({ client, address, event, fromBlock, toBlock, initialBatchSize = 50000n, maxRetries = 3 }) {
@@ -1414,8 +884,6 @@ const pageTitle = aliasInfo
                                                                 }
                                                         );
 
-                                                        console.log('Loading enhanced data for store:', storeAddress);
-
                                                         const currentBlockNumber =
                                                                 typeof initialBlockNumber === 'bigint'
                                                                         ? initialBlockNumber
@@ -1459,7 +927,6 @@ const pageTitle = aliasInfo
 							// Get factory address for current chain
 							const factoryAddress = currentChain === 8899 ? '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb' : CONTRACTS[currentChain]?.deployerAddress;
 							const DEPLOYER_ABI = pageData.deployerABI;
-							console.log('Using factory address:', factoryAddress, 'for chain:', currentChain);
 							
 							// Prepare multicall
 							const calls = [
@@ -1526,9 +993,6 @@ const pageTitle = aliasInfo
 							
 							// Only try factory calls on JIBCHAIN L1 with known factory
 							if (factoryAddress && currentChain === 8899 && factoryAddress === '0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb') {
-								console.log('Attempting factory calls for store:', storeAddress);
-								console.log('Using factory:', factoryAddress);
-								
 								// Try storeToNickname first (simplest call)
 								try {
 									nickname = await publicClient.readContract({
@@ -1537,12 +1001,11 @@ const pageTitle = aliasInfo
 										functionName: 'storeToNickname',
 										args: [storeAddress]
 									});
-									console.log('✅ Nickname loaded:', nickname);
 								} catch (nicknameErr) {
-									console.log('❌ storeToNickname failed:', nicknameErr.message);
+									// storeToNickname failed
 								}
-								
-								// Try getStoreMetadata (your Solidity script shows this works)
+
+								// Try getStoreMetadata
 								try {
 									metadata = await publicClient.readContract({
 										address: factoryAddress,
@@ -1550,16 +1013,15 @@ const pageTitle = aliasInfo
 										functionName: 'getStoreMetadata',
 										args: [storeAddress]
 									});
-									console.log('✅ Metadata loaded:', metadata);
 									if (metadata && metadata.length >= 3) {
 										// getStoreMetadata returns: [deployedBlock, lastUpdatedBlock, description, pointer]
 										deployedBlockInfo = metadata[0];
 										description = metadata[2]; // description is at index 2
 									}
 								} catch (metadataErr) {
-									console.log('❌ getStoreMetadata failed:', metadataErr.message);
+									// getStoreMetadata failed
 								}
-								
+
 								// Try getStoreInfo as fallback
 								try {
 									const storeInfo = await publicClient.readContract({
@@ -1568,7 +1030,6 @@ const pageTitle = aliasInfo
 										functionName: 'getStoreInfo',
 										args: [storeAddress]
 									});
-									console.log('✅ Store info loaded:', storeInfo);
 									if (storeInfo && storeInfo.length >= 5) {
 										// getStoreInfo returns: [nickname, owner, authorizedSensorCount, deployedBlock, description]
 										if (!nickname) nickname = storeInfo[0];
@@ -1576,36 +1037,20 @@ const pageTitle = aliasInfo
 										if (!description) description = storeInfo[4]; // description is at index 4
 									}
 								} catch (storeInfoErr) {
-									console.log('❌ getStoreInfo failed:', storeInfoErr.message);
+									// getStoreInfo failed
 								}
-							} else {
-								console.log('Skipping factory calls - not JIBCHAIN L1 or invalid factory address');
 							}
-
-							console.log('Store info loaded:', { 
-								owner, 
-								fields, 
-								authorizedSignerCount, 
-								nickname,
-								description,
-								deployedBlockInfo,
-								metadata,
-								factoryAddress,
-								currentChain
-							});
 							
 
-							// Load ALL events from blockchain
+							// ============================================
+							// OPTIMIZED: Lazy loading + IndexedDB caching
+							// ============================================
                                                         const latestBlock = currentBlockNumber;
-                                                        // For production deployment, we know the approximate deployment block
-                                                        // This ensures we get ALL historical data without querying unnecessarily far back
                                                         const deploymentBlock = currentChain === 8899 ? BigInt(5900000) : BigInt(0);
-                                                        const fromBlock = deploymentBlock; // Get ALL records since deployment
 
 							// Get total records from factory contract
 							let totalRecords = 0;
 							try {
-								// Remove this hardcoded address - use the one from multicall above
 								totalRecords = await publicClient.readContract({
 									address: factoryAddress,
 									abi: [
@@ -1613,7 +1058,7 @@ const pageTitle = aliasInfo
 											"inputs": [{"name": "_store", "type": "address"}],
 											"name": "getTotalRecords",
 											"outputs": [{"name": "", "type": "uint256"}],
-											"stateMutability": "view", 
+											"stateMutability": "view",
 											"type": "function"
 										}
 									],
@@ -1621,37 +1066,82 @@ const pageTitle = aliasInfo
 									args: [storeAddress]
 								});
 								totalRecords = Number(totalRecords);
-								console.log('Total records from factory:', totalRecords);
 							} catch (error) {
-								console.log('Factory contract not available, using event count fallback:', error.message);
-								// Will use processedRecords.length as fallback below
+								// Factory contract not available, will use event count fallback
 							}
 
-                                                        const eventLogs = await fetchLogsInChunks({
-                                                                client: publicClient,
-                                                                address: storeAddress,
-                                                                event: RECORD_STORED_EVENT,
-                                                                fromBlock,
-                                                                toBlock: latestBlock,
-                                                                initialBatchSize: currentChain === 8899 ? 50000n : 20000n
-                                                        }).catch((err) => {
-                                                                console.log('Event loading failed, using fallback:', err.message);
-                                                                return [];
-                                                        });
+							// Try to load from IndexedDB cache first
+							let cachedData = null;
+							let cachedEvents = [];
+							let cacheLastBlock = 0n;
 
-                                                        console.log('Event logs loaded:', eventLogs.length, 'events from block', fromBlock.toString(), 'to', latestBlock.toString());
+							try {
+								cachedData = await getCachedEvents(storeAddress, currentChain);
+								if (cachedData && cachedData.events && cachedData.lastBlock) {
+									cachedEvents = cachedData.events;
+									cacheLastBlock = BigInt(cachedData.lastBlock);
+								}
+							} catch (cacheErr) {
+								// Cache read failed, proceed without cache
+							}
 
-							// Process events - get ALL records
+							// Determine fromBlock based on lazy loading setting
+							let fromBlock;
+							if (loadRange === 0) {
+								// Load all data
+								fromBlock = cacheLastBlock > deploymentBlock ? cacheLastBlock + 1n : deploymentBlock;
+							} else {
+								// Lazy load: only fetch last N days
+								const lazyFromBlock = getBlockFromDaysAgo(latestBlock, loadRange, currentChain);
+								fromBlock = lazyFromBlock > deploymentBlock ? lazyFromBlock : deploymentBlock;
+
+								// If cache covers our range, use cache's last block
+								if (cacheLastBlock > fromBlock) {
+									fromBlock = cacheLastBlock + 1n;
+								}
+							}
+
+							// Check if there's more historical data available
+							setHasMoreData(loadRange > 0 && fromBlock > deploymentBlock);
+
+							// Fetch only new events (incremental)
+							let newEventLogs = [];
+							if (fromBlock <= latestBlock) {
+								newEventLogs = await fetchLogsInChunks({
+									client: publicClient,
+									address: storeAddress,
+									event: RECORD_STORED_EVENT,
+									fromBlock,
+									toBlock: latestBlock,
+									initialBatchSize: currentChain === 8899 ? 50000n : 20000n
+								}).catch(() => []);
+							}
+
+							// Merge cached + new events
+							const eventLogs = [...cachedEvents, ...newEventLogs];
+
+							// Update cache with all events (if we got new ones)
+							if (newEventLogs.length > 0) {
+								// Serialize events for IndexedDB (convert BigInt to string)
+								const serializableEvents = eventLogs.map(log => ({
+									...log,
+									blockNumber: log.blockNumber?.toString(),
+									args: log.args ? {
+										sensor: log.args.sensor,
+										timestamp: log.args.timestamp?.toString(),
+										values: log.args.values?.map(v => v?.toString())
+									} : null
+								}));
+								setCachedEvents(storeAddress, currentChain, serializableEvents, latestBlock).catch(() => {});
+							}
+
+							// Process events
 							const processedRecords = processRecordLogs(eventLogs);
-							
+
 							// Apply smart water level filtering (FloodBoy020 only)
 							const filteredRecords = filterWaterLevelData(processedRecords, fields, storeAddress);
-							const filteredCount = processedRecords.length - filteredRecords.length;
-							if (filteredCount > 0) {
-								console.log('Filtered', filteredCount, 'invalid/outlier records from', processedRecords.length, 'total');
-							}
-							
-							const allRecords = filteredRecords; // Use filtered records
+
+							const allRecords = filteredRecords;
 
 							// Get latest record data
 							let latestRecord = null;
@@ -1691,11 +1181,9 @@ const pageTitle = aliasInfo
 										};
 									}
 								} catch (directCallErr) {
-									console.log('Direct call also failed:', directCallErr.message);
+									// Direct call also failed
 								}
 							}
-
-							console.log('Processed latest data:', processedData);
 
 							// Update state with enhanced data
 							setStoreData({
@@ -1785,12 +1273,14 @@ const pageTitle = aliasInfo
 						
 						setIsLoading(false);
 						setIsRefreshing(false);
-				}, [storeAddress]);
+				}, [storeAddress, loadRange]);
 				
-				// Initial load on mount
+				// Load on mount and when loadRange changes
 				React.useEffect(() => {
-					loadEnhancedStoreData();
-				}, []);
+					loadEnhancedStoreData().finally(() => {
+						setIsLoadingMore(false);
+					});
+				}, [loadRange]);
 
 				// Cleanup chart on unmount
 				React.useEffect(() => {
@@ -2216,16 +1706,37 @@ const pageTitle = aliasInfo
 												)
 											)
 										),
-										React.createElement('p', { className: 'text-sm text-gray-600 flex items-center gap-2' }, 
-											`Showing ${showAllRecords ? sensorRecords.length : Math.min(sensorRecords.length, recordsLimit)} records from all sensors`,
-											isRefreshing && React.createElement('span', { 
-												className: 'inline-flex items-center gap-1 text-xs' 
+										React.createElement('p', { className: 'text-sm text-gray-600 flex items-center gap-2 flex-wrap' },
+											`Showing ${showAllRecords ? sensorRecords.length : Math.min(sensorRecords.length, recordsLimit)} records`,
+											loadRange > 0 && React.createElement('span', {
+												className: 'text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded'
+											}, `Last ${loadRange} days`),
+											isRefreshing && React.createElement('span', {
+												className: 'inline-flex items-center gap-1 text-xs'
 											},
-												React.createElement('span', { 
-													className: 'inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse' 
+												React.createElement('span', {
+													className: 'inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse'
 												}),
 												'Updating...'
-											)
+											),
+											isLoadingMore && React.createElement('span', {
+												className: 'inline-flex items-center gap-1 text-xs text-blue-600'
+											},
+												React.createElement('span', {
+													className: 'inline-block w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse'
+												}),
+												'Loading more...'
+											),
+											hasMoreData && !isLoadingMore && React.createElement('button', {
+												className: 'text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors',
+												onClick: async () => {
+													setIsLoadingMore(true);
+													// Expand time range: 7 -> 30 -> 90 -> all
+													const nextRange = loadRange === 7 ? 30 : loadRange === 30 ? 90 : 0;
+													setLoadRange(nextRange);
+													// Reload will happen via useEffect dependency
+												}
+											}, loadRange === 7 ? '📅 Load 30 days' : loadRange === 30 ? '📅 Load 90 days' : '📅 Load all')
 										)
 									),
 									React.createElement('div', { className: 'flex items-center gap-2' },

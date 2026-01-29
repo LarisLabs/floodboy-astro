@@ -38,6 +38,7 @@
     "viem": "^2.31.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.0",
     "wrangler": "4.21.x"
   },
   "scripts": {
@@ -47,7 +48,11 @@
     "check": "astro build && tsc && wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "dev": "astro dev",
-    "preview": "astro build && wrangler dev"
+    "preview": "astro build && wrangler dev",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:prod": "playwright test --config=playwright.prod.config.ts"
   },
   "type": "module"
 }

@@ -205,3 +205,110 @@ export const EXAMPLE_STORES = {
     // Add example stores when deployed
   ]
 } as const;
+
+// ============================================
+// Common Contract Addresses
+// ============================================
+
+/** Factory contract on JIBCHAIN L1 */
+export const FACTORY_ADDRESS = "0x63bB41b79b5aAc6e98C7b35Dcb0fE941b85Ba5Bb" as const;
+
+/** Universal signer for demo/testing */
+export const UNIVERSAL_SIGNER = "0xcB0e58b011924e049ce4b4D62298Edf43dFF0BDd" as const;
+
+/** FloodBoy020 store address */
+export const FLOODBOY020_ADDRESS = "0x1701a62b62813160de104461573a9e6069405655" as const;
+
+// ============================================
+// Utility Functions
+// ============================================
+
+/**
+ * Format Ethereum address for display (truncated)
+ */
+export function formatAddress(address: string): string {
+  if (!address) return '';
+  return `${address.slice(0, 10)}...${address.slice(-6)}`;
+}
+
+/**
+ * Get block explorer URL for a chain
+ */
+export function getExplorerUrl(chainId: number): string {
+  switch (chainId) {
+    case 8899:
+      return jibchainL1.blockExplorers.default.url;
+    case 700011:
+      return sichang.blockExplorers.default.url;
+    case 31337:
+      return 'http://localhost:8545';
+    default:
+      return jibchainL1.blockExplorers.default.url;
+  }
+}
+
+/**
+ * Get chain config by ID
+ */
+export function getChainById(chainId: number) {
+  switch (chainId) {
+    case 8899:
+      return jibchainL1;
+    case 700011:
+      return sichang;
+    case 31337:
+      return anvil;
+    default:
+      return jibchainL1;
+  }
+}
+
+/**
+ * Get all RPC URLs for a chain
+ */
+export function getRpcUrlsForChain(chainId: number): string[] {
+  const chain = getChainById(chainId);
+  const defaultUrls = chain?.rpcUrls?.default?.http || [];
+  const publicUrls = chain?.rpcUrls?.public?.http || [];
+  const combined = [...defaultUrls];
+
+  for (const url of publicUrls) {
+    if (!combined.includes(url)) {
+      combined.push(url);
+    }
+  }
+
+  return combined;
+}
+
+/**
+ * Parse scaling factor from unit string (e.g., "m x10000" -> 10000)
+ */
+export function parseScalingFactor(unit: string): number {
+  const match = unit.match(/x\s*(\d+)/i);
+  return match ? parseInt(match[1]) : 100;
+}
+
+/**
+ * Format a scaled blockchain value for display
+ */
+export function formatScaledValue(value: number | bigint, unit: string): string {
+  if (unit.toLowerCase().includes('count')) {
+    return Math.round(Number(value)).toString();
+  }
+
+  const scaleFactor = parseScalingFactor(unit);
+  const numValue = Number(value);
+  const decimalValue = numValue / scaleFactor;
+  const decimalPlaces = Math.log10(scaleFactor);
+  return decimalValue.toFixed(Math.max(0, decimalPlaces));
+}
+
+/**
+ * Calculate block number from N days ago
+ */
+export function getBlockFromDaysAgo(currentBlock: bigint, days: number, chainId: number): bigint {
+  // 3s blocks for JBC (28800/day), 12s for others (7200/day)
+  const blocksPerDay = chainId === 8899 ? 28800n : 7200n;
+  return currentBlock - (BigInt(days) * blocksPerDay);
+}

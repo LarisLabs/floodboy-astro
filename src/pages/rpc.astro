@@ -4,10 +4,12 @@ import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { SITE_TITLE } from '../consts';
-import { JIBCHAIN_RPC_ENDPOINTS } from '../utils/blockchain-constants';
+import { JIBCHAIN_RPC_ENDPOINTS, jibchainL1 } from '../utils/blockchain-constants';
 import '../styles/global.css';
 
 const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
+const rpcEndpointsJson = JSON.stringify(JIBCHAIN_RPC_ENDPOINTS);
+const jibchainL1Json = JSON.stringify(jibchainL1);
 ---
 
 <!doctype html>
@@ -245,22 +247,12 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
 
     <Footer />
 
-    <script type="module">
+    <script type="module" define:vars={{ rpcEndpointsJson, jibchainL1Json }}>
       import { createPublicClient, http } from 'https://esm.sh/viem@2.21.32';
 
-      const endpoints = [
-        'https://rpc-l1.inan.in.th',      // fastest (Thai server)
-        'https://rpc-l1.jibchain.net',    // official fallback
-        'https://rpc2-l1.jbc.xpool.pw',   // often offline
-        'https://rpc-l1.jbc.xpool.pw',    // often offline
-      ];
-
-      const jibchainL1 = {
-        id: 8899,
-        name: 'JIBCHAIN L1',
-        nativeCurrency: { name: 'JBC', symbol: 'JBC', decimals: 18 },
-        rpcUrls: { default: { http: endpoints } },
-      };
+      // Parse configurations from server (single source of truth)
+      const endpoints = JSON.parse(rpcEndpointsJson);
+      const jibchainL1 = JSON.parse(jibchainL1Json);
 
       let autoRefresh = true;
       let refreshInterval;
