@@ -308,12 +308,12 @@ const pageTitle = aliasInfo
 			import { createPublicClient, http, parseAbi, formatEther, decodeEventLog, encodeFunctionData, decodeFunctionResult } from 'https://esm.sh/viem@2.21.19';
 			import { mainnet, sepolia, anvil } from 'https://esm.sh/viem@2.21.19/chains';
 			
-			// Custom chain configurations
+			// Custom chain configurations - INAN first (fastest for Thai users)
                         const prioritizedJibchainRpcUrls = [
-                                'https://rpc-l1.jibchain.net',
-                                'https://rpc2-l1.jbc.xpool.pw',
-                                'https://rpc-l1.jbc.xpool.pw',
-                                'https://rpc-l1.inan.in.th'
+                                'https://rpc-l1.inan.in.th',      // fastest
+                                'https://rpc-l1.jibchain.net',    // official fallback
+                                'https://rpc2-l1.jbc.xpool.pw',   // often offline
+                                'https://rpc-l1.jbc.xpool.pw'     // often offline
                         ];
 
                         const jibchainL1 = {
