@@ -314,9 +314,22 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
           endpoints.map((url, index) => checkEndpoint(url, index))
         );
 
-        // Get reference block height from primary RPC (rpc-l1.jibchain.net)
-        const primaryResult = results.find(r => r.url.includes('jibchain.net'));
-        const referenceBlock = primaryResult?.blockNumber || Math.max(...results.filter(r => r.online).map(r => r.blockNumber));
+        // Get reference block height - prefer INAN (fastest), fallback to jibchain.net, then max
+        const inanResult = results.find(r => r.url.includes('inan.in.th') && r.online);
+        const jibchainResult = results.find(r => r.url.includes('jibchain.net') && r.online);
+        const referenceResult = inanResult || jibchainResult || results.find(r => r.online);
+        const referenceBlock = referenceResult?.blockNumber || Math.max(...results.filter(r => r.online).map(r => r.blockNumber));
+
+        // Mark reference endpoint
+        if (referenceResult) {
+          const refIndex = endpoints.indexOf(referenceResult.url);
+          if (refIndex >= 0) {
+            const providerEl = document.querySelector(`[data-provider="${refIndex}"]`);
+            if (providerEl) {
+              providerEl.innerHTML = `${new URL(referenceResult.url).hostname} <span class="text-blue-500 text-xs">(reference)</span>`;
+            }
+          }
+        }
 
         // Check for broken/behind endpoints (more than 10 blocks behind)
         results.forEach((result, index) => {
