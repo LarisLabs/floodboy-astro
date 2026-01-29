@@ -353,10 +353,10 @@ const rpcEndpoints = JIBCHAIN_RPC_ENDPOINTS;
             updateEndpointUI(result, index);
           });
 
-        // Get reference block height - prefer jibchain.net (official), fallback to INAN, then any online
-        const jibchainResult = results.find(r => r.url.includes('jibchain.net') && r.online);
+        // Get reference block height - prefer INAN (fastest), fallback to jibchain.net, then any online
         const inanResult = results.find(r => r.url.includes('inan.in.th') && r.online);
-        const referenceResult = jibchainResult || inanResult || results.find(r => r.online);
+        const jibchainResult = results.find(r => r.url.includes('jibchain.net') && r.online);
+        const referenceResult = inanResult || jibchainResult || results.find(r => r.online);
         const referenceBlock = referenceResult?.blockNumber || Math.max(...results.filter(r => r.online).map(r => r.blockNumber));
 
         // Mark reference endpoint
